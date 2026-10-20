@@ -32,6 +32,15 @@
   --glass:color-mix(in srgb, var(--amb) 30%, transparent);
   --edge:color-mix(in srgb, var(--pri) 26%, transparent);
 }
+/* Reproductor teñido con el color de la portada */
+.app.tinted[data-view="np"]{--amb:var(--npbg);--pri:var(--npfg);--sec:var(--npacc);
+  --fg:var(--pri);--muted:color-mix(in srgb, var(--pri) 62%, var(--amb));--line:color-mix(in srgb, var(--pri) 18%, var(--amb));
+  --solid:color-mix(in srgb, var(--pri) 8%, var(--amb));--glass:color-mix(in srgb, var(--amb) 30%, transparent);--edge:color-mix(in srgb, var(--pri) 26%, transparent);
+  background:var(--amb);color:var(--fg)}
+.app{transition:background-color .6s ease}
+.app.tinted[data-view="np"] .back{background:linear-gradient(var(--amb) 70%,transparent)}
+.cover.art{background:var(--solid)}
+.cover.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 @property --rx{syntax:'<angle>';inherits:false;initial-value:0deg}
 @property --ry{syntax:'<angle>';inherits:false;initial-value:0deg}
 @property --gx{syntax:'<percentage>';inherits:true;initial-value:50%}
@@ -129,7 +138,7 @@ main{flex:1;position:relative;min-height:0}
 .tilt-in.idle:not(.act){animation:sway 8s ease-in-out infinite}
 .tilt-in.idle:not(.act) .gl{opacity:.9}
 @keyframes sway{0%,100%{--rx:9deg;--ry:-14deg;--gx:20%;--gy:15%}25%{--rx:-6deg;--ry:-6deg;--gx:35%;--gy:80%}50%{--rx:-10deg;--ry:15deg;--gx:85%;--gy:85%}75%{--rx:7deg;--ry:8deg;--gx:75%;--gy:20%}}
-.np h2{margin:6px 0 0;font-family:var(--display);font-size:1.6rem;text-align:center;text-wrap:balance;letter-spacing:-.02em;line-height:1.15}
+.np h2{margin:6px 0 0;font-family:var(--display);font-size:1.6rem;text-align:center;color:var(--pri);text-wrap:balance;letter-spacing:-.02em;line-height:1.15}
 .np .artist{color:var(--muted);margin-top:-12px;text-align:center}
 .seek{width:100%;display:grid;gap:6px}
 .seek .times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -462,9 +471,75 @@ const byId=id=>id==='demo'?DEMO:songs.find(s=>s.id===id);
 const curSong=()=>curId?byId(curId):null;
 const savePl=()=>store.set('af-playlists',playlists);
 
+/* ---------- Portada y datos que trae el archivo (ID3, FLAC, M4A) ---------- */
+const MAGIC=[[0xFF,0xD8,0xFF,'image/jpeg'],[0x89,0x50,0x4E,'image/png'],[0x52,0x49,0x46,'image/webp']];
+function findImg(b,from,to){to=Math.min(to,b.length-3);for(let i=from;i<to;i++)for(const m of MAGIC)if(b[i]===m[0]&&b[i+1]===m[1]&&b[i+2]===m[2])return [i,m[3]];return null}
+function deUnsync(b){const o=[];for(let i=0;i<b.length;i++){o.push(b[i]);if(b[i]===0xFF&&b[i+1]===0)i++}return new Uint8Array(o)}
+function txt(f){const enc=f[0];let d=f.subarray(1);
+  try{if(enc===1||enc===2){return new TextDecoder(enc===1?'utf-16':'utf-16be').decode(d).replace(/\0+$/,'')}return new TextDecoder(enc===3?'utf-8':'latin1').decode(d).replace(/\0.*$/,'')}catch(e){return ''}}
+async function readTags(blob){
+  const out={};
+  try{
+    const head=new Uint8Array(await blob.slice(0,12).arrayBuffer());
+    const S=(a,o,n)=>String.fromCharCode(...a.subarray(o,o+n));
+    const ss=(a,o)=>(a[o]&127)<<21|(a[o+1]&127)<<14|(a[o+2]&127)<<7|(a[o+3]&127);
+    const be=(a,o)=>((a[o]<<24)>>>0)+(a[o+1]<<16)+(a[o+2]<<8)+a[o+3];
+    if(S(head,0,3)==='ID3'){
+      const ver=head[3],flags=head[5],size=ss(head,6);
+      let b=new Uint8Array(await blob.slice(10,10+size).arrayBuffer());
+      if(flags&0x80&&ver<4)b=deUnsync(b);
+      let p=0;if(flags&0x40)p=ver===4?ss(b,0):be(b,0)+4;
+      while(p+10<=b.length){
+        let id,fs,hd;
+        if(ver===2){id=S(b,p,3);fs=b[p+3]<<16|b[p+4]<<8|b[p+5];hd=6}else{id=S(b,p,4);fs=ver===4?ss(b,p+4):be(b,p+4);hd=10}
+        if(!/^[A-Z0-9]{3,4}$/.test(id)||fs<=0||p+hd+fs>b.length)break;
+        let f=b.subarray(p+hd,p+hd+fs);
+        if(ver===4&&(b[p+9]&2))f=deUnsync(f);
+        if((id==='APIC'||id==='PIC')&&!out.art){const m=findImg(f,1,400);if(m)out.art=new Blob([f.slice(m[0])],{type:m[1]})}
+        if((id==='TIT2'||id==='TT2')&&!out.title)out.title=txt(f).trim();
+        if((id==='TPE1'||id==='TP1')&&!out.artist)out.artist=txt(f).trim();
+        p+=hd+fs;
+      }
+    }else if(S(head,0,4)==='fLaC'){
+      let o=4;
+      for(let k=0;k<64;k++){const h=new Uint8Array(await blob.slice(o,o+4).arrayBuffer());if(h.length<4)break;
+        const type=h[0]&127,len=h[1]<<16|h[2]<<8|h[3];
+        if(type===6){const b=new Uint8Array(await blob.slice(o+4,o+4+len).arrayBuffer());const m=findImg(b,8,len);if(m){out.art=new Blob([b.slice(m[0])],{type:m[1]})}break}
+        o+=4+len;if(h[0]&128)break}
+    }else if(S(head,4,4)==='ftyp'&&blob.size<80e6){
+      const b=new Uint8Array(await blob.arrayBuffer());
+      for(let i=0;i<b.length-4;i++){if(b[i]===0x63&&b[i+1]===0x6F&&b[i+2]===0x76&&b[i+3]===0x72){const m=findImg(b,i+4,i+64);
+        if(m){const len=be(b,i+4)-16;out.art=new Blob([b.slice(m[0],m[0]+Math.max(0,len)||undefined)],{type:m[1]})}break}}
+    }
+  }catch(e){}
+  return out;
+}
+const artUrls=new Map();
+const artUrl=s=>{if(!s||!s.art)return null;let u=artUrls.get(s.id);if(!u){u=URL.createObjectURL(s.art);artUrls.set(s.id,u)}return u};
+const tints=new Map();
+function tintOf(s){
+  return new Promise(res=>{const u=artUrl(s);if(!u)return res(null);if(tints.has(s.id))return res(tints.get(s.id));
+    const img=new Image();img.onload=()=>{try{const c=document.createElement('canvas');c.width=c.height=24;const x=c.getContext('2d');x.drawImage(img,0,0,24,24);
+      const d=x.getImageData(0,0,24,24).data;let R=0,G=0,B=0,W=0;
+      for(let i=0;i<d.length;i+=4){const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b),w=1+(mx-mn)/40;R+=r*w;G+=g*w;B+=b*w;W+=w}
+      const t=rgb2hsl(R/W,G/W,B/W);tints.set(s.id,t);res(t)}catch(e){res(null)}};img.onerror=()=>res(null);img.src=u})
+}
+function rgb2hsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h=0,s=0;const l=(mx+mn)/2;
+  if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h*=60}return {h:Math.round(h),s:Math.round(s*100),l:Math.round(l*100)}}
+async function applyTint(s){
+  const app=$('#app'),t=s?await tintOf(s):null;if(s&&s.id!==curId)return;
+  if(!t){app.classList.remove('tinted');return}
+  const sat=Math.min(70,t.s+10);
+  app.style.setProperty('--npbg','hsl('+t.h+' '+Math.min(sat,55)+'% 20%)');
+  app.style.setProperty('--npfg','hsl('+t.h+' '+Math.max(40,sat)+'% 86%)');
+  app.style.setProperty('--npacc','hsl('+t.h+' '+Math.max(45,sat)+'% 62%)');
+  app.classList.add('tinted');
+}
+
 /* ---------- Portadas ---------- */
 const HEX='M30 4 52 17v26L30 56 8 43V17z';
 function cover(el,s){
+  const au=artUrl(s);if(au){el.classList.add('art');el.innerHTML='<img src="'+au+'" alt="">';return}el.classList.remove('art');
   const h=hash(s.id+s.title),r=h%60,ini=(s.title.trim()[0]||'♪').toUpperCase();
   const pos=[[22,26],[70,22],[48,62],[78,74],[18,78]],fi=h%5;
   el.style.setProperty('--r',r+'deg');
@@ -516,14 +591,15 @@ $('#file').addEventListener('change',async e=>{
   if(!files.length){if(skipped)ticket('NO AGREGADO',[['Archivos',''+skipped],['Motivo','no son audio']]);return}
   const added=[];
   for(const f of files){const m=parseName(f.name);
-    const s={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:m.title,artist:m.artist,dur:await duration(f),added:Date.now(),blob:f};
+    const tg=await readTags(f);
+    const s={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:tg.title||m.title,artist:tg.artist||m.artist,dur:await duration(f),added:Date.now(),blob:f,art:tg.art||null,tagsRead:true};
     try{await DB.put(s)}catch(err){dbOk=false}songs.push(s);added.push(s)}
   if(curId==='demo'){stop()}
   render();
   const rows=added.slice(0,6).map(s=>[s.title,fmt(s.dur)]);if(added.length>6)rows.push(['+ '+(added.length-6)+' más','']);
   ticket('CANCIONES AGREGADAS',rows,[['TOTAL',added.length+(added.length===1?' canción':' canciones')],['DURACIÓN',fmt(added.reduce((a,s)=>a+s.dur,0))]].concat(skipped?[['Omitidos',''+skipped]]:[]));
 });
-function stop(){audio.pause();audio.removeAttribute('src');curId=null;queue=[];qi=-1;hist=[];updateUI()}
+function stop(){audio.pause();audio.removeAttribute('src');curId=null;queue=[];qi=-1;hist=[];updateUI();applyTint(null)}
 async function removeSong(id){
   const i=songs.findIndex(s=>s.id===id);if(i<0)return;
   try{await DB.del(id)}catch(e){}
@@ -541,7 +617,7 @@ function start(){
   const s=byId(queue[qi]);if(!s)return;curId=s.id;
   if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(s.demo?makeDemo():s.blob);
   audio.src=url;audio.volume=0;audio.play().catch(()=>{});fadeIn();
-  setMeta(s);updateUI();render();
+  setMeta(s);updateUI();render();applyTint(s);
 }
 function fadeIn(){let v=0;const t=setInterval(()=>{v=Math.min(1,v+.1);try{audio.volume=v}catch(e){}if(v>=1)clearInterval(t)},40)}
 function toggle(){if(!curId){playFrom(visible().map(s=>s.id),0);return}if(audio.paused)audio.play().catch(()=>{});else audio.pause()}
@@ -558,7 +634,7 @@ audio.addEventListener('timeupdate',progress);audio.addEventListener('loadedmeta
 
 function setMeta(s){
   if(!('mediaSession' in navigator))return;
-  try{navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist,album:'Audio Fare',artwork:[{src:LOGO,sizes:'256x256',type:'image/jpeg'}]})}catch(e){}
+  try{navigator.mediaSession.metadata=new MediaMetadata({title:s.title,artist:s.artist,album:'Audio Fare',artwork:artUrl(s)?[{src:artUrl(s),sizes:'512x512',type:s.art.type}]:[{src:LOGO,sizes:'256x256',type:'image/jpeg'}]})}catch(e){}
 }
 if('mediaSession' in navigator){const ms=navigator.mediaSession,h=(a,f)=>{try{ms.setActionHandler(a,f)}catch(e){}};
   h('play',()=>audio.play());h('pause',()=>audio.pause());h('previoustrack',prev);h('nexttrack',()=>next(false));
@@ -723,6 +799,10 @@ apply(active?find(active)||null:null);renderPal();updateUI();render();
   try{await DB.open();songs=(await DB.all()).sort((a,b)=>a.added-b.added);try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}}
   catch(e){dbOk=false}
   render();
+  for(const s of songs.filter(x=>!x.tagsRead)){const tg=await readTags(s.blob);s.art=tg.art||null;s.tagsRead=true;
+    if(tg.title&&s.artist==='Artista desconocido'){s.title=tg.title;if(tg.artist)s.artist=tg.artist}
+    try{await DB.put(s)}catch(e){}}
+  render();updateUI();
 })();
 })();
 </script>
