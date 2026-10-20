@@ -483,7 +483,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
       <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 40</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 41</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -688,14 +688,14 @@ function render(){
   document.querySelectorAll('#seg button[data-l]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===layout));
   if(layout==='lineas'){
     const ul=document.createElement('ul');ul.className='list';
-    all.forEach((s,i)=>{const li=songRow(s,()=>playFrom(ids,i),s.demo||sel?'':'<button class="del" aria-label="Borrar '+esc(s.title)+'">'+ICON.trash+'</button>');
+    all.forEach((s,i)=>{const li=songRow(s,()=>playOpen(ids,i),s.demo||sel?'':'<button class="del" aria-label="Borrar '+esc(s.title)+'">'+ICON.trash+'</button>');
       const d=li.querySelector('.del');if(d)askDel(d,()=>removeSong(s.id));ul.appendChild(li)});
     box.appendChild(ul);
   }else{
     const g=document.createElement('div');g.className='grid';
     all.forEach((s,i)=>{const b=document.createElement('button');b.className='card glass'+(s.id===curId?' on':'');
       b.innerHTML='<div class="cover"></div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span>'+GL;
-      cover(b.querySelector('.cover'),s);bindTilt(b,22);b.dataset.id=s.id;b.onclick=()=>{if(sel){if(!s.demo)toggleSel(s.id);return}playFrom(ids,i)};if(!s.demo)longPress(b,()=>songMenu(s,null),libDrop);if(sel&&!s.demo)markSel(b,s.id);g.appendChild(b)});
+      cover(b.querySelector('.cover'),s);bindTilt(b,22);b.dataset.id=s.id;b.onclick=()=>{if(sel){if(!s.demo)toggleSel(s.id);return}playOpen(ids,i)};if(!s.demo)longPress(b,()=>songMenu(s,null),libDrop);if(sel&&!s.demo)markSel(b,s.id);g.appendChild(b)});
     box.appendChild(g);
   }
   const em=$('#empty');
@@ -746,6 +746,8 @@ async function removeSong(id){
 }
 
 /* ---------- Reproducción ---------- */
+/* Tocar una canción: suena y se abre el reproductor grande, creciendo desde su portada. */
+function playOpen(ids,i){const c=document.querySelector('.view:not([hidden]) [data-id="'+ids[i]+'"] .cover');playFrom(ids,i);go('np',c?c.getBoundingClientRect():undefined)}
 function playFrom(ids,i){
   if(ids[i]===curId&&audio.src){toggle();return}
   queue=ids.slice();qi=i;hist=[];start();
@@ -836,10 +838,10 @@ function renderPl(){
   const ids=n.map(s=>s.id);
   if(plLayout==='bloques'){n.forEach((s,i)=>{const li=document.createElement('li');li.className='card glass'+(s.id===curId?' on':'');li.dataset.id=s.id;
       li.innerHTML='<div class="cover"></div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span>'+GL;cover(li.querySelector('.cover'),s);bindTilt(li,22);
-      li.onclick=()=>{if(sel){toggleSel(s.id);return}playFrom(ids,i)};
+      li.onclick=()=>{if(sel){toggleSel(s.id);return}playOpen(ids,i)};
       longPress(li,()=>songMenu(s,p.id),o=>plDrop(p.id,o));if(sel)markSel(li,s.id);
       ul.appendChild(li)});return}
-  n.forEach((s,i)=>{const li=songRow(s,()=>playFrom(ids,i),'<button class="del" aria-label="Quitar '+esc(s.title)+' de la playlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>',p.id);
+  n.forEach((s,i)=>{const li=songRow(s,()=>playOpen(ids,i),'<button class="del" aria-label="Quitar '+esc(s.title)+' de la playlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>',p.id);
     li.classList.add('drag');li.dataset.id=s.id;
     const h=document.createElement('button');h.className='handle';h.setAttribute('aria-label','Mover '+s.title+' (arrastra hacia arriba o abajo)');
     h.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 8h14M5 12h14M5 16h14"/></svg>';
@@ -1056,14 +1058,16 @@ $('#plAdd').onclick=()=>{if(sel)endSel();picking=!picking;renderPl()};
 askDel($('#plDel'),()=>{playlists=playlists.filter(x=>x.id!==openPl);savePl();$('#plDel').classList.remove('ask');$('#plDel').innerHTML=ICON.trash;openPlaylist(null)});
 
 /* ---------- Vistas: crossfade + blur, elemento compartido ---------- */
-let view='lib',pushed=false;
-function back(){if(pushed){pushed=false;try{history.back()}catch(e){}setTimeout(()=>{if(view!=='lib')go('lib')},350);return}go('lib')}
-window.addEventListener('popstate',()=>{pushed=false;if(view!=='lib')go('lib')});
+let view='lib',pushed=false,backTo='lib';
+/* Volver: desde el reproductor regresa a donde estabas (la playlist abierta o Biblioteca). */
+const backTarget=()=>view==='np'?backTo:'lib';
+function back(){const t=backTarget();if(pushed){pushed=false;try{history.back()}catch(e){}setTimeout(()=>{if(view==='np'||view!==t&&t==='lib')go(t,undefined,true)},350);return}go(t,undefined,true)}
+window.addEventListener('popstate',()=>{pushed=false;const t=backTarget();if(view!==t)go(t,undefined,true)});
 document.querySelectorAll('.bk').forEach(b=>b.onclick=()=>{if(b.closest('#v-pl')&&openPl){openPlaylist(null);return}back()});
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
-function go(v,shared){
-  if(v===view)return;if(sel)endSel();const from=$('#v-'+view),to=$('#v-'+v);view=v;$('#app').dataset.view=v;if(v==='np')harmony();
-  if(v==='pl'){openPl=null;picking=false;renderPl()}
+function go(v,shared,keep){
+  if(v===view)return;if(sel)endSel();if(v==='np')backTo=view==='pl'&&openPl?'pl':'lib';const from=$('#v-'+view),to=$('#v-'+v);view=v;$('#app').dataset.view=v;if(v==='np')harmony();
+  if(v==='pl'){if(!keep){openPl=null;picking=false}renderPl()}
   if(v!=='lib'&&!pushed){try{history.pushState({af:1},'');pushed=true}catch(e){}}
   document.querySelectorAll('nav button').forEach(b=>{if(b.dataset.v===v)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   const swap=()=>{from.hidden=true;to.hidden=false;to.scrollTop=0;updateUI();
@@ -1136,12 +1140,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=40';
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=41';
 $('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
   try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
   catch(e){$('#shareInfo').textContent=APP_URL}};
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','40');if(pv&&pv!=='40')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 40']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','41');if(pv&&pv!=='41')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 41']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
