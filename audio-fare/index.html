@@ -585,9 +585,10 @@ function parseName(name){
 function duration(blob){return new Promise(res=>{const a=new Audio(),u=URL.createObjectURL(blob);let done=false;
   const fin=d=>{if(done)return;done=true;URL.revokeObjectURL(u);res(isFinite(d)?d:0)};a.preload='metadata';a.onloadedmetadata=()=>fin(a.duration);a.onerror=()=>fin(0);setTimeout(()=>fin(0),6000);a.src=u})}
 
-$('#file').addEventListener('change',async e=>{
-  const files=[...e.target.files].filter(f=>f.type.startsWith('audio/')||/\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i.test(f.name));
-  const skipped=e.target.files.length-files.length;e.target.value='';
+$('#file').addEventListener('change',e=>{const l=[...e.target.files];e.target.value='';addFiles(l)});
+async function addFiles(list){
+  const files=list.filter(f=>f.type.startsWith('audio/')||/\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i.test(f.name));
+  const skipped=list.length-files.length;
   if(!files.length){if(skipped)ticket('NO AGREGADO',[['Archivos',''+skipped],['Motivo','no son audio']]);return}
   const added=[];
   for(const f of files){const m=parseName(f.name);
@@ -598,7 +599,16 @@ $('#file').addEventListener('change',async e=>{
   render();
   const rows=added.slice(0,6).map(s=>[s.title,fmt(s.dur)]);if(added.length>6)rows.push(['+ '+(added.length-6)+' más','']);
   ticket('CANCIONES AGREGADAS',rows,[['TOTAL',added.length+(added.length===1?' canción':' canciones')],['DURACIÓN',fmt(added.reduce((a,s)=>a+s.dur,0))]].concat(skipped?[['Omitidos',''+skipped]]:[]));
-});
+}
+/* Canciones compartidas a Audio Fare desde otra app (menú Compartir de Android) */
+async function takeInbox(){
+  try{if(!('caches' in window))return;const c=await caches.open('af-inbox'),keys=await c.keys();if(!keys.length)return;
+    const files=[];for(const k of keys){const r=await c.match(k);if(!r)continue;const b=await r.blob();
+      files.push(new File([b],decodeURIComponent(r.headers.get('x-name')||'cancion'),{type:b.type||r.headers.get('content-type')||'audio/mpeg'}));await c.delete(k)}
+    if(files.length)await addFiles(files);
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&DB.db)takeInbox()});
 function stop(){audio.pause();audio.removeAttribute('src');curId=null;queue=[];qi=-1;hist=[];updateUI();applyTint(null)}
 async function removeSong(id){
   const i=songs.findIndex(s=>s.id===id);if(i<0)return;
@@ -803,6 +813,7 @@ apply(active?find(active)||null:null);renderPal();updateUI();render();
     if(tg.title&&s.artist==='Artista desconocido'){s.title=tg.title;if(tg.artist)s.artist=tg.artist}
     try{await DB.put(s)}catch(e){}}
   render();updateUI();
+  takeInbox();
 })();
 })();
 </script>
