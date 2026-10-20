@@ -749,16 +749,36 @@ nav.addEventListener('pointerleave',()=>{for(const b of nav.querySelectorAll('bu
 bindTilt($('#tiltIn'),32,$('#tilt'));bindTilt($('#mini'),14);bindTilt(nav,12);
 
 /* ---------- Impresora ---------- */
+/* Sonido de impresora térmica hecho con Web Audio: 9 golpes del cabezal (uno por paso de la animación) y un corte de papel. */
+let actx=null,noiseBuf=null;
+function audioCtx(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();
+  if(!noiseBuf){const n=Math.floor(actx.sampleRate*.3);noiseBuf=actx.createBuffer(1,n,actx.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1}return actx}catch(e){return null}}
+function burst(c,out,t,len,type,f,q,vol){const s=c.createBufferSource();s.buffer=noiseBuf;const fl=c.createBiquadFilter();fl.type=type;fl.frequency.setValueAtTime(f,t);fl.Q.value=q;
+  const g=c.createGain();g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(vol,t+.004);g.gain.exponentialRampToValueAtTime(.0001,t+len);
+  s.connect(fl).connect(g).connect(out);s.start(t,Math.random()*.1);s.stop(t+len+.02);return fl}
+function printSound(){const c=audioCtx();if(!c)return;try{
+  const m=c.createGain();m.gain.value=.35;m.connect(c.destination);const t0=c.currentTime+.03,step=1.1/9;
+  for(let i=0;i<9;i++){const t=t0+i*step;
+    burst(c,m,t,.06,'bandpass',2600+Math.random()*700,1.4,.9);
+    const o=c.createOscillator();o.type='square';o.frequency.setValueAtTime(150+Math.random()*30,t);
+    const og=c.createGain();og.gain.setValueAtTime(.0001,t);og.gain.linearRampToValueAtTime(.12,t+.003);og.gain.exponentialRampToValueAtTime(.0001,t+.045);
+    o.connect(og).connect(m);o.start(t);o.stop(t+.06)}
+  const mo=c.createOscillator();mo.type='sawtooth';mo.frequency.setValueAtTime(95,t0);const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=420;
+  const mg=c.createGain();mg.gain.setValueAtTime(.0001,t0);mg.gain.linearRampToValueAtTime(.05,t0+.05);mg.gain.setValueAtTime(.05,t0+1.05);mg.gain.exponentialRampToValueAtTime(.0001,t0+1.2);
+  mo.connect(lp).connect(mg).connect(m);mo.start(t0);mo.stop(t0+1.25)}catch(e){}}
+function tearSound(){const c=audioCtx();if(!c)return;try{const m=c.createGain();m.gain.value=.3;m.connect(c.destination);const t=c.currentTime+.01;
+  const fl=burst(c,m,t,.22,'highpass',5200,.8,.8);fl.frequency.exponentialRampToValueAtTime(1400,t+.2)}catch(e){}}
+
 let tTimer;
 function ticket(title,rows,totals){
   const p=$('#printer'),tk=$('#ticket'),d=new Date();
   const line=r=>'<div class="ln"><span>'+esc(r[0])+'</span><span>'+esc(r[1])+'</span></div>';
   tk.innerHTML='<h4>AUDIO FARE</h4><div class="c">'+esc(title)+'</div><div class="c">'+d.toLocaleDateString('es-CO')+' · '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})+'</div><hr>'+
     rows.map(line).join('')+(totals?'<hr>'+totals.map(line).join(''):'')+'<hr><div class="c">Faresite</div><div class="bc"></div>';
-  clearTimeout(tTimer);p.hidden=false;p.classList.remove('go','bye');void p.offsetWidth;p.classList.add('go');
+  clearTimeout(tTimer);p.hidden=false;printSound();p.classList.remove('go','bye');void p.offsetWidth;p.classList.add('go');
   tTimer=setTimeout(closeTicket,4200);
 }
-function closeTicket(){const p=$('#printer');if(p.hidden)return;p.classList.add('bye');setTimeout(()=>{p.hidden=true;p.classList.remove('go','bye')},RM?0:450)}
+function closeTicket(){const p=$('#printer');if(p.hidden||p.classList.contains('bye'))return;tearSound();p.classList.add('bye');setTimeout(()=>{p.hidden=true;p.classList.remove('go','bye')},RM?0:450)}
 $('#printer').onclick=()=>{clearTimeout(tTimer);closeTicket()};
 
 /* ---------- Paletas 70/20/10 ---------- */
