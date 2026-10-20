@@ -53,7 +53,7 @@
   --solid:color-mix(in srgb, var(--pri) 8%, var(--amb));--glass:color-mix(in srgb, var(--amb) 30%, transparent);--edge:color-mix(in srgb, var(--pri) 26%, transparent);
   background:var(--amb);color:var(--fg)}
 .app{transition:background-color .6s ease}
-.app.tinted[data-view="np"] .back{background:linear-gradient(var(--amb) 70%,transparent)}
+
 .cover.art{background:var(--solid)}
 .cover.art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 @property --rx{syntax:'<angle>';inherits:false;initial-value:0deg}
@@ -299,7 +299,11 @@ nav.navbar{translate:0 0;transition:translate .35s cubic-bezier(.2,.8,.2,1),opac
 
 .mini{transition:bottom .35s cubic-bezier(.2,.8,.2,1)}
 
-.back{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;padding-block:14px 10px;margin-bottom:4px;background:linear-gradient(var(--amb) 70%,transparent)}
+.back{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;padding-block:14px 26px;margin-bottom:-12px;
+  --gx:max(16px,env(safe-area-inset-left,0px));margin-inline:calc(-1 * var(--gx));padding-inline:var(--gx);
+  background:linear-gradient(color-mix(in srgb,var(--amb) 82%,transparent),color-mix(in srgb,var(--amb) 55%,transparent) 62%,transparent);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  -webkit-mask-image:linear-gradient(#000 calc(100% - 26px),transparent);mask-image:linear-gradient(#000 calc(100% - 26px),transparent)}
 .sleep{margin-left:auto;display:flex;align-items:center;gap:6px;height:44px;min-width:44px;padding:0 12px;border-radius:16px;background:var(--solid);border:1px solid var(--line);color:var(--muted)}
 .sleep svg{width:20px;height:20px}
 .sleep b{font-family:var(--mono);font-size:.82rem;font-weight:700}
@@ -483,7 +487,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
       <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 41</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 42</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -1140,12 +1144,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=41';
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=42';
 $('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
   try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
   catch(e){$('#shareInfo').textContent=APP_URL}};
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','41');if(pv&&pv!=='41')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 41']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','42');if(pv&&pv!=='42')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 42']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
