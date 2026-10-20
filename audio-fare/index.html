@@ -70,7 +70,7 @@ html{overflow:hidden}
 .act>.gl{opacity:1}
 nav.navbar{transition:--rx .22s ease-out,--ry .22s ease-out}
 nav.navbar.act{transition:none}
-body{overscroll-behavior:none;background:var(--amb);color:var(--fg);font-family:var(--body);font-size:15px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+body{margin:0;overscroll-behavior:none;background:var(--amb);color:var(--fg);font-family:var(--body);font-size:15px;overflow:hidden;-webkit-tap-highlight-color:transparent}
 button,input{font:inherit;color:inherit}
 button{background:none;border:0;cursor:pointer;padding:0}
 :focus-visible{outline:2px solid var(--sec);outline-offset:2px}
@@ -299,7 +299,7 @@ nav.navbar{translate:0 0;transition:translate .35s cubic-bezier(.2,.8,.2,1),opac
 
 .mini{transition:bottom .35s cubic-bezier(.2,.8,.2,1)}
 
-.back{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;padding-block:14px 26px;margin-bottom:-12px;
+.back{position:sticky;top:-6px;z-index:4;display:flex;align-items:center;gap:12px;padding-block:20px 26px;margin-top:-6px;margin-bottom:-12px;
   --gx:max(16px,env(safe-area-inset-left,0px));margin-inline:calc(-1 * var(--gx));padding-inline:var(--gx);
   background:linear-gradient(color-mix(in srgb,var(--amb) 82%,transparent),color-mix(in srgb,var(--amb) 55%,transparent) 62%,transparent);
   -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
@@ -487,7 +487,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
       <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 42</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 43</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -657,12 +657,12 @@ function rgb2hsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.mi
   if(mx!==mn){const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h*=60}return {h:Math.round(h),s:Math.round(s*100),l:Math.round(l*100)}}
 async function applyTint(s){
   const app=$('#app'),t=s?await tintOf(s):null;if(s&&s.id!==curId)return;
-  if(!t){app.classList.remove('tinted');return}
+  if(!t){app.classList.remove('tinted');syncBar();return}
   const sat=Math.min(70,t.s+10);
   app.style.setProperty('--npbg','hsl('+t.h+' '+Math.min(sat,55)+'% 20%)');
   app.style.setProperty('--npfg','hsl('+t.h+' '+Math.max(40,sat)+'% 86%)');
   app.style.setProperty('--npacc','hsl('+t.h+' '+Math.max(45,sat)+'% 62%)');
-  app.classList.add('tinted');
+  app.classList.add('tinted');syncBar();
 }
 
 /* ---------- Portadas ---------- */
@@ -918,23 +918,47 @@ function songMenu(s,ctx){if(sel){toggleSel(s.id);return}
    Se mueven y crecen mientras suena la música y se aplanan en pausa. La parte ya escuchada se ve más fuerte.
    No pasa el audio por Web Audio para no arriesgar la reproducción en segundo plano. */
 let harmRaf=null,harmAmp=0;
+/* Armonía al ritmo de la canción: la música pasa por un analizador de Web Audio que da la energía de cada frecuencia
+   (graves a la izquierda, agudos a la derecha). Si el teléfono no lo permite, queda la animación suave de antes. */
+let hctx=null,han=null,hbins=null;const hsm=new Float32Array(48),hlv=[0,0,0];
+// El analizador se conecta solo cuando el contexto ya está activo (tras un toque), para que la música nunca quede muda.
+function harmInit(){if(hctx)return;try{hctx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return}
+  const link=()=>{if(han||hctx.state!=='running')return;try{const src=hctx.createMediaElementSource(audio),an=hctx.createAnalyser();
+    an.fftSize=512;an.smoothingTimeConstant=.72;src.connect(an);an.connect(hctx.destination);hbins=new Uint8Array(an.frequencyBinCount);han=an}catch(e){}};
+  hctx.onstatechange=()=>{link();if(han&&hctx.state==='suspended'&&!audio.paused)hctx.resume().catch(()=>{})};
+  hctx.resume().then(link).catch(()=>{});link()}
+function harmWake(){harmInit();if(hctx&&hctx.state==='suspended')hctx.resume().catch(()=>{})}
 function harmony(){if(harmRaf)return;const cv=$('#harm'),c=cv.getContext('2d');let t0=performance.now();
-  const L=[{f:2.1,s:.55,p:0,a:.9},{f:3.3,s:-.8,p:1.7,a:.7},{f:1.4,s:.35,p:3.1,a:1}];
+  const L=[{f:2.1,s:.55,p:0,a:.9,o:0},{f:3.3,s:-.8,p:1.7,a:.7,o:.06},{f:1.4,s:.35,p:3.1,a:1,o:-.05}];
   const step=now=>{if(view!=='np'||document.hidden){harmRaf=null;return}harmRaf=requestAnimationFrame(step);
     const dpr=Math.min(2,devicePixelRatio||1),w=cv.clientWidth,h=cv.clientHeight;if(!w)return;
     if(cv.width!==Math.round(w*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
     c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
     const t=(now-t0)/1000;harmAmp+=((audio.paused?.12:1)-harmAmp)*.04;
     const cs=getComputedStyle($('#app')),sec=cs.getPropertyValue('--sec').trim()||'#8c8c8c',pri=cs.getPropertyValue('--pri').trim()||'#fff';
-    const prog=audio.duration?audio.currentTime/audio.duration:0,beat=.75+.25*Math.sin(t*2.4)*Math.sin(t*1.3+1);
-    const wave=(l,x)=>{const u=x/w,env=Math.pow(Math.sin(Math.PI*u),.7);
-      return h-1-harmAmp*beat*l.a*h*.92*env*(.55+.45*Math.sin(u*Math.PI*2*l.f+t*l.s*2+l.p))*(.7+.3*Math.sin(u*9+t*1.7+l.p))};
+    const prog=audio.duration?audio.currentTime/audio.duration:0;
+    // Espectro: 48 puntos en escala logarítmica, suben rápido con cada golpe y bajan despacio.
+    let live=false;
+    if(han&&!audio.paused&&hctx.state==='running'){han.getByteFrequencyData(hbins);const N=hbins.length;let sum=0;
+      for(let k=0;k<48;k++){const u=k/47,i0=Math.floor(1+Math.pow(u,1.9)*N*.62),i1=Math.max(i0+1,Math.floor(1+Math.pow((k+1)/47,1.9)*N*.62));
+        let v=0;for(let i=i0;i<i1&&i<N;i++)v=Math.max(v,hbins[i]);v=Math.pow(v/255,1.4);sum+=v;hsm[k]+=(v-hsm[k])*(v>hsm[k]?.55:.14)}
+      live=sum>.5;
+      const band=(a,b)=>{let m=0;for(let k=a;k<b;k++)m+=hsm[k];return m/(b-a)};
+      [band(0,8),band(8,26),band(26,48)].forEach((v,i)=>hlv[i]+=(v-hlv[i])*.3)}
+    else for(let k=0;k<48;k++)hsm[k]*=.94;
+    const spec=u=>{u=Math.min(1,Math.max(0,u))*47;const k=Math.floor(u),f=u-k;return hsm[k]*(1-f)+(hsm[Math.min(47,k+1)]||0)*f};
+    const beat=.75+.25*Math.sin(t*2.4)*Math.sin(t*1.3+1);
+    const wave=(l,i,x)=>{const u=x/w,env=Math.pow(Math.sin(Math.PI*u),.7),idle=harmAmp*beat*l.a*.92*env*(.55+.45*Math.sin(u*Math.PI*2*l.f+t*l.s*2+l.p))*(.7+.3*Math.sin(u*9+t*1.7+l.p));
+      if(!live&&hsm[20]<.01)return h-1-h*idle;
+      // Cada capa sigue el espectro (un poco corrido) más la energía de su banda: graves, medios o agudos.
+      const sp=spec(u+l.o),lift=Math.min(1,.12+sp*1.15+hlv[i]*.45)*Math.pow(Math.sin(Math.PI*Math.min(1,Math.max(0,u))),.35);
+      return h-1-h*.95*l.a*lift*(.86+.14*Math.sin(u*Math.PI*2*l.f+t*l.s*2+l.p))};
     for(const pass of [0,1]){c.save();c.beginPath();
       if(pass)c.rect(0,0,w*prog,h);else c.rect(w*prog,0,w,h);c.clip();
-      L.forEach((l,i)=>{c.beginPath();c.moveTo(0,h);for(let x=0;x<=w;x+=3)c.lineTo(x,wave(l,x));c.lineTo(w,h);c.closePath();
+      L.forEach((l,i)=>{c.beginPath();c.moveTo(0,h);for(let x=0;x<=w;x+=3)c.lineTo(x,wave(l,i,x));c.lineTo(w,h);c.closePath();
         c.globalAlpha=(pass?.34:.16)-(i*.03);c.fillStyle=i===1?pri:sec;c.fill()});c.restore()}};
   harmRaf=requestAnimationFrame(step)}
-audio.addEventListener('play',()=>{if(view==='np')harmony()});
+audio.addEventListener('play',()=>{if(hctx)harmWake();if(view==='np')harmony()});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='np')harmony()});
 
 /* ---------- Temporizador para dormir ---------- */
@@ -1070,7 +1094,7 @@ window.addEventListener('popstate',()=>{pushed=false;const t=backTarget();if(vie
 document.querySelectorAll('.bk').forEach(b=>b.onclick=()=>{if(b.closest('#v-pl')&&openPl){openPlaylist(null);return}back()});
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function go(v,shared,keep){
-  if(v===view)return;if(sel)endSel();if(v==='np')backTo=view==='pl'&&openPl?'pl':'lib';const from=$('#v-'+view),to=$('#v-'+v);view=v;$('#app').dataset.view=v;if(v==='np')harmony();
+  if(v===view)return;if(sel)endSel();if(v==='np')backTo=view==='pl'&&openPl?'pl':'lib';const from=$('#v-'+view),to=$('#v-'+v);view=v;$('#app').dataset.view=v;syncBar();if(v==='np')harmony();
   if(v==='pl'){if(!keep){openPl=null;picking=false}renderPl()}
   if(v!=='lib'&&!pushed){try{history.pushState({af:1},'');pushed=true}catch(e){}}
   document.querySelectorAll('nav button').forEach(b=>{if(b.dataset.v===v)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
@@ -1129,7 +1153,7 @@ async function prep(name,fn,len){if(SFX[name])return;SFX[name]='…';try{const s
   const n=Math.floor(sr*.3);noiseBuf=c.createBuffer(1,n,sr);const d=noiseBuf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
   const m=c.createGain();m.connect(c.destination);fn(c,m,.01);const a=new Audio(wav(await c.startRendering()));a.preload='auto';a.volume=1;SFX[name]=a}catch(e){SFX[name]=null}noiseBuf=null}
 function prepSfx(){prep('print',synthPrint,1.35);prep('tear',synthTear,.3)}
-['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{prepSfx();audioCtx()},{once:false,passive:true}));
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{prepSfx();audioCtx();harmWake()},{once:false,passive:true}));
 let sndOn=store.get('af-snd',true),sndLast='',sndP=null;
 function sfx(name,fn){if(!sndOn)return Promise.resolve('apagado');const a=SFX[name];
   if(a&&a.play){try{a.currentTime=0;a.volume=1;return a.play().then(()=>{sndLast='archivo';return 'ok'}).catch(e=>{live(fn);sndLast='respaldo';return 'archivo falló ('+e.name+'), usé respaldo'})}catch(e){live(fn);return Promise.resolve('error '+e.name)}}
@@ -1144,12 +1168,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=42';
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=43';
 $('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
   try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
   catch(e){$('#shareInfo').textContent=APP_URL}};
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','42');if(pv&&pv!=='42')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 42']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','43');if(pv&&pv!=='43')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 43']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
@@ -1173,6 +1197,8 @@ let mine=store.get('af-paletas',[]),active=store.get('af-activa',null);
 const root=document.documentElement;
 function lum(hex){const n=parseInt(hex.slice(1),16),c=[n>>16&255,n>>8&255,n&255].map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]}
 /* Color de la barra del sistema (arriba): se cambia el meta y se reinserta para que Android lo tome al instante. */
+// Barra del sistema del mismo color que la pantalla (incluido el tinte de la portada).
+function syncBar(){const a=$('#app');if(!a)return;const c=getComputedStyle(a).getPropertyValue('--amb').trim();if(c)themeBar(c)}
 function themeBar(c){let m=document.querySelector('meta[name=theme-color]');if(m&&m.content===c)return;if(m)m.remove();m=document.createElement('meta');m.name='theme-color';m.content=c;document.head.appendChild(m)}
 function apply(p){
   const K=['--amb','--pri','--sec','--neu','--onpri','--onsec','color-scheme'];
@@ -1184,7 +1210,7 @@ function apply(p){
     root.style.setProperty('color-scheme',dark?'dark':'light')}
   const cs=getComputedStyle(root);const g=k=>{const v=cs.getPropertyValue(k).trim();return /^#[0-9a-f]{6}$/i.test(v)?v:(k==='--sec'?'#8c8c8c':'#000000')};
   $('#cAmb').value=g('--amb');$('#cPri').value=g('--pri');$('#cSec').value=g('--sec');
-  themeBar(g('--amb'));
+  themeBar(g('--amb'));syncBar();
 }
 const find=n=>STD.concat(mine).find(p=>p.name===n);
 function renderPal(){
