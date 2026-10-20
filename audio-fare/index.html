@@ -405,7 +405,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="sndTest" type="button">Probar sonido</button><button class="btn2" id="sndOn" type="button" aria-pressed="true">Activado</button></div>
       <p class="err" id="sndInfo" role="status" style="color:var(--muted)"></p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 21</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 22</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -783,18 +783,22 @@ function songMenu(s,ctx){
   const done=()=>{savePl();closeSheet();render()};
   const add=p=>{if(!p.songs.includes(s.id))p.songs.push(s.id);done();ticket(inPls.length?'COPIADA A PLAYLIST':'AGREGADA A PLAYLIST',[['Canción',s.title],['Playlist',p.name]],[['CANCIONES',''+plSongs(p).length]])};
   const rm=p=>{p.songs=p.songs.filter(x=>x!==s.id);done();ticket('QUITADA DE PLAYLIST',[['Canción',s.title],['Playlist',p.name]],[['QUEDAN',''+plSongs(p).length]])};
-  const pick=(title,list,fn)=>openSheet(head+'<div class="sh-sub">'+esc(title)+'</div>'+list.map((p,i)=>btn(i,IC.pl,p.name,n(p))).join('')+btn('back','','Volver','','ghost'),el=>{
-    cover(el.querySelector('.cover'),s);el.querySelectorAll('.sh-btn').forEach(b=>b.onclick=()=>{if(b.dataset.k==='back'){main();return}fn(list[+b.dataset.k])})});
-  const goNew=()=>{closeSheet();openPl=null;picking=false;go('pl');setTimeout(()=>$('#plName').focus(),400)};
+  const pick=(title,list,fn,canNew)=>openSheet(head+'<div class="sh-sub">'+esc(title)+'</div>'+list.map((p,i)=>btn(i,IC.pl,p.name,n(p))).join('')+(canNew?btn('new',IC.add,'Nueva playlist'):'')+btn('back','','Volver','','ghost'),el=>{
+    cover(el.querySelector('.cover'),s);el.querySelectorAll('.sh-btn').forEach(b=>b.onclick=()=>{const k=b.dataset.k;if(k==='back'){main();return}if(k==='new'){newPl(fn);return}fn(list[+k])})});
+  const newPl=fn=>openSheet(head+'<div class="sh-sub">Nueva playlist</div><form class="save sh-new"><input class="search" maxlength="32" placeholder="Nombre de la playlist" autocomplete="off"><button class="btn-add" type="submit">Crear</button></form><p class="err" role="status"></p>'+btn('back','','Volver','','ghost'),el=>{
+    cover(el.querySelector('.cover'),s);const f=el.querySelector('form'),inp=f.querySelector('input'),er=el.querySelector('.err');setTimeout(()=>inp.focus(),250);
+    el.querySelector('[data-k="back"]').onclick=main;
+    f.onsubmit=e=>{e.preventDefault();const name=inp.value.trim();if(!name){er.textContent='Escribe un nombre.';return}
+      if(playlists.some(p=>p.name.toLowerCase()===name.toLowerCase())){er.textContent='Ya tienes una playlist con ese nombre.';return}
+      const p={id:'pl'+Date.now().toString(36),name,songs:[]};playlists.push(p);fn(p)}});
   function main(){let h=head;
-    if(!playlists.length)h+='<div class="sh-sub">Aún no tienes playlists.</div>'+btn('new',IC.add,'Crear una playlist');
-    else if(!inPls.length)h+=btn('add',IC.add,'Agregar a playlist');
-    else{if(others.length)h+=btn('copy',IC.copy,'Copiar a otra playlist');
+    if(!inPls.length)h+=btn('add',IC.add,'Agregar a playlist');
+    else{h+=btn('copy',IC.copy,'Copiar a otra playlist');
       h+=btn('rm',IC.rm,cur?'Quitar de esta playlist':'Quitar de playlist',cur?cur.name:(inPls.length===1?inPls[0].name:'')+'','warn')}
     h+=btn('x','','Cancelar','','ghost');
     openSheet(h,el=>{cover(el.querySelector('.cover'),s);el.querySelectorAll('.sh-btn').forEach(b=>b.onclick=()=>{const k=b.dataset.k;
-      if(k==='x')closeSheet();else if(k==='new')goNew();
-      else if(k==='add')pick('Agregar a…',others,add);else if(k==='copy')pick('Copiar a…',others,add);
+      if(k==='x')closeSheet();
+      else if(k==='add')pick(others.length?'Agregar a…':'Aún no tienes playlists',others,add,true);else if(k==='copy')pick(others.length?'Copiar a…':'No tienes otra playlist',others,add,true);
       else if(k==='rm'){if(cur)rm(cur);else if(inPls.length===1)rm(inPls[0]);else pick('Quitar de…',inPls,rm)}})})}
   main()}
 /* ---------- Temporizador para dormir ---------- */
@@ -881,14 +885,21 @@ function audioCtx(){try{actx=actx||new (window.AudioContext||window.webkitAudioC
 function burst(c,out,t,len,type,f,q,vol){const s=c.createBufferSource();s.buffer=noiseBuf;const fl=c.createBiquadFilter();fl.type=type;fl.frequency.setValueAtTime(f,t);fl.Q.value=q;
   const g=c.createGain();g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(vol,t+.004);g.gain.exponentialRampToValueAtTime(.0001,t+len);
   s.connect(fl).connect(g).connect(out);s.start(t,Math.random()*.1);s.stop(t+len+.02);return fl}
-function synthPrint(c,m,t0){const step=1.1/9;
-  // Motor paso a paso: zumbido agudo (los parlantes del celular no reproducen graves) que pulsa con cada línea impresa.
-  const o=c.createOscillator();o.type='square';o.frequency.setValueAtTime(900,t0);
-  const bp=c.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1500;bp.Q.value=.8;const mg=c.createGain();mg.gain.setValueAtTime(.0001,t0);
-  o.connect(bp).connect(mg).connect(m);o.start(t0);o.stop(t0+1.2);
-  for(let i=0;i<9;i++){const t=t0+i*step;o.frequency.setValueAtTime(900+(i%3)*140,t);
-    mg.gain.setValueAtTime(.0001,t);mg.gain.linearRampToValueAtTime(.55,t+.012);mg.gain.setValueAtTime(.55,t+step*.62);mg.gain.linearRampToValueAtTime(.0001,t+step*.8);
-    burst(c,m,t,.06,'bandpass',2800+Math.random()*600,.9,1);burst(c,m,t,.03,'highpass',6000,.7,.5)}}
+function synthPrint(c,m,t0){
+  // Impresora de recibos de agujas: por cada línea, el cabezal golpea el papel cientos de veces por segundo (el "rrrt")
+  // y luego el motor avanza el papel (un "zip" corto). La carcasa de plástico resuena en 3 tonos medios/agudos.
+  const sr=c.sampleRate,len=Math.ceil(sr*1.25),buf=c.createBuffer(1,len,sr),d=buf.getChannelData(0),step=1.1/9,R=Math.random;
+  const hit=(at,amp)=>{const n0=Math.floor(at*sr),L=Math.floor(sr*.0012);for(let k=0;k<L&&n0+k<len;k++)d[n0+k]+=(R()*2-1)*amp*Math.exp(-k/(sr*.00025))};
+  for(let i=0;i<9;i++){const ls=i*step,pd=step*.68*(.85+R()*.3);
+    // cabezal: golpes a ~650 por segundo, con ritmo irregular como los caracteres de una línea
+    let t=ls;while(t<ls+pd){const gap=R()<.08?.006+R()*.01:1/(560+R()*180);hit(t,.55+R()*.45);t+=gap}
+    // avance del papel: zumbido rasposo del motor paso a paso
+    const fs=ls+pd+.004,fl=step-pd-.012;for(let k=0;k<fl*sr;k++){const n=Math.floor((fs)*sr)+k;if(n>=len)break;const ph=k/sr;
+      const env=Math.sin(Math.PI*k/(fl*sr));d[n]+=env*(.35*Math.sign(Math.sin(2*Math.PI*480*ph))*(.6+.4*R())+.25*(R()*2-1))}}
+  const src=c.createBufferSource();src.buffer=buf;const sum=c.createGain();sum.gain.value=1;
+  [[1150,4,.9],[2500,5,1],[4300,3,.7]].forEach(([f,q,g])=>{const bp=c.createBiquadFilter();bp.type='bandpass';bp.frequency.value=f;bp.Q.value=q;const gg=c.createGain();gg.gain.value=g*2.2;src.connect(bp).connect(gg).connect(sum)});
+  const hp=c.createBiquadFilter();hp.type='highpass';hp.frequency.value=700;const dg=c.createGain();dg.gain.value=.5;src.connect(hp).connect(dg).connect(sum);
+  sum.connect(m);src.start(t0)}
 function synthTear(c,m,t){const fl=burst(c,m,t,.22,'highpass',5200,.8,.8);fl.frequency.exponentialRampToValueAtTime(1400,t+.2)}
 /* Los sonidos se graban una vez a un archivo WAV a volumen máximo y se tocan con un reproductor normal:
    en Android eso suena aunque la música esté sonando (Web Audio a veces quedaba en silencio). */
@@ -917,6 +928,7 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','22');if(pv&&pv!=='22')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 22']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
@@ -990,6 +1002,12 @@ apply(active?find(active)||null:null);renderPal();updateUI();render();prepSfx();
 })();
 </script>
 
-<script>if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;let done=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;location.reload()}});navigator.serviceWorker.register('sw.js').then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{})})}).catch(()=>{})}</script>
+<script>/* Actualización automática: busca versión nueva al abrir, al volver a la app y cada 30 min. Si hay música sonando, espera a que esté en pausa para recargar. */
+if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;let pend=false;const au=document.getElementById('audio');
+const tryReload=()=>{if(pend&&(!au||au.paused))location.reload()};
+navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had||pend)return;pend=true;tryReload()});
+document.addEventListener('visibilitychange',tryReload);if(au)au.addEventListener('pause',()=>{if(document.visibilityState==='hidden')tryReload()});
+navigator.serviceWorker.register('sw.js').then(r=>{const up=()=>r.update().catch(()=>{});up();
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')up()});setInterval(up,30*60*1000)}).catch(()=>{})}</script>
 </body>
 </html>
