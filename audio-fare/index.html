@@ -85,7 +85,7 @@ header.top{display:flex;align-items:center;gap:12px;padding-block:14px 8px;paddi
 #file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 
 main{flex:1;position:relative;min-height:0}
-.view{overscroll-behavior:contain;position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding-block:6px 190px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.view{overscroll-behavior:contain;position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;padding-block:6px 210px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .label{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:18px 0 10px;font-weight:700}
 
 /* Carrusel de vidrio con magnificación */
@@ -177,7 +177,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;background:var(--pri)
 .plist .chk{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--sec);font-weight:700}
 
 /* Mini reproductor */
-.mini{border-radius:18px;--pp:600px;position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(84px + env(safe-area-inset-bottom,0px));
+.mini{border-radius:18px;--pp:600px;position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(108px + env(safe-area-inset-bottom,0px));
   display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 10px;z-index:5;background:var(--solid);border:1px solid var(--line);
   clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
 .mini .cover{border-radius:10px;width:42px;height:42px;font-size:.45rem}
@@ -405,7 +405,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="sndTest" type="button">Probar sonido</button><button class="btn2" id="sndOn" type="button" aria-pressed="true">Activado</button></div>
       <p class="err" id="sndInfo" role="status" style="color:var(--muted)"></p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 23</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 24</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -926,7 +926,7 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','23');if(pv&&pv!=='23')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 23']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','24');if(pv&&pv!=='24')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 24']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
