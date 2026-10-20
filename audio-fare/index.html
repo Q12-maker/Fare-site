@@ -396,6 +396,9 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="label">Sonido de la impresora</div>
       <div class="pl-actions"><button class="btn2 pri" id="sndTest" type="button">Probar sonido</button><button class="btn2" id="sndOn" type="button" aria-pressed="true">Activado</button></div>
       <p class="err" id="sndInfo" role="status" style="color:var(--muted)"></p>
+      <div class="label">Versión de la app</div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 20</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
 
@@ -884,6 +887,10 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
+$('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
+  i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
+    const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
+  catch(e){i.textContent='No pude revisar. ¿Tienes internet?'}};
 
 let tTimer;
 function ticket(title,rows,totals){
@@ -953,6 +960,6 @@ apply(active?find(active)||null:null);renderPal();updateUI();render();prepSfx();
 })();
 </script>
 
-<script>if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;let done=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;location.reload()}});navigator.serviceWorker.register('sw.js').then(r=>r.update()).catch(()=>{})}</script>
+<script>if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;let done=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;location.reload()}});navigator.serviceWorker.register('sw.js').then(r=>{r.update();document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{})})}).catch(()=>{})}</script>
 </body>
 </html>
