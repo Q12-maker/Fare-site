@@ -129,16 +129,19 @@ main{flex:1;position:relative;min-height:0}
 .note{font-size:.8rem;color:var(--muted);line-height:1.5;margin:22px 0 0;max-width:60ch}
 
 /* Sonando */
-.np{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:12px;max-width:440px;margin:0 auto}
-.tilt{width:min(78vw,330px);aspect-ratio:1;max-width:100%;perspective:900px;touch-action:none}
+.np{display:flex;flex-direction:column;align-items:center;gap:14px;padding-top:6px;max-width:440px;margin:0 auto}
+/* El reproductor termina encima de la barra de secciones: la barra tiene su propio espacio */
+#v-np{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+#v-np .controls{margin-top:4px}
+.tilt{width:min(78vw,330px,36vh);aspect-ratio:1;max-width:100%;perspective:900px;touch-action:none}
 .tilt-in{position:relative;width:100%;height:100%;transform-style:preserve-3d;--pp:800px}
 .tilt-in .cover{border-radius:22px;width:100%;height:100%;font-size:2rem;box-shadow:0 30px 60px -30px color-mix(in srgb,var(--pri) 60%,transparent)}
 .tilt-in .gl{border-radius:22px;clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px)}
 .tilt-in.idle:not(.act){animation:sway 8s ease-in-out infinite}
 .tilt-in.idle:not(.act) .gl{opacity:.9}
 @keyframes sway{0%,100%{--rx:9deg;--ry:-14deg;--gx:20%;--gy:15%}25%{--rx:-6deg;--ry:-6deg;--gx:35%;--gy:80%}50%{--rx:-10deg;--ry:15deg;--gx:85%;--gy:85%}75%{--rx:7deg;--ry:8deg;--gx:75%;--gy:20%}}
-.np h2{margin:6px 0 0;font-family:var(--display);font-size:1.6rem;text-align:center;color:var(--pri);text-wrap:balance;letter-spacing:-.02em;line-height:1.15}
-.np .artist{color:var(--muted);margin-top:-12px;text-align:center}
+.np h2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%;margin:6px 0 0;font-family:var(--display);font-size:1.6rem;text-align:center;color:var(--pri);text-wrap:balance;letter-spacing:-.02em;line-height:1.15}
+.np .artist{color:var(--muted);margin-top:-8px;text-align:center;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .seek{width:100%;display:grid;gap:6px}
 .seek .times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent}
@@ -475,7 +478,8 @@ const MAGIC=[[0xFF,0xD8,0xFF,'image/jpeg'],[0x89,0x50,0x4E,'image/png'],[0x52,0x
 function findImg(b,from,to){to=Math.min(to,b.length-3);for(let i=from;i<to;i++)for(const m of MAGIC)if(b[i]===m[0]&&b[i+1]===m[1]&&b[i+2]===m[2])return [i,m[3]];return null}
 function deUnsync(b){const o=[];for(let i=0;i<b.length;i++){o.push(b[i]);if(b[i]===0xFF&&b[i+1]===0)i++}return new Uint8Array(o)}
 function txt(f){const enc=f[0];let d=f.subarray(1);
-  try{if(enc===1||enc===2){return new TextDecoder(enc===1?'utf-16':'utf-16be').decode(d).replace(/\0+$/,'')}return new TextDecoder(enc===3?'utf-8':'latin1').decode(d).replace(/\0.*$/,'')}catch(e){return ''}}
+  try{if(enc===1||enc===2){let le=enc===1;if(d[0]===0xFF&&d[1]===0xFE){le=true;d=d.subarray(2)}else if(d[0]===0xFE&&d[1]===0xFF){le=false;d=d.subarray(2)}
+      return new TextDecoder(le?'utf-16le':'utf-16be').decode(d).replace(/\0[\s\S]*$/,'')}return new TextDecoder(enc===3?'utf-8':'latin1').decode(d).replace(/\0.*$/,'')}catch(e){return ''}}
 async function readTags(blob){
   const out={};
   try{
@@ -592,7 +596,7 @@ async function addFiles(list){
   const added=[];
   for(const f of files){const m=parseName(f.name);
     const tg=await readTags(f);
-    const s={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:tg.title||m.title,artist:tg.artist||m.artist,dur:await duration(f),added:Date.now(),blob:f,art:tg.art||null,tagsRead:true};
+    const s={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:tg.title||m.title,artist:tg.artist||m.artist,dur:await duration(f),added:Date.now(),blob:f,art:tg.art||null,tagsRead:2};
     try{await DB.put(s)}catch(err){dbOk=false}songs.push(s);added.push(s)}
   if(curId==='demo'){stop()}
   render();
@@ -753,20 +757,23 @@ bindTilt($('#tiltIn'),32,$('#tilt'));bindTilt($('#mini'),14);bindTilt(nav,12);
 let actx=null,noiseBuf=null;
 function audioCtx(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();
   if(!noiseBuf){const n=Math.floor(actx.sampleRate*.3);noiseBuf=actx.createBuffer(1,n,actx.sampleRate);const d=noiseBuf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1}return actx}catch(e){return null}}
+let comp=null;
+function loud(c){if(!comp){comp=c.createDynamicsCompressor();comp.threshold.value=-24;comp.ratio.value=4;const g=c.createGain();g.gain.value=2.2;comp.connect(g).connect(c.destination)}return comp}
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>audioCtx(),{passive:true}));
 function burst(c,out,t,len,type,f,q,vol){const s=c.createBufferSource();s.buffer=noiseBuf;const fl=c.createBiquadFilter();fl.type=type;fl.frequency.setValueAtTime(f,t);fl.Q.value=q;
   const g=c.createGain();g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(vol,t+.004);g.gain.exponentialRampToValueAtTime(.0001,t+len);
   s.connect(fl).connect(g).connect(out);s.start(t,Math.random()*.1);s.stop(t+len+.02);return fl}
 function printSound(){const c=audioCtx();if(!c)return;try{
-  const m=c.createGain();m.gain.value=.35;m.connect(c.destination);const t0=c.currentTime+.03,step=1.1/9;
+  const m=c.createGain();m.gain.value=1;m.connect(loud(c));const t0=c.currentTime+.03,step=1.1/9;
   for(let i=0;i<9;i++){const t=t0+i*step;
-    burst(c,m,t,.06,'bandpass',2600+Math.random()*700,1.4,.9);
+    burst(c,m,t,.07,'bandpass',2600+Math.random()*700,.9,1);burst(c,m,t,.03,'highpass',6000,.7,.6);
     const o=c.createOscillator();o.type='square';o.frequency.setValueAtTime(150+Math.random()*30,t);
-    const og=c.createGain();og.gain.setValueAtTime(.0001,t);og.gain.linearRampToValueAtTime(.12,t+.003);og.gain.exponentialRampToValueAtTime(.0001,t+.045);
+    const og=c.createGain();og.gain.setValueAtTime(.0001,t);og.gain.linearRampToValueAtTime(.35,t+.003);og.gain.exponentialRampToValueAtTime(.0001,t+.045);
     o.connect(og).connect(m);o.start(t);o.stop(t+.06)}
   const mo=c.createOscillator();mo.type='sawtooth';mo.frequency.setValueAtTime(95,t0);const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=420;
-  const mg=c.createGain();mg.gain.setValueAtTime(.0001,t0);mg.gain.linearRampToValueAtTime(.05,t0+.05);mg.gain.setValueAtTime(.05,t0+1.05);mg.gain.exponentialRampToValueAtTime(.0001,t0+1.2);
+  const mg=c.createGain();mg.gain.setValueAtTime(.0001,t0);mg.gain.linearRampToValueAtTime(.18,t0+.05);mg.gain.setValueAtTime(.18,t0+1.05);mg.gain.exponentialRampToValueAtTime(.0001,t0+1.2);
   mo.connect(lp).connect(mg).connect(m);mo.start(t0);mo.stop(t0+1.25)}catch(e){}}
-function tearSound(){const c=audioCtx();if(!c)return;try{const m=c.createGain();m.gain.value=.3;m.connect(c.destination);const t=c.currentTime+.01;
+function tearSound(){const c=audioCtx();if(!c)return;try{const m=c.createGain();m.gain.value=1;m.connect(loud(c));const t=c.currentTime+.01;
   const fl=burst(c,m,t,.22,'highpass',5200,.8,.8);fl.frequency.exponentialRampToValueAtTime(1400,t+.2)}catch(e){}}
 
 let tTimer;
@@ -828,8 +835,8 @@ apply(active?find(active)||null:null);renderPal();updateUI();render();
   try{await DB.open();songs=(await DB.all()).sort((a,b)=>a.added-b.added);try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}}
   catch(e){dbOk=false}
   render();
-  for(const s of songs.filter(x=>!x.tagsRead)){const tg=await readTags(s.blob);s.art=tg.art||null;s.tagsRead=true;
-    if(tg.title&&s.artist==='Artista desconocido'){s.title=tg.title;if(tg.artist)s.artist=tg.artist}
+  for(const s of songs.filter(x=>x.tagsRead!==2)){const tg=await readTags(s.blob);s.art=tg.art||null;s.tagsRead=2;
+    if(tg.title){s.title=tg.title;if(tg.artist)s.artist=tg.artist}else{const m=parseName(s.blob.name||'');if(s.blob.name){s.title=m.title;s.artist=m.artist}}
     try{await DB.put(s)}catch(e){}}
   render();updateUI();
   takeInbox();
