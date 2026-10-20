@@ -469,8 +469,11 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="label">Sonido de la impresora</div>
       <div class="pl-actions"><button class="btn2 pri" id="sndTest" type="button">Probar sonido</button><button class="btn2" id="sndOn" type="button" aria-pressed="true">Activado</button></div>
       <p class="err" id="sndInfo" role="status" style="color:var(--muted)"></p>
+      <div class="label">Compartir</div>
+      <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
+      <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 34</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 35</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -1099,7 +1102,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','34');if(pv&&pv!=='34')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 34']]),900)}catch(e){}
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/';
+$('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
+  try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
+  try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
+  catch(e){$('#shareInfo').textContent=APP_URL}};
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','35');if(pv&&pv!=='35')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 35']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
