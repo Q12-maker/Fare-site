@@ -266,6 +266,10 @@ header.top .brand,header.top .btn-add{position:relative;z-index:3}
 .picked .ck{background:var(--sec);border-color:var(--sec)}
 .picked .ck svg{opacity:1}
 .card.picked,.row.picked{outline:2px solid var(--sec);outline-offset:-2px}
+.seltint{position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:inherit;opacity:0;transition:opacity .18s ease;
+  background:linear-gradient(160deg,color-mix(in srgb,#ffffff 22%,transparent),transparent 55%),color-mix(in srgb,var(--sec) 38%,transparent);
+  -webkit-backdrop-filter:saturate(1.4);backdrop-filter:saturate(1.4)}
+.picked .seltint{opacity:1}
 .row.picked{border-radius:14px}
 .selmode .handle,.selmode .del{visibility:hidden}
 .selmode [data-id]{touch-action:pan-y}
@@ -477,7 +481,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
       <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 37</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 38</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -939,7 +943,7 @@ function sleepCustom(){const f=(id,l,max,v)=>'<label class="tf"><input id="'+id+
 /* ---------- Seleccionar varias canciones ---------- */
 let sel=null,selCtx=null;
 const CK='<span class="ck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 12 4 4 8-8"/></svg></span>';
-function markSel(el,id){el.insertAdjacentHTML('beforeend',CK);el.classList.toggle('picked',sel.has(id))}
+function markSel(el,id){el.insertAdjacentHTML('beforeend','<span class="seltint"></span>'+CK);el.classList.toggle('picked',sel.has(id))}
 function selIds(){return selCtx==='lib'?visible().filter(s=>!s.demo).map(s=>s.id):((playlists.find(p=>p.id===selCtx)||{songs:[]}).songs.filter(byId))}
 function toggleSel(id){sel.has(id)?sel.delete(id):sel.add(id);document.querySelectorAll('[data-id="'+id+'"]').forEach(e=>e.classList.toggle('picked',sel.has(id)));selUI()}
 function startSel(ctx){sel=new Set();selCtx=ctx;if(ctx==='lib')render();else renderPl();selUI();
@@ -1106,12 +1110,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=37';
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=38';
 $('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
   try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
   catch(e){$('#shareInfo').textContent=APP_URL}};
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','37');if(pv&&pv!=='37')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 37']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','38');if(pv&&pv!=='38')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 38']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
