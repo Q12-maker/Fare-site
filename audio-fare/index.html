@@ -727,6 +727,6 @@ apply(active?find(active)||null:null);renderPal();updateUI();render();
 })();
 </script>
 
-<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});</script>
+<script>if('serviceWorker' in navigator){const had=!!navigator.serviceWorker.controller;let done=false;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!done){done=true;location.reload()}});navigator.serviceWorker.register('sw.js').then(r=>r.update()).catch(()=>{})}</script>
 </body>
 </html>
