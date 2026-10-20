@@ -252,6 +252,7 @@ header.top .brand,header.top .btn-add{position:relative;z-index:3}
 .card.picked,.row.picked{outline:2px solid var(--sec);outline-offset:-2px}
 .row.picked{border-radius:14px}
 .selmode .handle,.selmode .del{visibility:hidden}
+.selmode [data-id]{touch-action:pan-y}
 .selbar{position:fixed;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));bottom:calc(108px + env(safe-area-inset-bottom,0px));z-index:7;border-radius:22px;padding:10px 12px 12px;max-width:560px;margin-inline:auto}
 .selbar>div{position:relative;z-index:3}
 .sb-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -457,7 +458,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="sndTest" type="button">Probar sonido</button><button class="btn2" id="sndOn" type="button" aria-pressed="true">Activado</button></div>
       <p class="err" id="sndInfo" role="status" style="color:var(--muted)"></p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 32</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 33</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -836,7 +837,7 @@ function longPress(el,fn,onDrop){let t,x=0,y=0,armed=false,drag=false,fired=fals
     const vw=v();if(vw){const r=vw.getBoundingClientRect();if(e.clientY<r.top+80)vw.scrollTop-=10;else if(e.clientY>r.bottom-190)vw.scrollTop+=10}};
   const up=()=>{clearTimeout(t);if(armed){el.classList.remove('lift');if(drag)onDrop([...ul().children].map(i=>i.dataset.id).filter(Boolean));else fn()}off()};
   const off=()=>{armed=false;drag=false;document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up)};
-  el.addEventListener('pointerdown',e=>{fired=false;if(e.button>0||e.target.closest('.handle,.del'))return;x=e.clientX;y=e.clientY;clearTimeout(t);
+  el.addEventListener('pointerdown',e=>{fired=false;if(sel||e.button>0||e.target.closest('.handle,.del'))return;x=e.clientX;y=e.clientY;clearTimeout(t);
     document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
     t=setTimeout(()=>{armed=true;fired=true;el.classList.remove('act');el.classList.add('lift');try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}},430)});
   el.addEventListener('touchmove',e=>{if(armed&&e.cancelable)e.preventDefault()},{passive:false});
@@ -938,6 +939,23 @@ $('#selX').onclick=endSel;
 $('#selAll').onclick=()=>{const all=selIds();if(sel.size===all.length)sel.clear();else all.forEach(id=>sel.add(id));
   document.querySelectorAll('[data-id]').forEach(e=>{if(e.querySelector('.ck'))e.classList.toggle('picked',sel.has(e.dataset.id))});selUI()};
 document.querySelectorAll('.selbtn').forEach(b=>b.onclick=()=>{const ctx=b.dataset.sel==='lib'?'lib':openPl;if(sel&&selCtx===ctx){endSel();return}if(sel)endSel();startSel(ctx)});
+/* Seleccionar deslizando, como en el iPhone: arrastra el dedo de lado (o mantén y arrastra) y se marcan
+   todas las canciones entre la primera y la que tocas. Si empiezas en una marcada, las desmarca. */
+function paintSel(box){let st=null,mode=null,orig=null,on=true,x0=0,y0=0,ht=0,painted=false,last=null;
+  const items=()=>[...box.querySelectorAll('[data-id]')].filter(i=>i.querySelector('.ck'));
+  const paint=cur=>{const it=items(),a=it.indexOf(st),b=it.indexOf(cur);if(a<0||b<0||cur===last)return;last=cur;const lo=Math.min(a,b),hi=Math.max(a,b);
+    it.forEach((i,k)=>{const id=i.dataset.id,want=k>=lo&&k<=hi?on:orig.has(id);want?sel.add(id):sel.delete(id);i.classList.toggle('picked',want)});selUI()};
+  const go=()=>{mode='paint';painted=true;try{navigator.vibrate&&navigator.vibrate(8)}catch(_){}paint(st)};
+  const mv=e=>{if(!mode){const dx=Math.abs(e.clientX-x0),dy=Math.abs(e.clientY-y0);if(dx>10&&dx>dy){clearTimeout(ht);go()}else if(dy>10){clearTimeout(ht);end()}return}
+    const o=document.elementFromPoint(e.clientX,e.clientY),c=o&&o.closest('[data-id]');if(c&&box.contains(c))paint(c);
+    const v=box.closest('.view'),r=v.getBoundingClientRect();if(e.clientY<r.top+90)v.scrollTop-=12;else if(e.clientY>r.bottom-230)v.scrollTop+=12};
+  const end=()=>{clearTimeout(ht);mode=null;st=null;document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end)};
+  box.addEventListener('pointerdown',e=>{if(!sel||e.button>0)return;const it=e.target.closest('[data-id]');if(!it||!it.querySelector('.ck'))return;
+    st=it;last=null;orig=new Set(sel);on=!sel.has(it.dataset.id);x0=e.clientX;y0=e.clientY;painted=false;mode=null;ht=setTimeout(go,320);
+    document.addEventListener('pointermove',mv);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end)});
+  box.addEventListener('touchmove',e=>{if(mode==='paint'&&e.cancelable)e.preventDefault()},{passive:false});
+  box.addEventListener('click',e=>{if(painted){e.stopPropagation();e.preventDefault();painted=false}},true)}
+paintSel($('#lib'));paintSel($('#plSongs'));
 function pickPl(title,exclude,fn){const list=playlists.filter(p=>p.id!==exclude);
   const btn=(k,ic,t,sm,cls)=>'<button class="sh-btn'+(cls?' '+cls:'')+'" data-k="'+k+'">'+ic+'<span>'+esc(t)+'</span>'+(sm?'<small>'+esc(sm)+'</small>':'')+'</button>';
   const head='<div class="sh-head" style="grid-template-columns:1fr"><div><b>'+esc(title)+'</b><span>'+sel.size+(sel.size===1?' canción seleccionada':' canciones seleccionadas')+'</span></div></div>';
@@ -1069,7 +1087,7 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','32');if(pv&&pv!=='32')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 32']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','33');if(pv&&pv!=='33')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 33']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
