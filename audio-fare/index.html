@@ -248,6 +248,11 @@ nav.navbar{translate:0 0;transition:translate .35s cubic-bezier(.2,.8,.2,1),opac
 .mini{transition:bottom .35s cubic-bezier(.2,.8,.2,1)}
 
 .back{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:12px;padding-block:14px 10px;margin-bottom:4px;background:linear-gradient(var(--amb) 70%,transparent)}
+.sleep{margin-left:auto;display:flex;align-items:center;gap:6px;height:44px;min-width:44px;padding:0 12px;border-radius:16px;background:var(--solid);border:1px solid var(--line);color:var(--muted)}
+.sleep svg{width:20px;height:20px}
+.sleep b{font-family:var(--mono);font-size:.82rem;font-weight:700}
+.sleep b:empty{display:none}
+.sleep.on{color:var(--sec);border-color:var(--sec)}
 .back span{font-family:var(--display);font-weight:700;font-size:1.3rem;letter-spacing:-.02em}
 .bk{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:var(--solid);border:1px solid var(--line)}
 .bk svg{width:22px;height:22px}
@@ -279,6 +284,9 @@ nav.navbar.liquid:active{scale:1.04 .96}
 .sh-btn{display:flex;width:100%;align-items:center;gap:12px;padding:13px 14px;border-radius:16px;background:var(--solid);border:1px solid var(--line);font-weight:700;font-size:.92rem;text-align:left;margin-top:8px}
 .sh-btn svg{width:20px;height:20px;flex:none}
 .sh-btn small{margin-left:auto;font-weight:400;color:var(--muted);font-size:.78rem}
+.sh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:0 8px}
+.sh-grid .sh-btn{justify-content:center;white-space:nowrap;padding:13px 8px}
+.sh-grid .sh-btn svg{display:none}
 .sh-btn.warn{color:#e5484d}
 .sh-btn.ghost{background:transparent;justify-content:center}
 .row,.card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -352,7 +360,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
     </section>
 
     <section class="view" id="v-np" aria-label="Sonando" hidden>
-      <div class="back"><button class="bk" aria-label="Volver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg></button><span>Sonando</span></div>
+      <div class="back"><button class="bk" aria-label="Volver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 5l-7 7 7 7"/></svg></button><span>Sonando</span><button class="sleep" id="sleepBtn" aria-label="Temporizador para dormir"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><b id="sleepT"></b></button></div>
       <div class="np" id="np">
         <div class="tilt" id="tilt"><div class="tilt-in tl idle" id="tiltIn"><div class="cover" id="bigCover"></div><div class="gl"></div></div></div>
         <h2 id="npTitle">Nada sonando</h2>
@@ -397,7 +405,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="sndTest" type="button">Probar sonido</button><button class="btn2" id="sndOn" type="button" aria-pressed="true">Activado</button></div>
       <p class="err" id="sndInfo" role="status" style="color:var(--muted)"></p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 20</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 21</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -670,9 +678,9 @@ function nextIdx(auto){
 }
 function next(auto){const j=nextIdx(auto);if(j<0){audio.pause();audio.currentTime=0;return}hist.push(qi);qi=j;start()}
 function prev(){if(audio.currentTime>3||!queue.length){audio.currentTime=0;return}let j=hist.length?hist.pop():(qi-1+queue.length)%queue.length;if(!queue[j])j=0;qi=j;start()}
-audio.addEventListener('ended',()=>{if(repeat==='one'){audio.currentTime=0;audio.play();return}next(true)});
+audio.addEventListener('ended',()=>{if(sleepSong){sleepOff();audio.currentTime=0;updateUI();return}if(repeat==='one'){audio.currentTime=0;audio.play();return}next(true)});
 ['play','pause'].forEach(ev=>audio.addEventListener(ev,()=>{updateUI();try{navigator.mediaSession.playbackState=audio.paused?'paused':'playing'}catch(e){}}));
-audio.addEventListener('timeupdate',progress);audio.addEventListener('loadedmetadata',progress);
+audio.addEventListener('timeupdate',()=>{progress();sleepTick()});audio.addEventListener('loadedmetadata',progress);
 
 function setMeta(s){
   if(!('mediaSession' in navigator))return;
@@ -789,6 +797,28 @@ function songMenu(s,ctx){
       else if(k==='add')pick('Agregar a…',others,add);else if(k==='copy')pick('Copiar a…',others,add);
       else if(k==='rm'){if(cur)rm(cur);else if(inPls.length===1)rm(inPls[0]);else pick('Quitar de…',inPls,rm)}})})}
   main()}
+/* ---------- Temporizador para dormir ---------- */
+/* Baja el volumen poco a poco en los últimos 30 s y pausa. Se revisa con el reloj y con el avance de la canción,
+   porque Android frena los relojes cuando la pantalla está apagada. */
+let sleepEnd=0,sleepSong=false,sleepIv=null;const FADE=30000;
+const SLEEP_IC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+function sleepOff(){sleepEnd=0;sleepSong=false;clearInterval(sleepIv);sleepIv=null;audio.volume=1;sleepUI()}
+function sleepUI(){const b=$('#sleepBtn'),t=$('#sleepT');b.classList.toggle('on',!!(sleepEnd||sleepSong));
+  if(sleepSong)t.textContent='Fin';else if(sleepEnd){const r=Math.max(0,sleepEnd-Date.now()),m=Math.floor(r/60000),sec=Math.floor(r/1000)%60;t.textContent=m+':'+String(sec).padStart(2,'0')}else t.textContent=''}
+function sleepTick(){if(!sleepEnd)return;const r=sleepEnd-Date.now();
+  if(r<=0){audio.pause();sleepOff();updateUI();return}audio.volume=r<FADE?Math.max(.02,r/FADE):1;sleepUI()}
+function sleepSet(min){sleepOff();const hm=d=>d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  if(min==='fin'){sleepSong=true;sleepUI();ticket('TEMPORIZADOR',[['Pausa','al terminar la canción']]);return}
+  sleepEnd=Date.now()+min*60000;sleepIv=setInterval(sleepTick,1000);sleepUI();
+  ticket('TEMPORIZADOR',[['Duración',min+' min'],['Pausa a las',hm(new Date(sleepEnd))]],[['ESTADO','activo']])}
+$('#sleepBtn').onclick=()=>{const opts=[5,10,15,30,45,60,90];
+  const b=(k,t,sm,cls)=>'<button class="sh-btn'+(cls?' '+cls:'')+'" data-k="'+k+'">'+(k==='x'||k==='off'?'':SLEEP_IC)+'<span>'+t+'</span>'+(sm?'<small>'+sm+'</small>':'')+'</button>';
+  let h='<div class="sh-head" style="grid-template-columns:1fr"><div><b>Temporizador para dormir</b><span>'+(sleepEnd||sleepSong?'Activo: '+esc($('#sleepT').textContent)+(sleepSong?' de la canción':' restantes'):'La música se pausa sola, bajando el volumen poco a poco.')+'</span></div></div>';
+  h+='<div class="sh-grid">'+opts.map(m=>b(m,m+' min')).join('')+'</div>'+b('fin','Al terminar la canción');
+  if(sleepEnd||sleepSong)h+=b('off','Apagar temporizador','','warn');
+  h+=b('x','Cancelar','','ghost');
+  openSheet(h,el=>el.querySelectorAll('.sh-btn').forEach(x=>x.onclick=()=>{const k=x.dataset.k;closeSheet();
+    if(k==='x')return;if(k==='off'){sleepOff();ticket('TEMPORIZADOR',[['Estado','apagado']]);return}sleepSet(k==='fin'?'fin':+k)}))};
 /* Ordenar arrastrando la manija: la fila sigue al dedo y las demás se apartan. */
 function dragRow(h,li,p){
   h.addEventListener('pointerdown',e=>{e.preventDefault();h.setPointerCapture(e.pointerId);
