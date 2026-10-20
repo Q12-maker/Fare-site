@@ -164,6 +164,7 @@ main{flex:1;position:relative;min-height:0}
 .np h2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%;margin:6px 0 0;font-family:var(--display);font-size:1.6rem;text-align:center;color:var(--pri);text-wrap:balance;letter-spacing:-.02em;line-height:1.15}
 .np .artist{color:var(--muted);margin-top:-8px;text-align:center;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .seek{width:100%;display:grid;gap:6px}
+#harm{display:block;width:100%;height:46px;margin-bottom:-14px;pointer-events:none}
 .seek .times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent}
 input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:linear-gradient(to right,var(--sec) var(--p,0%),var(--line) var(--p,0%))}
@@ -439,6 +440,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
         <h2 id="npTitle">Nada sonando</h2>
         <div class="artist" id="npArtist">Elige una canción en Biblioteca</div>
         <div class="seek">
+          <canvas id="harm" aria-hidden="true"></canvas>
           <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Avanzar en la canción">
           <div class="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
         </div>
@@ -481,7 +483,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
       <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 39</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 40</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -905,6 +907,30 @@ function songMenu(s,ctx){if(sel){toggleSel(s.id);return}
       else if(k==='add')pick(others.length?'Agregar a…':'Aún no tienes playlists',others,add,true);else if(k==='copy')pick(others.length?'Copiar a…':'No tienes otra playlist',others,add,true);
       else if(k==='rm'){if(cur)rm(cur);else if(inPls.length===1)rm(inPls[0]);else pick('Quitar de…',inPls,rm)}})})}
   main()}
+/* ---------- Efecto armonía ---------- */
+/* Ondas suaves superpuestas encima de la barra de avance, con los colores del reproductor.
+   Se mueven y crecen mientras suena la música y se aplanan en pausa. La parte ya escuchada se ve más fuerte.
+   No pasa el audio por Web Audio para no arriesgar la reproducción en segundo plano. */
+let harmRaf=null,harmAmp=0;
+function harmony(){if(harmRaf)return;const cv=$('#harm'),c=cv.getContext('2d');let t0=performance.now();
+  const L=[{f:2.1,s:.55,p:0,a:.9},{f:3.3,s:-.8,p:1.7,a:.7},{f:1.4,s:.35,p:3.1,a:1}];
+  const step=now=>{if(view!=='np'||document.hidden){harmRaf=null;return}harmRaf=requestAnimationFrame(step);
+    const dpr=Math.min(2,devicePixelRatio||1),w=cv.clientWidth,h=cv.clientHeight;if(!w)return;
+    if(cv.width!==Math.round(w*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}
+    c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
+    const t=(now-t0)/1000;harmAmp+=((audio.paused?.12:1)-harmAmp)*.04;
+    const cs=getComputedStyle($('#app')),sec=cs.getPropertyValue('--sec').trim()||'#8c8c8c',pri=cs.getPropertyValue('--pri').trim()||'#fff';
+    const prog=audio.duration?audio.currentTime/audio.duration:0,beat=.75+.25*Math.sin(t*2.4)*Math.sin(t*1.3+1);
+    const wave=(l,x)=>{const u=x/w,env=Math.pow(Math.sin(Math.PI*u),.7);
+      return h-1-harmAmp*beat*l.a*h*.92*env*(.55+.45*Math.sin(u*Math.PI*2*l.f+t*l.s*2+l.p))*(.7+.3*Math.sin(u*9+t*1.7+l.p))};
+    for(const pass of [0,1]){c.save();c.beginPath();
+      if(pass)c.rect(0,0,w*prog,h);else c.rect(w*prog,0,w,h);c.clip();
+      L.forEach((l,i)=>{c.beginPath();c.moveTo(0,h);for(let x=0;x<=w;x+=3)c.lineTo(x,wave(l,x));c.lineTo(w,h);c.closePath();
+        c.globalAlpha=(pass?.34:.16)-(i*.03);c.fillStyle=i===1?pri:sec;c.fill()});c.restore()}};
+  harmRaf=requestAnimationFrame(step)}
+audio.addEventListener('play',()=>{if(view==='np')harmony()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&view==='np')harmony()});
+
 /* ---------- Temporizador para dormir ---------- */
 /* Baja el volumen poco a poco en los últimos 30 s y pausa. Se revisa con el reloj y con el avance de la canción,
    porque Android frena los relojes cuando la pantalla está apagada. */
@@ -1036,7 +1062,7 @@ window.addEventListener('popstate',()=>{pushed=false;if(view!=='lib')go('lib')})
 document.querySelectorAll('.bk').forEach(b=>b.onclick=()=>{if(b.closest('#v-pl')&&openPl){openPlaylist(null);return}back()});
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function go(v,shared){
-  if(v===view)return;if(sel)endSel();const from=$('#v-'+view),to=$('#v-'+v);view=v;$('#app').dataset.view=v;
+  if(v===view)return;if(sel)endSel();const from=$('#v-'+view),to=$('#v-'+v);view=v;$('#app').dataset.view=v;if(v==='np')harmony();
   if(v==='pl'){openPl=null;picking=false;renderPl()}
   if(v!=='lib'&&!pushed){try{history.pushState({af:1},'');pushed=true}catch(e){}}
   document.querySelectorAll('nav button').forEach(b=>{if(b.dataset.v===v)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
@@ -1110,12 +1136,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=39';
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=40';
 $('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
   try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
   catch(e){$('#shareInfo').textContent=APP_URL}};
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','39');if(pv&&pv!=='39')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 39']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','40');if(pv&&pv!=='40')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 40']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
