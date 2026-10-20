@@ -287,6 +287,12 @@ nav.navbar.liquid:active{scale:1.04 .96}
 .sh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:0 8px}
 .sh-grid .sh-btn{justify-content:center;white-space:nowrap;padding:13px 8px}
 .sh-grid .sh-btn svg{display:none}
+.tfs{display:flex;align-items:flex-start;justify-content:center;gap:6px;margin:6px 0 4px}
+.tfs i{font-style:normal;font-family:var(--mono);font-size:1.8rem;padding-top:10px;color:var(--muted)}
+.tf{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;max-width:96px}
+.tf input{width:100%;text-align:center;font-family:var(--mono);font-size:1.8rem;font-weight:700;padding:10px 4px;border-radius:16px;background:var(--solid);border:1px solid var(--line);color:var(--fg);-moz-appearance:textfield}
+.tf input::-webkit-inner-spin-button,.tf input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.tf span{font-size:.74rem;color:var(--muted)}
 .sh-btn.warn{color:#e5484d}
 .sh-btn.ghost{background:transparent;justify-content:center}
 .row,.card{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
@@ -405,7 +411,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="sndTest" type="button">Probar sonido</button><button class="btn2" id="sndOn" type="button" aria-pressed="true">Activado</button></div>
       <p class="err" id="sndInfo" role="status" style="color:var(--muted)"></p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 25</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 26</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -804,25 +810,38 @@ function songMenu(s,ctx){
 /* ---------- Temporizador para dormir ---------- */
 /* Baja el volumen poco a poco en los últimos 30 s y pausa. Se revisa con el reloj y con el avance de la canción,
    porque Android frena los relojes cuando la pantalla está apagada. */
-let sleepEnd=0,sleepSong=false,sleepIv=null;const FADE=30000;
+let sleepEnd=0,sleepSong=false,sleepIv=null,sleepFade=30000;
 const SLEEP_IC='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
 function sleepOff(){sleepEnd=0;sleepSong=false;clearInterval(sleepIv);sleepIv=null;audio.volume=1;sleepUI()}
 function sleepUI(){const b=$('#sleepBtn'),t=$('#sleepT');b.classList.toggle('on',!!(sleepEnd||sleepSong));
-  if(sleepSong)t.textContent='Fin';else if(sleepEnd){const r=Math.max(0,sleepEnd-Date.now()),m=Math.floor(r/60000),sec=Math.floor(r/1000)%60;t.textContent=m+':'+String(sec).padStart(2,'0')}else t.textContent=''}
+  if(sleepSong)t.textContent='Fin';else if(sleepEnd){const r=Math.max(0,sleepEnd-Date.now()),h=Math.floor(r/3600000),m=Math.floor(r/60000)%60,sec=Math.floor(r/1000)%60,p2=v=>String(v).padStart(2,'0');t.textContent=(h?h+':'+p2(m):m)+':'+p2(sec)}else t.textContent=''}
 function sleepTick(){if(!sleepEnd)return;const r=sleepEnd-Date.now();
-  if(r<=0){audio.pause();sleepOff();updateUI();return}audio.volume=r<FADE?Math.max(.02,r/FADE):1;sleepUI()}
+  if(r<=0){audio.pause();sleepOff();updateUI();return}audio.volume=r<sleepFade?Math.max(.02,r/sleepFade):1;sleepUI()}
 function sleepSet(min){sleepOff();const hm=d=>d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   if(min==='fin'){sleepSong=true;sleepUI();ticket('TEMPORIZADOR',[['Pausa','al terminar la canción']]);return}
-  sleepEnd=Date.now()+min*60000;sleepIv=setInterval(sleepTick,1000);sleepUI();
-  ticket('TEMPORIZADOR',[['Duración',min+' min'],['Pausa a las',hm(new Date(sleepEnd))]],[['ESTADO','activo']])}
+  const ms=Math.round(min*60000);sleepFade=Math.min(30000,ms/3);sleepEnd=Date.now()+ms;sleepIv=setInterval(sleepTick,1000);sleepUI();
+  const H=Math.floor(ms/3600000),M=Math.floor(ms/60000)%60,S=Math.floor(ms/1000)%60;
+  ticket('TEMPORIZADOR',[['Duración',[H?H+' h':'',M?M+' min':'',S?S+' s':''].filter(Boolean).join(' ')],['Pausa a las',hm(new Date(sleepEnd))]],[['ESTADO','activo']])}
 $('#sleepBtn').onclick=()=>{const opts=[5,10,15,30,45,60,90];
   const b=(k,t,sm,cls)=>'<button class="sh-btn'+(cls?' '+cls:'')+'" data-k="'+k+'">'+(k==='x'||k==='off'?'':SLEEP_IC)+'<span>'+t+'</span>'+(sm?'<small>'+sm+'</small>':'')+'</button>';
   let h='<div class="sh-head" style="grid-template-columns:1fr"><div><b>Temporizador para dormir</b><span>'+(sleepEnd||sleepSong?'Activo: '+esc($('#sleepT').textContent)+(sleepSong?' de la canción':' restantes'):'La música se pausa sola, bajando el volumen poco a poco.')+'</span></div></div>';
-  h+='<div class="sh-grid">'+opts.map(m=>b(m,m+' min')).join('')+'</div>'+b('fin','Al terminar la canción');
+  h+='<div class="sh-grid">'+opts.map(m=>b(m,m+' min')).join('')+'</div>'+b('fin','Al terminar la canción')+b('cus','Personalizado','horas, minutos, segundos');
   if(sleepEnd||sleepSong)h+=b('off','Apagar temporizador','','warn');
   h+=b('x','Cancelar','','ghost');
-  openSheet(h,el=>el.querySelectorAll('.sh-btn').forEach(x=>x.onclick=()=>{const k=x.dataset.k;closeSheet();
+  openSheet(h,el=>el.querySelectorAll('.sh-btn').forEach(x=>x.onclick=()=>{const k=x.dataset.k;if(k==='cus'){sleepCustom();return}closeSheet();
     if(k==='x')return;if(k==='off'){sleepOff();ticket('TEMPORIZADOR',[['Estado','apagado']]);return}sleepSet(k==='fin'?'fin':+k)}))};
+function sleepCustom(){const f=(id,l,max,v)=>'<label class="tf"><input id="'+id+'" type="number" inputmode="numeric" min="0" max="'+max+'" value="'+v+'"><span>'+l+'</span></label>';
+  openSheet('<div class="sh-head" style="grid-template-columns:1fr"><div><b>Tiempo personalizado</b><span>Escribe cuánto tiempo falta para pausar.</span></div></div>'+
+    '<form id="tfForm"><div class="tfs">'+f('tfH','horas',23,0)+'<i>:</i>'+f('tfM','minutos',59,30)+'<i>:</i>'+f('tfS','segundos',59,0)+'</div><p class="err" id="tfErr" role="status"></p>'+
+    '<button class="sh-btn" type="submit" style="justify-content:center;background:var(--pri);color:var(--amb);border-color:var(--pri)">Iniciar temporizador</button></form>'+
+    '<button class="sh-btn ghost" data-k="back">Volver</button>',el=>{
+    el.querySelectorAll('.tf input').forEach(i=>i.onfocus=()=>i.select());
+    el.querySelector('[data-k="back"]').onclick=()=>$('#sleepBtn').onclick();
+    el.querySelector('#tfForm').onsubmit=e=>{e.preventDefault();const v=id=>Math.max(0,Math.floor(+el.querySelector(id).value||0));
+      const sec=v('#tfH')*3600+Math.min(59,v('#tfM'))*60+Math.min(59,v('#tfS'));
+      if(sec<5){el.querySelector('#tfErr').textContent='Pon al menos 5 segundos.';return}
+      if(sec>24*3600){el.querySelector('#tfErr').textContent='El máximo es 24 horas.';return}
+      closeSheet();sleepSet(sec/60)}})}
 /* Ordenar arrastrando la manija: la fila sigue al dedo y las demás se apartan. */
 function dragRow(h,li,p){
   h.addEventListener('pointerdown',e=>{e.preventDefault();h.setPointerCapture(e.pointerId);
@@ -925,7 +944,7 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','25');if(pv&&pv!=='25')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 25']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','26');if(pv&&pv!=='26')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 26']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
