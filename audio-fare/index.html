@@ -238,9 +238,6 @@ header.top .brand,header.top .btn-add{position:relative;z-index:3}
 .row.slide{transition:transform .18s ease}
 .plgrid{list-style:none;margin:0;padding:4px 0 0}
 .plgrid .card{position:relative;cursor:pointer}
-.handle.gh{touch-action:none;position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:11px;z-index:4;color:#fff;
-  background:color-mix(in srgb,#000 35%,transparent);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.35)}
-.handle.gh svg{width:18px;height:18px}
 .card.lift{z-index:5;scale:1.06;box-shadow:0 18px 34px rgba(0,0,0,.4)}
 .seg{justify-content:space-between;align-items:center}
 .selbtn{display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;font-size:.78rem;font-weight:700;color:var(--muted);background:var(--solid);border:1px solid var(--line)}
@@ -460,7 +457,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="sndTest" type="button">Probar sonido</button><button class="btn2" id="sndOn" type="button" aria-pressed="true">Activado</button></div>
       <p class="err" id="sndInfo" role="status" style="color:var(--muted)"></p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 31</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 32</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -563,7 +560,11 @@ const DEMO={id:'demo',title:'Hexágonos',artist:'Audio Fare',dur:24,added:0,demo
 /* ---------- Estado ---------- */
 let songs=[],queue=[],qi=-1,curId=null,hist=[],shuffle=store.get('af-shuf',false),repeat=store.get('af-rep','off'),url=null,dbOk=true;
 let layout=store.get('af-vista','bloques'),plLayout=store.get('af-vista-pl','lineas'),playlists=store.get('af-playlists',[]),openPl=null,picking=false;
-const visible=()=>songs.length?songs:[DEMO];
+let libOrder=store.get('af-orden',[]);
+/* Orden de la Biblioteca: el que el usuario arrastró; las canciones nuevas van al final. */
+const visible=()=>{if(!songs.length)return [DEMO];const ix=new Map(libOrder.map((id,i)=>[id,i]));
+  return songs.slice().sort((a,b)=>(ix.has(a.id)?ix.get(a.id):1e9+a.added)-(ix.has(b.id)?ix.get(b.id):1e9+b.added))};
+function libDrop(order){libOrder=order;store.set('af-orden',libOrder);render();if(queue.length&&!shuffle){const c=curId;queue=visible().map(s=>s.id);qi=queue.indexOf(c)}}
 const byId=id=>id==='demo'?DEMO:songs.find(s=>s.id===id);
 const curSong=()=>curId?byId(curId):null;
 const savePl=()=>store.set('af-playlists',playlists);
@@ -651,7 +652,7 @@ function songRow(s,onPlay,extra,ctx){
   cover(li.querySelector('.cover'),s);bindTilt(li,10);
   const m=li.querySelector('.meta');m.onclick=onPlay;m.onkeydown=e=>{if(e.key==='Enter')onPlay()};
   if(sel){li.onclick=e=>{if(e.target.closest('.handle'))return;e.stopPropagation();toggleSel(s.id)};m.onclick=null;markSel(li,s.id)}
-  if(!s.demo)longPress(li,()=>songMenu(s,ctx));
+  if(!s.demo)longPress(li,()=>songMenu(s,ctx),ctx?(o=>plDrop(ctx,o)):libDrop);
   return li;
 }
 
@@ -668,7 +669,7 @@ function render(){
     const g=document.createElement('div');g.className='grid';
     all.forEach((s,i)=>{const b=document.createElement('button');b.className='card glass'+(s.id===curId?' on':'');
       b.innerHTML='<div class="cover"></div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span>'+GL;
-      cover(b.querySelector('.cover'),s);bindTilt(b,22);b.dataset.id=s.id;b.onclick=()=>{if(sel){if(!s.demo)toggleSel(s.id);return}playFrom(ids,i)};if(!s.demo)longPress(b,()=>songMenu(s,null));if(sel&&!s.demo)markSel(b,s.id);g.appendChild(b)});
+      cover(b.querySelector('.cover'),s);bindTilt(b,22);b.dataset.id=s.id;b.onclick=()=>{if(sel){if(!s.demo)toggleSel(s.id);return}playFrom(ids,i)};if(!s.demo)longPress(b,()=>songMenu(s,null),libDrop);if(sel&&!s.demo)markSel(b,s.id);g.appendChild(b)});
     box.appendChild(g);
   }
   const em=$('#empty');
@@ -809,10 +810,9 @@ function renderPl(){
   const ids=n.map(s=>s.id);
   if(plLayout==='bloques'){n.forEach((s,i)=>{const li=document.createElement('li');li.className='card glass'+(s.id===curId?' on':'');li.dataset.id=s.id;
       li.innerHTML='<div class="cover"></div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span>'+GL;cover(li.querySelector('.cover'),s);bindTilt(li,22);
-      li.onclick=e=>{if(e.target.closest('.handle'))return;if(sel){toggleSel(s.id);return}playFrom(ids,i)};longPress(li,()=>songMenu(s,p.id));if(sel)markSel(li,s.id);
-      const h=document.createElement('button');h.className='handle gh';h.setAttribute('aria-label','Mover '+s.title);
-      h.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>';
-      gridDrag(h,li,p);li.appendChild(h);ul.appendChild(li)});return}
+      li.onclick=()=>{if(sel){toggleSel(s.id);return}playFrom(ids,i)};
+      longPress(li,()=>songMenu(s,p.id),o=>plDrop(p.id,o));if(sel)markSel(li,s.id);
+      ul.appendChild(li)});return}
   n.forEach((s,i)=>{const li=songRow(s,()=>playFrom(ids,i),'<button class="del" aria-label="Quitar '+esc(s.title)+' de la playlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 6l12 12M18 6 6 18"/></svg></button>',p.id);
     li.classList.add('drag');li.dataset.id=s.id;
     const h=document.createElement('button');h.className='handle';h.setAttribute('aria-label','Mover '+s.title+' (arrastra hacia arriba o abajo)');
@@ -823,26 +823,38 @@ function renderPl(){
     li.querySelector('.del').onclick=()=>{p.songs=p.songs.filter(x=>x!==s.id);savePl();renderPl()};ul.appendChild(li)});
 }
 /* ---------- Menú de la canción (mantener presionada) ---------- */
-function longPress(el,fn){let t,x=0,y=0,fired=false;
+/* Mantener presionada una canción: si sueltas sin mover, abre su menú; si la arrastras, cambia de lugar
+   (y ese lugar es el orden en que suena). onDrop recibe el nuevo orden de ids. */
+function longPress(el,fn,onDrop){let t,x=0,y=0,armed=false,drag=false,fired=false;
+  const ul=()=>el.parentNode,v=()=>el.closest('.view');
+  const flip=f=>{const items=[...ul().children],r0=items.map(i=>i.getBoundingClientRect());f();items.forEach((i,k)=>{const r=i.getBoundingClientRect(),dx=r0[k].left-r.left,dy=r0[k].top-r.top;
+    if((dx||dy)&&!RM&&i!==el)i.animate([{translate:dx+'px '+dy+'px'},{translate:'0 0'}],{duration:200,easing:'ease-out'})})};
+  const mv=e=>{if(!armed){if(Math.hypot(e.clientX-x,e.clientY-y)>10){clearTimeout(t);off()}return}
+    if(!onDrop||sel)return;if(!drag&&Math.hypot(e.clientX-x,e.clientY-y)<8)return;drag=true;
+    el.style.pointerEvents='none';const o=document.elementFromPoint(e.clientX,e.clientY);el.style.pointerEvents='';
+    const tg=o&&o.closest('[data-id]');if(tg&&tg!==el&&tg.parentNode===ul()){const it=[...ul().children],a=it.indexOf(el),b=it.indexOf(tg);flip(()=>ul().insertBefore(el,a<b?tg.nextSibling:tg))}
+    const vw=v();if(vw){const r=vw.getBoundingClientRect();if(e.clientY<r.top+80)vw.scrollTop-=10;else if(e.clientY>r.bottom-190)vw.scrollTop+=10}};
+  const up=()=>{clearTimeout(t);if(armed){el.classList.remove('lift');if(drag)onDrop([...ul().children].map(i=>i.dataset.id).filter(Boolean));else fn()}off()};
+  const off=()=>{armed=false;drag=false;document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up)};
   el.addEventListener('pointerdown',e=>{fired=false;if(e.button>0||e.target.closest('.handle,.del'))return;x=e.clientX;y=e.clientY;clearTimeout(t);
-    t=setTimeout(()=>{fired=true;el.classList.remove('act');try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}fn()},480)});
-  ['pointerup','pointercancel','pointerleave'].forEach(ev=>el.addEventListener(ev,()=>clearTimeout(t)));
-  el.addEventListener('pointermove',e=>{if(Math.hypot(e.clientX-x,e.clientY-y)>10)clearTimeout(t)});
+    document.addEventListener('pointermove',mv);document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up);
+    t=setTimeout(()=>{armed=true;fired=true;el.classList.remove('act');el.classList.add('lift');try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}},430)});
+  el.addEventListener('touchmove',e=>{if(armed&&e.cancelable)e.preventDefault()},{passive:false});
   el.addEventListener('click',e=>{if(fired){e.stopPropagation();e.preventDefault();fired=false}},true);
-  el.addEventListener('contextmenu',e=>{e.preventDefault();if(!fired){clearTimeout(t);fired=true;fn()}})}
+  el.addEventListener('contextmenu',e=>{e.preventDefault();if(e.pointerType==='mouse'||(!armed&&!fired&&e.button===2)){clearTimeout(t);off();fired=true;fn()}})}
 const IC={add:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h12M3 11h12M3 16h7"/><path d="M18 13v8M14 17h8"/></svg>',
   copy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>',
   rm:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h12M3 11h12M3 16h7"/><path d="M15 17h7"/></svg>',
   pl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h12M3 11h12M3 16h7"/><path d="M17 18V8l4-1"/><circle cx="15" cy="18" r="2.2"/></svg>'};
-let sheetFocus=null;
-function openSheet(html,bind){const sh=$('#sheet'),sc=$('#scrim'),wasOpen=!sh.hidden;$('#shIn').innerHTML=html;bind($('#shIn'));
+let sheetFocus=null,sheetAt=0;
+function openSheet(html,bind){const sh=$('#sheet'),sc=$('#scrim'),wasOpen=!sh.hidden;sheetAt=Date.now();$('#shIn').innerHTML=html;bind($('#shIn'));
   if(!wasOpen){sheetFocus=document.activeElement;sh.hidden=false;sc.hidden=false;
     if(!RM){sh.animate([{transform:'translateY(110%)'},{transform:'none'}],{duration:320,easing:'cubic-bezier(.2,.9,.25,1.1)'});sc.animate([{opacity:0},{opacity:1}],{duration:220})}}
   else if(!RM)$('#shIn').animate([{opacity:0,filter:'blur(6px)'},{opacity:1,filter:'blur(0)'}],{duration:220});
   const f=$('#shIn').querySelector('button');f&&f.focus({preventScroll:true})}
 function closeSheet(){const sh=$('#sheet'),sc=$('#scrim');if(sh.hidden)return;const fin=()=>{sh.hidden=true;sc.hidden=true;sheetFocus&&sheetFocus.focus&&sheetFocus.focus({preventScroll:true})};
   if(RM){fin();return}sh.animate([{transform:'none'},{transform:'translateY(110%)'}],{duration:220,easing:'ease-in'}).onfinish=fin;sc.animate([{opacity:1},{opacity:0}],{duration:220})}
-$('#scrim').onclick=closeSheet;document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
+$('#scrim').onclick=()=>{if(Date.now()-sheetAt>450)closeSheet()};document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
 function songMenu(s,ctx){if(sel){toggleSel(s.id);return}
   const inPls=playlists.filter(p=>p.songs.includes(s.id)),others=playlists.filter(p=>!p.songs.includes(s.id)),cur=ctx&&playlists.find(p=>p.id===ctx);
   const head='<div class="sh-head"><div class="cover"></div><div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span></div></div>';
@@ -947,18 +959,9 @@ function selAction(k,cur){const ids=selIds().filter(id=>sel.has(id)),n=ids.lengt
   else if(k==='del')openSheet('<div class="sh-head" style="grid-template-columns:1fr"><div><b>¿Borrar '+N+' de la app?</b><span>Se quitan de tu teléfono y de todas las playlists. No se puede deshacer.</span></div></div>'+
       '<button class="sh-btn warn" data-k="ok">'+ICON.trash+'<span>Sí, borrar '+N+'</span></button><button class="sh-btn ghost" data-k="x"><span>Cancelar</span></button>',el=>{
       el.querySelector('[data-k="x"]').onclick=closeSheet;el.querySelector('[data-k="ok"]').onclick=async()=>{closeSheet();for(const id of ids)await removeSong(id);endSel();ticket('CANCIONES BORRADAS',[['Borradas',N]])}})}
-/* En bloques: al arrastrar, la canción cambia de lugar con la que queda debajo del dedo. */
-function gridDrag(h,li,p){
-  h.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();const ul=li.parentNode,v=$('#v-pl');
-    li.classList.add('lift');try{navigator.vibrate&&navigator.vibrate(10)}catch(_){}
-    const flip=fn=>{const items=[...ul.children],r0=items.map(x=>x.getBoundingClientRect());fn();items.forEach((x,k)=>{const r=x.getBoundingClientRect(),dx=r0[k].left-r.left,dy=r0[k].top-r.top;
-      if((dx||dy)&&!RM)x.animate([{translate:dx+'px '+dy+'px'},{translate:'0 0'}],{duration:200,easing:'ease-out'})})};
-    const mv=ev=>{ev.preventDefault();li.style.pointerEvents='none';const el=document.elementFromPoint(ev.clientX,ev.clientY);li.style.pointerEvents='';
-      const t=el&&el.closest('#plSongs > li');if(t&&t!==li){const items=[...ul.children],a=items.indexOf(li),b=items.indexOf(t);flip(()=>ul.insertBefore(li,a<b?t.nextSibling:t))}
-      const r=v.getBoundingClientRect();if(ev.clientY<r.top+70)v.scrollTop-=8;else if(ev.clientY>r.bottom-170)v.scrollTop+=8};
-    const up=()=>{document.removeEventListener('pointermove',mv);document.removeEventListener('pointerup',up);document.removeEventListener('pointercancel',up);li.classList.remove('lift');
-      const order=[...ul.children].map(x=>x.dataset.id).filter(Boolean);p.songs=order.concat(p.songs.filter(x=>!order.includes(x)));savePl();renderPl()};
-    document.addEventListener('pointermove',mv,{passive:false});document.addEventListener('pointerup',up);document.addEventListener('pointercancel',up)})}
+function plDrop(id,order){const p=playlists.find(x=>x.id===id);if(!p)return;p.songs=order.concat(p.songs.filter(x=>!order.includes(x)));savePl();renderPl();plQueue(p)}
+/* Si esta playlist es la que suena, la cola sigue el nuevo orden. */
+function plQueue(p){if(!queue.length||shuffle)return;const ids=plSongs(p).map(s=>s.id);if(ids.length===queue.length&&ids.every(id=>queue.includes(id))){const c=curId;queue=ids;qi=queue.indexOf(c)}}
 document.querySelectorAll('#plSeg button[data-l]').forEach(b=>b.onclick=()=>{plLayout=b.dataset.l;store.set('af-vista-pl',plLayout);
   const ul=$('#plSongs');if(RM){renderPl();return}ul.animate([{opacity:1,filter:'blur(0)'},{opacity:0,filter:'blur(6px)'}],{duration:120}).onfinish=()=>{renderPl();ul.animate([{opacity:0,filter:'blur(6px)'},{opacity:1,filter:'blur(0)'}],{duration:220,easing:'ease-out'})}});
 /* Ordenar arrastrando la manija: la fila sigue al dedo y las demás se apartan. */
@@ -1066,7 +1069,7 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','31');if(pv&&pv!=='31')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 31']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','32');if(pv&&pv!=='32')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 32']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
