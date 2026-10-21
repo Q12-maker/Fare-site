@@ -10,6 +10,13 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -59,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -103,6 +111,8 @@ import kotlin.math.sign
 import kotlin.math.sin
 
 private val ES = Locale.forLanguageTag("es-CO")
+private const val HOME = 0
+private const val DRAWER = 1
 
 @Composable
 fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
@@ -117,7 +127,9 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
 
     val custom = remember { mutableStateListOf<Palette>().apply { addAll(prefs.customPalettes()) } }
     var palName by remember { mutableStateOf(prefs.str("palette", "Fare")) }
-    val pal = (StandardPalettes + custom).firstOrNull { it.name == palName } ?: StandardPalettes[0]
+    var preview by remember { mutableStateOf<Palette?>(null) }
+    val chosenPal = (StandardPalettes + custom).firstOrNull { it.name == palName } ?: StandardPalettes[0]
+    val pal = preview ?: chosenPal
 
     var mode by remember { mutableStateOf(prefs.str("mode", "bloques")) }
     var cols by remember { mutableIntStateOf(prefs.int("cols", 3)) }
@@ -128,7 +140,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     var settings by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<Weather?>(null) }
 
-    val pager = rememberPagerState(initialPage = 1) { 2 }
+    val pager = rememberPagerState(initialPage = HOME) { 2 }
     val focus = LocalFocusManager.current
     val tick by resumed.collectAsState()
     val home by homePressed.collectAsState()
@@ -154,16 +166,16 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
         }
     }
     LaunchedEffect(home) {
-        menuApp = null; settings = false; query = ""; focus.clearFocus()
-        pager.animateScrollToPage(1)
+        menuApp = null; settings = false; preview = null; query = ""; focus.clearFocus()
+        pager.animateScrollToPage(HOME)
     }
-    LaunchedEffect(pager.currentPage) { if (pager.currentPage == 1) { query = ""; focus.clearFocus() } }
+    LaunchedEffect(pager.currentPage) { if (pager.currentPage == HOME) { query = ""; focus.clearFocus() } }
 
     BackHandler {
         when {
             menuApp != null -> menuApp = null
-            settings -> settings = false
-            pager.currentPage != 1 -> scope.launch { pager.animateScrollToPage(1) }
+            settings -> { settings = false; preview = null }
+            pager.currentPage != HOME -> scope.launch { pager.animateScrollToPage(HOME) }
         }
     }
 
@@ -184,7 +196,9 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
         Box(Modifier.fillMaxSize().background(pal.amb)) {
             Backdrop()
             HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
-                if (page == 0) {
+              // Cada pantalla recorta lo suyo: nada del carrusel se cuela en el cajón
+              Box(Modifier.fillMaxSize().clipToBounds()) {
+                if (page == DRAWER) {
                     Drawer(
                         apps, query, { query = it }, mode,
                         { mode = it; prefs.putStr("mode", it) }, cols,
@@ -197,7 +211,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         carousel.mapNotNull { byKey[it] },
                         quick.map { byKey[it] },
                         open, { menuApp = it },
-                        onEmptyQuick = { scope.launch { pager.animateScrollToPage(0) } },
+                        onEmptyQuick = { scope.launch { pager.animateScrollToPage(DRAWER) } },
                         onClock = {
                             runCatching {
                                 ctx.startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -207,6 +221,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         onSettings = { settings = true },
                     )
                 }
+              }
             }
 
             menuApp?.let { app ->
@@ -237,10 +252,12 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
 
             if (settings) {
                 SettingsPanel(
-                    current = pal,
+                    current = chosenPal,
                     custom = custom,
-                    onPick = { palName = it.name; prefs.putStr("palette", it.name); print("PALETA", "Aplicada:", it.name) },
+                    onPreview = { preview = it },
+                    onPick = { preview = null; palName = it.name; prefs.putStr("palette", it.name); print("PALETA", "Aplicada:", it.name) },
                     onSave = { p ->
+                        preview = null
                         custom.removeAll { it.name == p.name }
                         custom.add(p); prefs.putCustomPalettes(custom)
                         palName = p.name; prefs.putStr("palette", p.name)
@@ -253,7 +270,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                     onHomeSettings = {
                         runCatching { ctx.startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                     },
-                    onDismiss = { settings = false },
+                    onDismiss = { settings = false; preview = null },
                 )
             }
 
@@ -382,7 +399,7 @@ fun Home(
 
         Carousel(carousel, onOpen, onLong)
         T(
-            "Desliza a la derecha para ver todas las apps", 11.sp,
+            "Desliza hacia la izquierda para ver todas las apps", 11.sp,
             Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 14.dp),
             color = pal.pri.copy(alpha = .45f), mono = true, align = TextAlign.Center
         )
@@ -684,6 +701,7 @@ fun AppMenu(
 fun SettingsPanel(
     current: Palette,
     custom: List<Palette>,
+    onPreview: (Palette?) -> Unit,
     onPick: (Palette) -> Unit,
     onSave: (Palette) -> Unit,
     onDelete: (Palette) -> Unit,
@@ -692,9 +710,12 @@ fun SettingsPanel(
 ) {
     val pal = LocalPal.current
     var name by remember { mutableStateOf("") }
-    var a by remember { mutableStateOf(current.amb.hex()) }
-    var b by remember { mutableStateOf(current.pri.hex()) }
-    var c by remember { mutableStateOf(current.sec.hex()) }
+    val draft = remember { mutableStateListOf(current.amb, current.pri, current.sec) }
+    var slot by remember { mutableIntStateOf(-1) }
+    fun edit(i: Int, c: Color) {
+        draft[i] = c
+        onPreview(Palette("", draft[0], draft[1], draft[2]))
+    }
     Sheet(onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState())) {
             T("Ajustes", 22.sp, weight = FontWeight.SemiBold)
@@ -710,23 +731,138 @@ fun SettingsPanel(
                     if (p in custom) T("Borrar", 13.sp, Modifier.clickable { onDelete(p) }.padding(6.dp), color = pal.pri.copy(alpha = .6f))
                 }
             }
-            T("Nueva paleta", 15.sp, Modifier.padding(top = 14.dp, bottom = 6.dp), weight = FontWeight.SemiBold)
-            Field("Nombre", name) { name = it }
-            Field("70% ambiente", a) { a = it }
-            Field("20% principal", b) { b = it }
-            Field("10% secundario", c) { c = it }
-            val pa = parseHex(a); val pb = parseHex(b); val pc = parseHex(c)
-            val ok = name.isNotBlank() && pa != null && pb != null && pc != null
+
+            T("Nueva paleta", 15.sp, Modifier.padding(top = 14.dp, bottom = 4.dp), weight = FontWeight.SemiBold)
+            T("Toca un color para elegirlo. La pantalla cambia mientras eliges.", 12.sp, Modifier.padding(bottom = 10.dp), color = pal.pri.copy(alpha = .6f), lines = 2)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                listOf("Ambiente" to "70%", "Principal" to "20%", "Secundario" to "10%").forEachIndexed { i, (label, pct) ->
+                    Column(
+                        Modifier.weight(1f)
+                            .glass(pal, cutShape(10.dp), strong = slot == i)
+                            .clickable { slot = if (slot == i) -1 else i }
+                            .padding(8.dp)
+                    ) {
+                        Box(Modifier.fillMaxWidth().height(38.dp).clip(cutShape(6.dp)).background(draft[i]).border(1.dp, pal.pri.copy(alpha = .3f), cutShape(6.dp)))
+                        Spacer(Modifier.height(6.dp))
+                        T(label, 12.sp, weight = FontWeight.SemiBold)
+                        T(pct, 11.sp, color = pal.pri.copy(alpha = .6f), mono = true)
+                    }
+                }
+            }
+            if (slot >= 0) {
+                key(slot) { ColorPicker(draft[slot]) { edit(slot, it) } }
+            }
+
+            Spacer(Modifier.height(12.dp))
+            Box(
+                Modifier.fillMaxWidth().glass(pal, cutShape(10.dp)).padding(horizontal = 12.dp, vertical = 11.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (name.isEmpty()) T("Nombre de la paleta", 15.sp, color = pal.pri.copy(alpha = .5f))
+                BasicTextField(
+                    name, { if (it.length <= 28) name = it }, Modifier.fillMaxWidth(), singleLine = true,
+                    textStyle = TextStyle(color = pal.pri, fontSize = 15.sp),
+                    cursorBrush = SolidColor(pal.pri)
+                )
+            }
+            val ok = name.isNotBlank()
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (pa != null && pb != null && pc != null) Swatch(Palette("", pa, pb, pc), Modifier.width(70.dp).height(22.dp))
+                Swatch(Palette("", draft[0], draft[1], draft[2]), Modifier.width(70.dp).height(22.dp))
                 Spacer(Modifier.weight(1f))
-                Chip(if (ok) "Guardar" else "Completa los campos", ok) {
-                    if (ok) { onSave(Palette(name.trim(), pa!!, pb!!, pc!!)); name = "" }
+                Chip(if (ok) "Guardar" else "Ponle un nombre", ok) {
+                    if (ok) { onSave(Palette(name.trim(), draft[0], draft[1], draft[2])); name = ""; slot = -1 }
                 }
             }
             Spacer(Modifier.height(18.dp))
             MenuItem("Elegir Launcher Fare como pantalla de inicio", onHomeSettings)
         }
+    }
+}
+
+/** Selector de color visual: cuadro de saturación/brillo, barra de tono y colores rápidos. */
+@Composable
+fun ColorPicker(initial: Color, onChange: (Color) -> Unit) {
+    val pal = LocalPal.current
+    val start = remember { FloatArray(3).also { android.graphics.Color.colorToHSV(initial.toArgb(), it) } }
+    var h by remember { mutableFloatStateOf(start[0]) }
+    var sat by remember { mutableFloatStateOf(start[1]) }
+    var v by remember { mutableFloatStateOf(start[2]) }
+    fun emit() = onChange(Color.hsv(h, sat, v))
+
+    Column(Modifier.padding(top = 12.dp)) {
+        // Cuadro: a la derecha más saturado, arriba más brillante
+        Box(
+            Modifier.fillMaxWidth().height(170.dp).clip(cutShape(12.dp))
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        fun set(p: Offset) {
+                            sat = (p.x / size.width).coerceIn(0f, 1f)
+                            v = 1f - (p.y / size.height).coerceIn(0f, 1f)
+                            emit()
+                        }
+                        down.consume(); set(down.position)
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            val c = ev.changes.firstOrNull() ?: break
+                            if (!c.pressed) break
+                            c.consume(); set(c.position)
+                        }
+                    }
+                }
+                .drawBehind {
+                    drawRect(Brush.horizontalGradient(listOf(Color.White, Color.hsv(h, 1f, 1f))))
+                    drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
+                    val c = Offset(sat * size.width, (1f - v) * size.height)
+                    drawCircle(Color.White, 11.dp.toPx(), c, style = Stroke(3.dp.toPx()))
+                    drawCircle(Color.Black.copy(alpha = .5f), 13.dp.toPx(), c, style = Stroke(1.dp.toPx()))
+                }
+        )
+        Spacer(Modifier.height(12.dp))
+        // Barra de tono
+        Box(
+            Modifier.fillMaxWidth().height(30.dp).clip(cutShape(8.dp))
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        fun set(p: Offset) {
+                            h = (p.x / size.width).coerceIn(0f, 1f) * 359.9f
+                            emit()
+                        }
+                        down.consume(); set(down.position)
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            val c = ev.changes.firstOrNull() ?: break
+                            if (!c.pressed) break
+                            c.consume(); set(c.position)
+                        }
+                    }
+                }
+                .drawBehind {
+                    drawRect(Brush.horizontalGradient(List(7) { Color.hsv(it * 60f % 360f, 1f, 1f) }))
+                    val x = h / 360f * size.width
+                    drawRect(Color.White, Offset(x - 3.dp.toPx(), 0f), androidx.compose.ui.geometry.Size(6.dp.toPx(), size.height), style = Stroke(2.dp.toPx()))
+                }
+        )
+        Spacer(Modifier.height(12.dp))
+        // Colores rápidos
+        val quick = listOf(
+            Color.Black, Color(0xFF050A06), Color(0xFF1F6B2A), Color(0xFF4BE36A), Color(0xFF8A8A8A), Color.White,
+            Color(0xFF0B1E3F), Color(0xFF3D7BFF), Color(0xFF7A1FA2), Color(0xFFE53935), Color(0xFFFF9800), Color(0xFFFFD54F),
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            quick.forEach { q ->
+                Box(
+                    Modifier.size(22.dp).clip(cutShape(5.dp)).background(q)
+                        .border(1.dp, pal.pri.copy(alpha = .4f), cutShape(5.dp))
+                        .clickable {
+                            val t = FloatArray(3).also { android.graphics.Color.colorToHSV(q.toArgb(), it) }
+                            h = t[0]; sat = t[1]; v = t[2]; emit()
+                        }
+                )
+            }
+        }
+        T(Color.hsv(h, sat, v).hex(), 12.sp, Modifier.padding(top = 8.dp), color = pal.pri.copy(alpha = .6f), mono = true)
     }
 }
 
@@ -736,20 +872,5 @@ fun Swatch(p: Palette, modifier: Modifier) {
         Box(Modifier.weight(7f).fillMaxSize().background(p.amb))
         Box(Modifier.weight(2f).fillMaxSize().background(p.pri))
         Box(Modifier.weight(1f).fillMaxSize().background(p.sec))
-    }
-}
-
-@Composable
-fun Field(label: String, value: String, onChange: (String) -> Unit) {
-    val pal = LocalPal.current
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        T(label, 13.sp, Modifier.width(120.dp), color = pal.pri.copy(alpha = .7f))
-        BasicTextField(
-            value, onChange,
-            Modifier.weight(1f).glass(pal, cutShape(6.dp)).padding(horizontal = 10.dp, vertical = 9.dp),
-            singleLine = true,
-            textStyle = TextStyle(color = pal.pri, fontSize = 15.sp, fontFamily = FontFamily.Monospace),
-            cursorBrush = SolidColor(pal.pri)
-        )
     }
 }
