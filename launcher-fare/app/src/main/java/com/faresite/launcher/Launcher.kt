@@ -51,6 +51,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -87,6 +88,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
@@ -634,54 +637,74 @@ fun Home(
                 }
             }
     ) {
-        Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.Top) {
-            Row(
-                Modifier.weight(1f).clickable(remember { MutableInteractionSource() }, null) { onWeather() }.padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                WeatherIcon(weather?.code ?: 0, Modifier.size(38.dp))
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    T(weather?.let { "${it.temp}°" } ?: "--°", 22.sp, weight = FontWeight.SemiBold)
-                    T(weather?.let { weatherText(it.code) } ?: "Clima", 12.sp, color = pal.pri.copy(alpha = .7f))
-                }
-            }
-        }
-
-        Spacer(Modifier.weight(.6f))
-        Column(
-            Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, null) { onClock() },
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                // Halo oscuro detrás para que la hora se lea sobre cualquier fondo
-                Box(
-                    Modifier.requiredSize(340.dp, 210.dp)
-                        .background(Brush.radialGradient(listOf(pal.amb.copy(alpha = .75f), pal.amb.copy(alpha = .35f), Color.Transparent)))
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    BasicText(
-                        hour,
-                        style = TextStyle(
-                            brush = Brush.verticalGradient(listOf(pal.pri, pal.pri.copy(alpha = .82f))),
-                            fontSize = 104.sp, fontWeight = FontWeight.Bold, letterSpacing = (-4).sp,
-                            shadow = Shadow(pal.pri.copy(alpha = .55f), Offset.Zero, 38f),
-                        )
-                    )
+        val land = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        @Composable
+        fun WeatherRow() {
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.Top) {
+                Row(
+                    Modifier.weight(1f).clickable(remember { MutableInteractionSource() }, null) { onWeather() }.padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    WeatherIcon(weather?.code ?: 0, Modifier.size(38.dp))
                     Spacer(Modifier.width(10.dp))
-                    Box(
-                        Modifier.clip(cutShape(8.dp)).background(pal.pri).padding(horizontal = 9.dp, vertical = 5.dp)
-                    ) {
-                        T(ampm, 17.sp, weight = FontWeight.Bold, color = pal.amb)
+                    Column {
+                        T(weather?.let { "${it.temp}°" } ?: "--°", 22.sp, weight = FontWeight.SemiBold)
+                        T(weather?.let { weatherText(it.code) } ?: "Clima", 12.sp, color = pal.pri.copy(alpha = .7f))
                     }
                 }
             }
-            T(date, 16.sp, Modifier.padding(top = 2.dp), weight = FontWeight.Medium, color = pal.pri.copy(alpha = .85f))
         }
-        Spacer(Modifier.weight(1f))
-
-        Carousel(carousel, onOpen, onLong, onMove)
-        Spacer(Modifier.height(14.dp))
+        @Composable
+        fun Clock() {
+            Column(
+                Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, null) { onClock() },
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    // Halo oscuro detrás para que la hora se lea sobre cualquier fondo
+                    Box(
+                        Modifier.requiredSize(340.dp, 210.dp)
+                            .background(Brush.radialGradient(listOf(pal.amb.copy(alpha = .75f), pal.amb.copy(alpha = .35f), Color.Transparent)))
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        BasicText(
+                            hour,
+                            style = TextStyle(
+                                brush = Brush.verticalGradient(listOf(pal.pri, pal.pri.copy(alpha = .82f))),
+                                fontSize = 104.sp, fontWeight = FontWeight.Bold, letterSpacing = (-4).sp,
+                                shadow = Shadow(pal.pri.copy(alpha = .55f), Offset.Zero, 38f),
+                            )
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Box(
+                            Modifier.clip(cutShape(8.dp)).background(pal.pri).padding(horizontal = 9.dp, vertical = 5.dp)
+                        ) {
+                            T(ampm, 17.sp, weight = FontWeight.Bold, color = pal.amb)
+                        }
+                    }
+                }
+                T(date, 16.sp, Modifier.padding(top = 2.dp), weight = FontWeight.Medium, color = pal.pri.copy(alpha = .85f))
+            }
+        }
+        if (land) {
+            // Horizontal: hora a la izquierda y carrusel a la derecha, a toda la altura
+            Row(Modifier.fillMaxSize()) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    WeatherRow()
+                    Spacer(Modifier.weight(.5f))
+                    Clock()
+                    Spacer(Modifier.weight(1f))
+                }
+                Carousel(carousel, onOpen, onLong, onMove, Modifier.weight(1.2f).fillMaxHeight().padding(vertical = 8.dp))
+            }
+        } else {
+            WeatherRow()
+            Spacer(Modifier.weight(.6f))
+            Clock()
+            Spacer(Modifier.weight(1f))
+            Carousel(carousel, onOpen, onLong, onMove)
+            Spacer(Modifier.height(14.dp))
+        }
     }
 }
 
@@ -704,6 +727,7 @@ fun Carousel(
     onOpen: (AppEntry) -> Unit,
     onLong: (AppEntry) -> Unit,
     onMove: (from: AppEntry, to: AppEntry) -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth().height(440.dp),
 ) {
     val pal = LocalPal.current
     if (items.isEmpty()) {
@@ -731,9 +755,10 @@ fun Carousel(
     }
     val density = LocalDensity.current
 
-    BoxWithConstraints(Modifier.fillMaxWidth().height(400.dp)) {
-        val cardW = minOf(maxWidth * .66f, 290.dp)
-        val cardH = cardW * 1.3f
+    BoxWithConstraints(modifier) {
+        // Lo más ancha posible sin pasarse del alto disponible
+        val cardW = minOf(maxWidth * .8f, 340.dp, maxHeight * .94f / 1.25f)
+        val cardH = cardW * 1.25f
         val cardPx = with(density) { cardW.toPx() }
         val step = cardPx * .7f
         fun settle() {
