@@ -425,6 +425,13 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                     inCarousel = app.key in carousel,
                     quickSlot = quick.indexOf(app.key),
                     canNewFolder = app.key !in carousel && groups.none { app.key in it.keys },
+                    folderName = groups.firstOrNull { app.key in it.keys }?.name,
+                    onRemoveFromFolder = {
+                        groups.filter { app.key in it.keys }.forEach { setGroup(it.copy(keys = it.keys - app.key)) }
+                        if (openGroup != null && groups.none { it.id == openGroup }) openGroup = null
+                        menuApp = null
+                        print("CARPETA", "Sacada:", app.label)
+                    },
                     onNewFolder = {
                         val used = groups.mapNotNull { it.name.removePrefix("Carpeta ").toIntOrNull() }.toSet()
                         val name = "Carpeta ${generateSequence(1) { it + 1 }.first { it !in used }}"
@@ -1498,6 +1505,8 @@ fun AppMenu(
     onQuick: (Int) -> Unit,
     canNewFolder: Boolean = false,
     onNewFolder: () -> Unit = {},
+    folderName: String? = null,
+    onRemoveFromFolder: () -> Unit = {},
     onInfo: () -> Unit,
     onUninstall: () -> Unit,
 ) {
@@ -1511,6 +1520,7 @@ fun AppMenu(
         Spacer(Modifier.height(10.dp))
         MenuItem(if (inCarousel) "Quitar del carrusel" else "Añadir al carrusel", onToggleCarousel)
         if (canNewFolder) MenuItem("Crear carpeta con esta app", onNewFolder)
+        if (folderName != null) MenuItem("Quitar de la carpeta \"$folderName\"", onRemoveFromFolder)
         MenuItem("Información de la app", onInfo)
         MenuItem("Desinstalar", onUninstall)
     }
