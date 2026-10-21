@@ -14,6 +14,7 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.ui.input.pointer.changedToDown
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.runtime.withFrameNanos
@@ -310,9 +311,11 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                     Home(
                         weather,
                         carousel.mapNotNull { byKey[it] },
-                        quick.map { byKey[it] },
                         open, { menuApp = it },
-                        onEmptyQuick = { scope.launch { pager.animateScrollToPage(DRAWER) } },
+                        onMove = { f, t ->
+                            val i = carousel.indexOf(f.key); val j = carousel.indexOf(t.key)
+                            if (i >= 0 && j >= 0) { carousel[i] = t.key; carousel[j] = f.key; saveCarousel() }
+                        },
                         onClock = {
                             runCatching {
                                 ctx.startActivity(Intent(AlarmClock.ACTION_SHOW_ALARMS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -548,10 +551,9 @@ fun NetworkBackground(color: Color) {
 fun Home(
     weather: Weather?,
     carousel: List<AppEntry>,
-    quick: List<AppEntry?>,
     onOpen: (AppEntry) -> Unit,
     onLong: (AppEntry) -> Unit,
-    onEmptyQuick: () -> Unit,
+    onMove: (AppEntry, AppEntry) -> Unit,
     onClock: () -> Unit,
     onWeather: () -> Unit,
     onSettings: () -> Unit,
@@ -603,19 +605,6 @@ fun Home(
                     T(weather?.let { weatherText(it.code) } ?: "Clima", 12.sp, color = pal.pri.copy(alpha = .7f))
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                quick.forEachIndexed { i, app ->
-                    key(i, app?.key) {
-                        TiltCard(
-                            Modifier.size(56.dp), cutShape(12.dp), maxDeg = 18f,
-                            onClick = { if (app != null) onOpen(app) else onEmptyQuick() },
-                            onLongClick = app?.let { { onLong(it) } }
-                        ) {
-                            if (app != null) AppIcon(app.icon, 32.dp) else T("+", 22.sp, color = pal.pri.copy(alpha = .6f))
-                        }
-                    }
-                }
-            }
         }
 
         Spacer(Modifier.weight(.6f))
@@ -632,12 +621,8 @@ fun Home(
         }
         Spacer(Modifier.weight(1f))
 
-        Carousel(carousel, onOpen, onLong)
-        T(
-            "Desliza hacia la izquierda para ver todas las apps", 11.sp,
-            Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 14.dp),
-            color = pal.pri.copy(alpha = .45f), mono = true, align = TextAlign.Center
-        )
+        Carousel(carousel, onOpen, onLong, onMove)
+        Spacer(Modifier.height(14.dp))
     }
 }
 
@@ -646,10 +631,21 @@ fun AppIcon(icon: ImageBitmap, size: Dp) {
     Image(icon, null, Modifier.size(size))
 }
 
-/* ---------- Glassy carousel con tilt 3D, glare y sway ---------- */
+/* ---------- Carrusel en abanico: paneles de vidrio inclinados con tilt 3D, glare y sway ---------- */
+
+/** Panel inclinado como "/" (paralelogramo), estilo del carrusel. */
+val SlantShape = GenericShape { size, _ ->
+    val s = size.width * .16f
+    moveTo(s, 0f); lineTo(size.width, 0f); lineTo(size.width - s, size.height); lineTo(0f, size.height); close()
+}
 
 @Composable
-fun Carousel(items: List<AppEntry>, onOpen: (AppEntry) -> Unit, onLong: (AppEntry) -> Unit) {
+fun Carousel(
+    items: List<AppEntry>,
+    onOpen: (AppEntry) -> Unit,
+    onLong: (AppEntry) -> Unit,
+    onMove: (from: AppEntry, to: AppEntry) -> Unit,
+) {
     val pal = LocalPal.current
     if (items.isEmpty()) {
         Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
@@ -661,16 +657,22 @@ fun Carousel(items: List<AppEntry>, onOpen: (AppEntry) -> Unit, onLong: (AppEntr
     val pos = remember { Animatable(0f) }
     val lastDx = remember { floatArrayOf(0f) }
     val n = items.size
+    val list by rememberUpdatedState(items)
+    // Ventana que se está moviendo de lugar (mantener oprimida y arrastrar)
+    var moving by remember { mutableStateOf<String?>(null) }
+    var moveDx by remember { mutableFloatStateOf(0f) }
+    val moveStart = remember { floatArrayOf(Float.NaN) }
     LaunchedEffect(n) { if (pos.value > n - 1) pos.snapTo((n - 1).toFloat()) }
-    // Tick de cristal cada vez que pasa una ventana por el centro
     LaunchedEffect(Unit) {
         snapshotFlow { pos.value.roundToInt() }.distinctUntilChanged().drop(1).collect { Sfx.play(Sfx.TICK, .35f) }
     }
     val density = LocalDensity.current
 
-    BoxWithConstraints(Modifier.fillMaxWidth().height(390.dp)) {
-        val cardW = minOf(maxWidth * .66f, 300.dp)
+    BoxWithConstraints(Modifier.fillMaxWidth().height(400.dp)) {
+        val cardW = minOf(maxWidth * .56f, 250.dp)
+        val cardH = cardW * 1.45f
         val cardPx = with(density) { cardW.toPx() }
+        val step = cardPx * .66f
         fun settle() {
             val target = (pos.value - sign(lastDx[0]) * .2f).roundToInt().coerceIn(0, n - 1)
             scope.launch { pos.animateTo(target.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
@@ -680,7 +682,7 @@ fun Carousel(items: List<AppEntry>, onOpen: (AppEntry) -> Unit, onLong: (AppEntr
                 detectHorizontalDragGestures(onDragEnd = { settle() }, onDragCancel = { settle() }) { ch, dx ->
                     ch.consume()
                     lastDx[0] = dx
-                    scope.launch { pos.snapTo((pos.value - dx / (cardPx * .62f)).coerceIn(-.35f, n - 1 + .35f)) }
+                    scope.launch { pos.snapTo((pos.value - dx / step).coerceIn(-.35f, n - 1 + .35f)) }
                 }
             },
             contentAlignment = Alignment.Center
@@ -688,42 +690,76 @@ fun Carousel(items: List<AppEntry>, onOpen: (AppEntry) -> Unit, onLong: (AppEntr
             items.forEachIndexed { i, app ->
                 val off = i - pos.value
                 val a = abs(off)
-                if (a < 2.6f) key(app.key) {
-                    val sc = 1f - minOf(a, 2f) * .2f
+                val isMoving = moving == app.key
+                if (a < 4.2f) key(app.key) {
+                    val near = minOf(a, 1f)
+                    val far = (a - 1f).coerceAtLeast(0f)
+                    val sc = 1f - near * .2f - far * .07f
                     val tint = app.color ?: pal.pri
                     Box(
                         Modifier
-                            .zIndex(-a)
+                            .zIndex(if (isMoving) 10f else -a)
                             .graphicsLayer {
-                                translationX = off * cardPx * .6f
-                                scaleX = sc; scaleY = sc
-                                alpha = (1f - (a - 1.6f).coerceAtLeast(0f)).coerceIn(0f, 1f)
+                                translationX = sign(off) * (near * .66f + far * .3f) * cardPx + if (isMoving) moveDx else 0f
+                                translationY = if (isMoving) -18.dp.toPx() else 0f
+                                scaleX = sc * (1f - near * .22f); scaleY = sc
+                                rotationY = -off.coerceIn(-1f, 1f) * 16f
+                                cameraDistance = 14f * density.density
+                                alpha = (1f - (a - 3.2f).coerceAtLeast(0f)).coerceIn(0f, 1f)
                             }
-                            .width(cardW).height(cardW * 1.15f),
+                            .width(cardW).height(cardH),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Aura del color de la app detrás de la ventana
+                        // Aura del color de la app detrás de la ventana del centro
                         Box(
-                            Modifier.requiredSize(cardW * 1.7f).alpha((1f - a).coerceIn(0f, 1f) * .9f)
+                            Modifier.requiredSize(cardW * 1.8f).alpha((1f - a).coerceIn(0f, 1f) * .9f)
                                 .background(Brush.radialGradient(listOf(tint.copy(alpha = .55f), tint.copy(alpha = .18f), Color.Transparent)))
                         )
                         TiltCard(
                             Modifier.fillMaxSize(),
-                            cutShape(30.dp),
-                            maxDeg = 26f,
+                            SlantShape,
+                            maxDeg = 22f,
                             idle = a < .5f,
                             tint = app.color,
                             liquid = true,
+                            selected = isMoving,
                             onClick = {
                                 if (a < .5f) onOpen(app)
                                 else scope.launch { pos.animateTo(i.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
                             },
-                            onLongClick = { onLong(app) }
+                            longDrag = LongDrag(
+                                onStart = { moving = app.key; moveDx = 0f; moveStart[0] = Float.NaN; Sfx.play(Sfx.OPEN, .3f) },
+                                onMove = { p ->
+                                    if (moveStart[0].isNaN()) moveStart[0] = p.x - moveDx
+                                    moveDx = p.x - moveStart[0]
+                                    // Al pasar media ventana cambia de lugar con la vecina
+                                    val cur = list.indexOfFirst { it.key == app.key }
+                                    val dir = if (moveDx > step * .5f) 1 else if (moveDx < -step * .5f) -1 else 0
+                                    val to = cur + dir
+                                    if (dir != 0 && cur >= 0 && to in list.indices) {
+                                        onMove(list[cur], list[to])
+                                        moveStart[0] += dir * step
+                                        moveDx -= dir * step
+                                    }
+                                },
+                                onEnd = { dragged ->
+                                    moving = null; moveDx = 0f
+                                    if (!dragged) onLong(app)
+                                    val at = list.indexOfFirst { it.key == app.key }.coerceAtLeast(0)
+                                    scope.launch { pos.animateTo(at.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
+                                }
+                            ),
                         ) {
+                            // "Foto" del panel: degradado del color de la app con el ícono grande
+                            Box(
+                                Modifier.fillMaxSize().background(
+                                    Brush.verticalGradient(listOf(tint.copy(alpha = .5f), tint.copy(alpha = .22f), pal.amb.copy(alpha = .35f)))
+                                )
+                            )
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                AppIcon(app.icon, cardW * .44f)
-                                Spacer(Modifier.height(18.dp))
-                                T(app.label, 19.sp, Modifier.padding(horizontal = 14.dp), weight = FontWeight.SemiBold, align = TextAlign.Center)
+                                AppIcon(app.icon, cardW * .42f)
+                                Spacer(Modifier.height(16.dp))
+                                T(app.label, 18.sp, Modifier.padding(horizontal = 22.dp), weight = FontWeight.SemiBold, align = TextAlign.Center)
                             }
                         }
                     }
@@ -1182,12 +1218,6 @@ fun AppMenu(
         }
         Spacer(Modifier.height(10.dp))
         MenuItem(if (inCarousel) "Quitar del carrusel" else "Añadir al carrusel", onToggleCarousel)
-        T("Bloques pequeños de arriba", 12.sp, Modifier.padding(top = 8.dp, bottom = 6.dp), color = pal.pri.copy(alpha = .6f), mono = true)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            for (s in 0..2) Chip("${s + 1}", quickSlot == s) { onQuick(s) }
-            if (quickSlot >= 0) Chip("Quitar", false) { onQuick(-1) }
-        }
-        Spacer(Modifier.height(6.dp))
         MenuItem("Información de la app", onInfo)
         MenuItem("Desinstalar", onUninstall)
     }
