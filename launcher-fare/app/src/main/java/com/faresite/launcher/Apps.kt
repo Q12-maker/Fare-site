@@ -5,7 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.graphics.Bitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import org.json.JSONObject
@@ -15,7 +20,7 @@ import java.net.URL
 /** Carpeta de apps: se forma arrastrando una app encima de otra en el cajón. */
 data class AppGroup(val id: String, val name: String, val keys: List<String>)
 
-class AppEntry(val label: String, val pkg: String, val activity: String, val icon: ImageBitmap) {
+class AppEntry(val label: String, val pkg: String, val activity: String, val icon: ImageBitmap, val color: Color?) {
     val key get() = "$pkg/$activity"
 }
 
@@ -26,15 +31,38 @@ fun loadApps(ctx: Context): List<AppEntry> {
     return pm.queryIntentActivities(intent, 0)
         .filter { it.activityInfo.packageName != ctx.packageName }
         .map { ri ->
+            val bmp = ri.loadIcon(pm).toBitmap(192, 192)
             AppEntry(
                 ri.loadLabel(pm).toString(),
                 ri.activityInfo.packageName,
                 ri.activityInfo.name,
-                ri.loadIcon(pm).toBitmap(192, 192).asImageBitmap()
+                bmp.asImageBitmap(),
+                runCatching { dominantColor(bmp) }.getOrNull()
             )
         }
         .distinctBy { it.key }
         .sortedBy { it.label.lowercase() }
+}
+
+/** Color principal del ícono (el más vivo), para teñir la ventana y su aura. */
+fun dominantColor(src: Bitmap): Color? {
+    val b = Bitmap.createScaledBitmap(src, 24, 24, true)
+    var x = 0.0; var y = 0.0; var ws = 0.0; var wv = 0.0; var total = 0.0
+    val hsv = FloatArray(3)
+    for (i in 0 until 24) for (j in 0 until 24) {
+        val c = b.getPixel(i, j)
+        if (android.graphics.Color.alpha(c) < 200) continue
+        android.graphics.Color.colorToHSV(c, hsv)
+        val w = (hsv[1] * hsv[2]).toDouble()
+        if (w < .15) continue
+        val rad = Math.toRadians(hsv[0].toDouble())
+        x += cos(rad) * w; y += sin(rad) * w
+        ws += hsv[1] * w; wv += hsv[2] * w; total += w
+    }
+    if (total < 3.0) return null
+    var hue = Math.toDegrees(atan2(y, x)).toFloat()
+    if (hue < 0) hue += 360f
+    return Color.hsv(hue, (ws / total).toFloat().coerceIn(.55f, 1f), (wv / total).toFloat().coerceIn(.75f, 1f))
 }
 
 fun launchApp(ctx: Context, app: AppEntry) {

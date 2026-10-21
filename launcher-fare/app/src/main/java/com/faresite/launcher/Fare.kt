@@ -84,21 +84,22 @@ fun parseHex(s: String): Color? {
 fun cutShape(cut: Dp): Shape = CutCornerShape(topStart = cut, topEnd = 0.dp, bottomEnd = cut, bottomStart = 0.dp)
 
 /** Vidrio claro: casi sin tinte, borde fino con brillo, esquinas cortadas. */
-fun Modifier.glass(pal: Palette, shape: Shape, strong: Boolean = false): Modifier = this
+fun Modifier.glass(pal: Palette, shape: Shape, strong: Boolean = false, tint: Color? = null): Modifier = this
     .clip(shape)
     .background(
         Brush.linearGradient(
-            listOf(
+            if (tint == null) listOf(
                 pal.pri.copy(alpha = if (strong) .16f else .09f),
                 pal.pri.copy(alpha = .02f),
                 pal.sec.copy(alpha = if (strong) .14f else .07f),
-            )
+            ) else listOf(tint.copy(alpha = .42f), tint.copy(alpha = .10f), tint.copy(alpha = .28f))
         )
     )
     .border(
-        1.dp,
+        if (tint == null) 1.dp else 1.5.dp,
         Brush.linearGradient(
-            listOf(pal.pri.copy(alpha = .60f), pal.pri.copy(alpha = .06f), pal.pri.copy(alpha = .40f))
+            if (tint == null) listOf(pal.pri.copy(alpha = .60f), pal.pri.copy(alpha = .06f), pal.pri.copy(alpha = .40f))
+            else listOf(Color.White.copy(alpha = .75f), tint.copy(alpha = .25f), tint.copy(alpha = .85f))
         ),
         shape
     )
@@ -140,6 +141,8 @@ fun TiltCard(
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
     longDrag: LongDrag? = null,
+    tint: Color? = null,
+    liquid: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val pal = LocalPal.current
@@ -164,12 +167,16 @@ fun TiltCard(
     val gx = s.gx * (1 - blend) + tx * blend
     val gy = s.gy * (1 - blend) + ty * blend
     val glareA = (if (idle) .55f else 0f) * (1 - blend) + .75f * blend
+    // Liquid glass: se aplasta un poco al tocarlo
+    val squash by animateFloatAsState(if (liquid && touching) 1f else 0f, spring(dampingRatio = .45f, stiffness = 600f), label = "squash")
 
     Box(
         modifier
             .graphicsLayer {
                 rotationX = rx
                 rotationY = ry
+                scaleX = 1f + .04f * squash
+                scaleY = 1f - .05f * squash
                 cameraDistance = 10f * density
             }
             .onGloballyPositioned { coords[0] = it }
@@ -221,12 +228,23 @@ fun TiltCard(
                         track()
                     }
                     touching = false
-                    if (!moved && !longFired) click()
+                    if (!moved && !longFired) { Sfx.play(Sfx.TAP); click() }
                 }
             }
-            .glass(pal, shape)
+            .glass(pal, shape, tint = tint)
             .drawWithContent {
                 drawContent()
+                if (liquid) {
+                    // Brillo de vidrio líquido: banda clara arriba y borde inferior iluminado
+                    drawRect(
+                        Brush.verticalGradient(
+                            0f to Color.White.copy(alpha = .30f), .28f to Color.White.copy(alpha = .06f), .5f to Color.Transparent
+                        )
+                    )
+                    drawRect(
+                        Brush.verticalGradient(.82f to Color.Transparent, 1f to (tint ?: pal.pri).copy(alpha = .35f))
+                    )
+                }
                 // Glare: luz que sigue el dedo (o el balanceo)
                 drawRect(
                     Brush.radialGradient(

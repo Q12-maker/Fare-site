@@ -10,6 +10,10 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.requiredSize
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -146,6 +150,12 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     var menuApp by remember { mutableStateOf<AppEntry?>(null) }
     var settings by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<Weather?>(null) }
+    var notifOpen by remember { mutableStateOf(false) }
+    var controlOpen by remember { mutableStateOf(false) }
+    var nmode by remember { mutableStateOf(prefs.str("nmode", "bloques")) }
+    var sounds by remember { mutableStateOf(prefs.str("sounds", "si") == "si") }
+    remember { Sfx.init(ctx); 0 }
+    Sfx.enabled = sounds
     val groups = remember { mutableStateListOf<AppGroup>().apply { addAll(prefs.groups()) } }
     var openGroup by remember { mutableStateOf<String?>(null) }
     var update by remember { mutableStateOf<Updater.Update?>(null) }
@@ -222,13 +232,25 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
         }
     }
     LaunchedEffect(home) {
-        menuApp = null; settings = false; openGroup = null; preview = null; query = ""; focus.clearFocus()
+        menuApp = null; settings = false; openGroup = null; notifOpen = false; controlOpen = false; preview = null; query = ""; focus.clearFocus()
         pager.animateScrollToPage(HOME)
     }
     LaunchedEffect(pager.currentPage) { if (pager.currentPage == HOME) { query = ""; focus.clearFocus() } }
+    LaunchedEffect(Unit) {
+        snapshotFlow { pager.currentPage }.drop(1).collect { Sfx.play(Sfx.SWIPE, .5f) }
+    }
+    // Notificaciones nuevas salen impresas como recibo
+    LaunchedEffect(Unit) {
+        FareNotifications.posted.collect { n ->
+            val label = apps.firstOrNull { it.pkg == n.pkg }?.label ?: n.pkg.substringAfterLast('.')
+            print(label.uppercase().take(22), *listOf(n.title, n.text).filter { it.isNotBlank() }.map { it.take(60) }.toTypedArray())
+        }
+    }
 
     BackHandler {
         when {
+            controlOpen -> controlOpen = false
+            notifOpen -> notifOpen = false
             menuApp != null -> menuApp = null
             openGroup != null -> openGroup = null
             settings -> { settings = false; preview = null }
@@ -257,7 +279,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
               Box(Modifier.fillMaxSize().clipToBounds()) {
                 if (page == DRAWER) {
                     Drawer(
-                        apps, groups, query, { query = it }, mode,
+                        apps, groups, query, { if (it.length != query.length) Sfx.play(Sfx.KEY, .35f); query = it }, mode,
                         { mode = it; prefs.putStr("mode", it) }, cols,
                         { cols = it; prefs.putInt("cols", it) },
                         open, { menuApp = it },
@@ -279,6 +301,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         },
                         onWeather = { scope.launch { weather = withContext(Dispatchers.IO) { fetchWeather() } ?: weather } },
                         onSettings = { settings = true },
+                        onNotifs = { notifOpen = true; Sfx.play(Sfx.OPEN, .45f) },
+                        onControl = { controlOpen = true; Sfx.play(Sfx.OPEN, .45f) },
                     )
                 }
               }
@@ -358,6 +382,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         custom.remove(p); prefs.putCustomPalettes(custom)
                         if (palName == p.name) { palName = "Fare"; prefs.putStr("palette", "Fare") }
                     },
+                    sounds = sounds,
+                    onSounds = { sounds = it; prefs.putStr("sounds", if (it) "si" else "no") },
                     version = version,
                     onCheckUpdate = { scope.launch { checkUpdate(true) } },
                     onHomeSettings = {
@@ -365,6 +391,13 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                     },
                     onDismiss = { settings = false; preview = null },
                 )
+            }
+
+            if (notifOpen) {
+                NotificationPanel(byKey.values.associateBy { it.pkg }, nmode, { nmode = it; prefs.putStr("nmode", it) }) { notifOpen = false }
+            }
+            if (controlOpen) {
+                ControlCenter(onClose = { controlOpen = false }, onNotice = { t, l -> print(t, l) })
             }
 
             ReceiptPrinter(receipt) { receipt = null }
@@ -432,6 +465,8 @@ fun Home(
     onClock: () -> Unit,
     onWeather: () -> Unit,
     onSettings: () -> Unit,
+    onNotifs: () -> Unit,
+    onControl: () -> Unit,
 ) {
     val pal = LocalPal.current
     var now by remember { mutableStateOf(Date()) }
@@ -448,6 +483,23 @@ fun Home(
 
     Column(
         Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 20.dp)
+            .pointerInput(Unit) {
+                // Deslizar hacia abajo: a la derecha abre el centro de control, en el resto las notificaciones
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val limit = 56.dp.toPx()
+                    while (true) {
+                        val ev = awaitPointerEvent()
+                        val c = ev.changes.firstOrNull() ?: break
+                        if (!c.pressed || c.isConsumed) break
+                        val d = c.position - down.position
+                        if (d.y > limit && d.y > abs(d.x) * 1.5f) {
+                            if (down.position.x > size.width * .6f) onControl() else onNotifs()
+                            break
+                        }
+                    }
+                }
+            }
     ) {
         Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.Top) {
             Row(
@@ -520,10 +572,14 @@ fun Carousel(items: List<AppEntry>, onOpen: (AppEntry) -> Unit, onLong: (AppEntr
     val lastDx = remember { floatArrayOf(0f) }
     val n = items.size
     LaunchedEffect(n) { if (pos.value > n - 1) pos.snapTo((n - 1).toFloat()) }
+    // Tick de cristal cada vez que pasa una ventana por el centro
+    LaunchedEffect(Unit) {
+        snapshotFlow { pos.value.roundToInt() }.distinctUntilChanged().drop(1).collect { Sfx.play(Sfx.TICK, .35f) }
+    }
     val density = LocalDensity.current
 
-    BoxWithConstraints(Modifier.fillMaxWidth().height(310.dp)) {
-        val cardW = minOf(maxWidth * .56f, 250.dp)
+    BoxWithConstraints(Modifier.fillMaxWidth().height(390.dp)) {
+        val cardW = minOf(maxWidth * .66f, 300.dp)
         val cardPx = with(density) { cardW.toPx() }
         fun settle() {
             val target = (pos.value - sign(lastDx[0]) * .2f).roundToInt().coerceIn(0, n - 1)
@@ -543,29 +599,42 @@ fun Carousel(items: List<AppEntry>, onOpen: (AppEntry) -> Unit, onLong: (AppEntr
                 val off = i - pos.value
                 val a = abs(off)
                 if (a < 2.6f) key(app.key) {
-                    val s = 1f - minOf(a, 2f) * .17f
-                    TiltCard(
+                    val sc = 1f - minOf(a, 2f) * .2f
+                    val tint = app.color ?: pal.pri
+                    Box(
                         Modifier
                             .zIndex(-a)
                             .graphicsLayer {
-                                translationX = off * cardPx * .62f
-                                scaleX = s; scaleY = s
+                                translationX = off * cardPx * .6f
+                                scaleX = sc; scaleY = sc
                                 alpha = (1f - (a - 1.6f).coerceAtLeast(0f)).coerceIn(0f, 1f)
                             }
-                            .width(cardW).height(cardW * 1.12f),
-                        cutShape(26.dp),
-                        maxDeg = 28f,
-                        idle = a < .5f,
-                        onClick = {
-                            if (a < .5f) onOpen(app)
-                            else scope.launch { pos.animateTo(i.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
-                        },
-                        onLongClick = { onLong(app) }
+                            .width(cardW).height(cardW * 1.15f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            AppIcon(app.icon, cardW * .42f)
-                            Spacer(Modifier.height(16.dp))
-                            T(app.label, 17.sp, Modifier.padding(horizontal = 14.dp), weight = FontWeight.SemiBold, align = TextAlign.Center)
+                        // Aura del color de la app detrás de la ventana
+                        Box(
+                            Modifier.requiredSize(cardW * 1.7f).alpha((1f - a).coerceIn(0f, 1f) * .9f)
+                                .background(Brush.radialGradient(listOf(tint.copy(alpha = .55f), tint.copy(alpha = .18f), Color.Transparent)))
+                        )
+                        TiltCard(
+                            Modifier.fillMaxSize(),
+                            cutShape(30.dp),
+                            maxDeg = 26f,
+                            idle = a < .5f,
+                            tint = app.color,
+                            liquid = true,
+                            onClick = {
+                                if (a < .5f) onOpen(app)
+                                else scope.launch { pos.animateTo(i.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
+                            },
+                            onLongClick = { onLong(app) }
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                AppIcon(app.icon, cardW * .44f)
+                                Spacer(Modifier.height(18.dp))
+                                T(app.label, 19.sp, Modifier.padding(horizontal = 14.dp), weight = FontWeight.SemiBold, align = TextAlign.Center)
+                            }
                         }
                     }
                 }
@@ -978,6 +1047,8 @@ fun SettingsPanel(
     onPick: (Palette) -> Unit,
     onSave: (Palette) -> Unit,
     onDelete: (Palette) -> Unit,
+    sounds: Boolean,
+    onSounds: (Boolean) -> Unit,
     version: Int,
     onCheckUpdate: () -> Unit,
     onHomeSettings: () -> Unit,
@@ -1050,6 +1121,11 @@ fun SettingsPanel(
             }
             Spacer(Modifier.height(18.dp))
             MenuItem("Elegir Launcher Fare como pantalla de inicio", onHomeSettings)
+            Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                T("Sonidos", 16.sp, Modifier.weight(1f))
+                Chip("Sí", sounds) { onSounds(true) }
+                Chip("No", !sounds) { onSounds(false) }
+            }
             MenuItem("Buscar actualización", onCheckUpdate)
             T("Launcher Fare · versión $version", 12.sp, Modifier.padding(top = 4.dp), color = pal.pri.copy(alpha = .5f), mono = true)
         }
