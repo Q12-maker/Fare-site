@@ -37,6 +37,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -143,6 +146,8 @@ fun TiltCard(
     longDrag: LongDrag? = null,
     tint: Color? = null,
     liquid: Boolean = false,
+    aura: Boolean = false,
+    selected: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val pal = LocalPal.current
@@ -168,10 +173,28 @@ fun TiltCard(
     val gy = s.gy * (1 - blend) + ty * blend
     val glareA = (if (idle) .55f else 0f) * (1 - blend) + .75f * blend
     // Liquid glass: se aplasta un poco al tocarlo
+    // Resaltado: al tocarla o si está seleccionada brilla el borde y crece el aura
+    val hi by animateFloatAsState(if (touching) 1f else if (selected) .75f else 0f, tween(180), label = "hi")
     val squash by animateFloatAsState(if (liquid && touching) 1f else 0f, spring(dampingRatio = .45f, stiffness = 600f), label = "squash")
 
+    val glow = tint ?: pal.pri
     Box(
         modifier
+            .drawBehind {
+                if (aura) {
+                    // En filas anchas el aura sale del lado del ícono; en bloques, del centro
+                    val wide = size.width > size.height * 1.6f
+                    val c = if (wide) Offset(size.height * .6f, size.height / 2) else center
+                    val r = (if (wide) size.height * 1.3f else size.maxDimension * .62f) * (1f + .25f * hi)
+                    drawCircle(
+                        Brush.radialGradient(
+                            listOf(glow.copy(alpha = .30f + .30f * hi), glow.copy(alpha = .08f), Color.Transparent),
+                            center = c, radius = r
+                        ),
+                        r, c
+                    )
+                }
+            }
             .graphicsLayer {
                 rotationX = rx
                 rotationY = ry
@@ -234,6 +257,14 @@ fun TiltCard(
             .glass(pal, shape, tint = tint)
             .drawWithContent {
                 drawContent()
+                if (hi > 0f) {
+                    drawOutline(
+                        shape.createOutline(size, layoutDirection, this),
+                        Color.White.copy(alpha = .85f * hi),
+                        style = Stroke(2.5.dp.toPx() * hi)
+                    )
+                    drawRect(glow.copy(alpha = .14f * hi))
+                }
                 if (liquid) {
                     // Brillo de vidrio líquido: banda clara arriba y borde inferior iluminado
                     drawRect(

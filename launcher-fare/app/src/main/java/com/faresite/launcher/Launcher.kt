@@ -161,6 +161,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     var settings by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<Weather?>(null) }
     var notifOpen by remember { mutableStateOf(false) }
+    var lastOpened by remember { mutableStateOf<String?>(null) }
     var controlOpen by remember { mutableStateOf(false) }
     var nmode by remember { mutableStateOf(prefs.str("nmode", "bloques")) }
     var sounds by remember { mutableStateOf(prefs.str("sounds", "si") == "si") }
@@ -286,7 +287,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     }
 
     val byKey = apps.associateBy { it.key }
-    val open: (AppEntry) -> Unit = { launchApp(ctx, it) }
+    val open: (AppEntry) -> Unit = { lastOpened = it.key; launchApp(ctx, it) }
 
     CompositionLocalProvider(LocalPal provides pal, LocalAnimatedBg provides animBg) {
         Box(Modifier.fillMaxSize().background(pal.amb)) {
@@ -302,7 +303,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         open, { menuApp = it },
                         onOpenGroup = { openGroup = it.id },
                         onDrop = { d, t -> drop(d, t) },
-                        onSettings = { settings = true }
+                        onSettings = { settings = true },
+                        selectedKey = menuApp?.key ?: lastOpened,
                     )
                 } else {
                     Home(
@@ -802,6 +804,7 @@ fun Drawer(
     onOpenGroup: (AppGroup) -> Unit,
     onDrop: (dragged: String, target: String) -> Unit,
     onSettings: () -> Unit,
+    selectedKey: String? = null,
 ) {
     val pal = LocalPal.current
     val haptic = LocalHapticFeedback.current
@@ -975,7 +978,11 @@ fun Drawer(
                                 Modifier.aspectRatio(.88f), cutShape(if (cols == 2) 20.dp else 14.dp), maxDeg = 22f,
                                 onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
                                 onLongClick = (item as? FolderItem)?.let { f -> { onOpenGroup(f.group) } },
-                                longDrag = drag
+                                longDrag = drag,
+                                tint = (item as? AppItem)?.app?.color,
+                                liquid = true,
+                                aura = true,
+                                selected = item.key == selectedKey || item.key == dragKey,
                             ) {
                                 val iconSize = if (cols == 2) 72.dp else if (cols == 3) 52.dp else 40.dp
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1003,7 +1010,11 @@ fun Drawer(
                                 Modifier.fillMaxWidth().height(62.dp), cutShape(12.dp), maxDeg = 5f,
                                 onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
                                 onLongClick = (item as? FolderItem)?.let { f -> { onOpenGroup(f.group) } },
-                                longDrag = drag
+                                longDrag = drag,
+                                tint = (item as? AppItem)?.app?.color,
+                                liquid = true,
+                                aura = true,
+                                selected = item.key == selectedKey || item.key == dragKey,
                             ) {
                                 Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                                     when (item) {
