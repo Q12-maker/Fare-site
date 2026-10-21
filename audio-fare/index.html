@@ -264,15 +264,21 @@ header.top .brand,header.top .btn-add{position:relative;z-index:3}
 .card .ck{top:14px;left:14px}
 .row .ck{left:14px;top:50%;margin-top:-13px}
 .ck svg{width:16px;height:16px;opacity:0;color:var(--onsec)}
-.picked .ck{background:var(--sec);border-color:var(--sec)}
+.picked .ck{background:var(--aura);border-color:var(--aura)}
 .picked .ck svg{opacity:1}
-.card.picked,.row.picked{outline:2px solid var(--sec);outline-offset:-2px}
+.card.picked,.row.picked{outline:2px solid var(--aura);outline-offset:-2px;box-shadow:0 0 22px -4px var(--aura)}
 .seltint{position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:inherit;opacity:0;transition:opacity .18s ease;
-  background:linear-gradient(160deg,color-mix(in srgb,#ffffff 22%,transparent),transparent 55%),color-mix(in srgb,var(--sec) 38%,transparent);
+  background:linear-gradient(160deg,color-mix(in srgb,#ffffff 22%,transparent),transparent 55%),color-mix(in srgb,var(--aura) 40%,transparent);
   -webkit-backdrop-filter:saturate(1.4);backdrop-filter:saturate(1.4)}
 .picked .seltint{opacity:1}
+.card,.row{--aura:var(--sec)}
+.grid .card.glass{background:radial-gradient(130% 85% at 50% 0%,color-mix(in srgb,var(--aura) 34%,transparent),transparent 78%),var(--glass);border-color:color-mix(in srgb,var(--aura) 50%,var(--edge))}
+.grid .card.glass::before,.grid .card.glass::after{--edge:color-mix(in srgb,var(--aura) 60%,transparent)}
+.row{background:linear-gradient(90deg,color-mix(in srgb,var(--aura) 24%,transparent),color-mix(in srgb,var(--aura) 6%,transparent) 70%,transparent);border-radius:14px}
+.row .cover{box-shadow:0 0 16px -2px color-mix(in srgb,var(--aura) 70%,transparent)}
+.card.on b,.row.on .meta b{color:var(--aura)}
 .nowglass{position:absolute;inset:0;z-index:3;pointer-events:none;border-radius:inherit;
-  background:linear-gradient(160deg,rgba(255,255,255,.22),transparent 40%,transparent 72%,rgba(255,255,255,.08)),color-mix(in srgb,var(--sec) 22%,transparent);
+  background:linear-gradient(160deg,rgba(255,255,255,.22),transparent 40%,transparent 72%,rgba(255,255,255,.08)),color-mix(in srgb,var(--aura) 26%,transparent);
   border:1px solid rgba(255,255,255,.3);
   -webkit-backdrop-filter:blur(.5px) saturate(1.6) brightness(1.08);backdrop-filter:blur(.5px) saturate(1.6) brightness(1.08);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.6),inset 0 -1px 1px rgba(255,255,255,.2),inset 12px 12px 24px -16px rgba(255,255,255,.5),inset -12px -12px 24px -18px color-mix(in srgb,var(--pri) 35%,transparent)}
@@ -527,7 +533,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
       <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 49</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 50</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -583,6 +589,8 @@ function bindTilt(el,max,area){
 }
 const GL='<span class="gl"></span>';
 /* La canción que suena lleva encima una ventana de vidrio líquido y su propia armonía con la barra de avance. */
+/* Aura de cada canción: el color vivo de su portada tiñe su bloque o su fila (sin portada, el color secundario). */
+function aura(el,s){tintOf(s).then(t=>{if(t)el.style.setProperty('--aura','hsl('+t.h+' '+Math.max(45,Math.min(85,t.s+15))+'% 58%)')})}
 const nowDeco=s=>s.id===curId?'<span class="nowglass" aria-hidden="true"><span class="lsh"></span></span><canvas class="nowharm" aria-hidden="true"></canvas>':'';
 
 /* ---------- Estirón al llegar al borde (stretch overscroll) ---------- */
@@ -721,7 +729,7 @@ function askDel(btn,fn){btn.onclick=e=>{e.stopPropagation();if(!btn.classList.co
 function songRow(s,onPlay,extra,ctx){
   const li=document.createElement('li');li.className='row tl'+(s.id===curId?' on':'');li.dataset.id=s.id;
   li.innerHTML='<div class="cover"></div><div class="meta" role="button" tabindex="0"><b>'+esc(s.title)+(s.demo?'<span class="tag">Ejemplo</span>':'')+'</b><span>'+esc(s.artist)+'</span></div><span class="dur">'+fmt(durOf(s))+'</span>'+(extra||'<span></span>')+GL+nowDeco(s);
-  cover(li.querySelector('.cover'),s);bindTilt(li,10);
+  cover(li.querySelector('.cover'),s);aura(li,s);bindTilt(li,10);
   const m=li.querySelector('.meta');m.onclick=onPlay;m.onkeydown=e=>{if(e.key==='Enter')onPlay()};
   if(sel){li.onclick=e=>{if(e.target.closest('.handle'))return;e.stopPropagation();toggleSel(s.id)};m.onclick=null;markSel(li,s.id)}
   if(!s.demo)longPress(li,()=>songMenu(s,ctx),ctx?(o=>plDrop(ctx,o)):libDrop);
@@ -742,7 +750,7 @@ function render(){
     const g=document.createElement('div');g.className='grid';
     all.forEach((s,i)=>{const b=document.createElement('button');b.className='card glass'+(s.id===curId?' on':'');
       b.innerHTML='<div class="cover"></div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span>'+GL+nowDeco(s);
-      cover(b.querySelector('.cover'),s);bindTilt(b,22);b.dataset.id=s.id;b.onclick=()=>{if(sel){if(!s.demo)toggleSel(s.id);return}playOpen(ids,i)};if(!s.demo)longPress(b,()=>songMenu(s,null),libDrop);if(sel&&!s.demo)markSel(b,s.id);g.appendChild(b)});
+      cover(b.querySelector('.cover'),s);aura(b,s);bindTilt(b,22);b.dataset.id=s.id;b.onclick=()=>{if(sel){if(!s.demo)toggleSel(s.id);return}playOpen(ids,i)};if(!s.demo)longPress(b,()=>songMenu(s,null),libDrop);if(sel&&!s.demo)markSel(b,s.id);g.appendChild(b)});
     box.appendChild(g);
   }
   const em=$('#empty');
@@ -905,7 +913,7 @@ function renderPl(){
   if(!n.length){ul.className='list';ul.innerHTML='<li class="hint">Esta playlist está vacía. Toca Agregar canciones.</li>';return}
   const ids=n.map(s=>s.id);
   if(plLayout==='bloques'){n.forEach((s,i)=>{const li=document.createElement('li');li.className='card glass'+(s.id===curId?' on':'');li.dataset.id=s.id;
-      li.innerHTML='<div class="cover"></div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span>'+GL+nowDeco(s);cover(li.querySelector('.cover'),s);bindTilt(li,22);
+      li.innerHTML='<div class="cover"></div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span>'+GL+nowDeco(s);cover(li.querySelector('.cover'),s);aura(li,s);bindTilt(li,22);
       li.onclick=()=>{if(sel){toggleSel(s.id);return}playOpen(ids,i)};
       longPress(li,()=>songMenu(s,p.id),o=>plDrop(p.id,o));if(sel)markSel(li,s.id);
       ul.appendChild(li)});return}
@@ -1337,12 +1345,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=49';
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=50';
 $('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
   try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
   catch(e){$('#shareInfo').textContent=APP_URL}};
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','49');if(pv&&pv!=='49')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 49']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','50');if(pv&&pv!=='50')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 50']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
