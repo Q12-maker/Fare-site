@@ -415,7 +415,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
             }
 
             if (notifOpen) {
-                NotificationPanel(byKey.values.associateBy { it.pkg }, nmode, { nmode = it; prefs.putStr("nmode", it) }) { notifOpen = false }
+                NotificationPanel(byKey.values.associateBy { it.pkg }, nmode, { nmode = it; prefs.putStr("nmode", it) }, onClose = { notifOpen = false })
             }
             if (controlOpen) {
                 ControlCenter(onClose = { controlOpen = false }, onNotice = { t, l -> print(t, l) })
