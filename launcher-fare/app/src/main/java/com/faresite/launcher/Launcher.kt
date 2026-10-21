@@ -1294,8 +1294,30 @@ fun FolderSheet(
                     Chip("Listo", true) { step = "main" }
                 }
                 val inside = apps.map { it.key }.toSet()
-                LazyColumn(Modifier.padding(top = 12.dp).heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    items(allApps.filter { it.key !in inside }.sortedBy { it.label.lowercase() }, key = { it.key }) { app ->
+                var find by remember { mutableStateOf("") }
+                Row(
+                    Modifier.padding(top = 12.dp).fillMaxWidth().height(48.dp).glass(pal, cutShape(12.dp), strong = true).padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Canvas(Modifier.size(16.dp)) {
+                        val r = size.width * .36f
+                        drawCircle(pal.pri, r, Offset(r + 1, r + 1), style = Stroke(size.width * .12f))
+                        drawLine(pal.pri, Offset(r * 1.75f, r * 1.75f), Offset(size.width, size.height), size.width * .12f)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (find.isEmpty()) T("Buscar apps", 15.sp, color = pal.pri.copy(alpha = .5f))
+                        BasicTextField(
+                            find, { if (it.length != find.length) Sfx.play(Sfx.KEY, .35f); find = it }, Modifier.fillMaxWidth(), singleLine = true,
+                            textStyle = TextStyle(color = pal.pri, fontSize = 15.sp),
+                            cursorBrush = SolidColor(pal.pri)
+                        )
+                    }
+                    if (find.isNotEmpty()) T("✕", 15.sp, Modifier.clickable { find = "" }.padding(6.dp))
+                }
+                val f = find.trim().lowercase()
+                LazyColumn(Modifier.padding(top = 10.dp).heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(allApps.filter { it.key !in inside && (f.isEmpty() || f in it.label.lowercase()) }.sortedBy { it.label.lowercase() }, key = { it.key }) { app ->
                         Row(
                             Modifier.fillMaxWidth().glass(pal, cutShape(10.dp), tint = app.color)
                                 .clickable { onAdd(app); Sfx.play(Sfx.TAP) }.padding(horizontal = 12.dp, vertical = 9.dp),
