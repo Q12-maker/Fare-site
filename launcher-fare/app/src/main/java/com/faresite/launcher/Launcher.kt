@@ -217,6 +217,12 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
         lastCheck = System.currentTimeMillis()
         update = withContext(Dispatchers.IO) { Updater.check(ctx) }
         if (manual && update == null) print("AL DÍA", "Versión $version", "No hay nada nuevo")
+        // Actualización automática: una vez por versión, sin tocar nada
+        val u = update
+        if (u != null && Updater.allowed(ctx) && prefs.int("autoTried", 0) < u.version) {
+            prefs.putInt("autoTried", u.version)
+            doUpdate(u)
+        }
     }
 
     LaunchedEffect(tick) {

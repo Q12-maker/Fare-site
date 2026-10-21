@@ -37,6 +37,9 @@ object Updater {
         if (version > currentVersion(ctx)) Update(version, url) else null
     }.getOrNull()
 
+    /** true si el launcher ya tiene permiso para instalar (sin abrir nada). */
+    fun allowed(ctx: Context) = Build.VERSION.SDK_INT < 26 || ctx.packageManager.canRequestPackageInstalls()
+
     /** Si el launcher aún no puede instalar apps, abre el permiso y devuelve false. */
     fun canInstall(ctx: Context): Boolean {
         if (Build.VERSION.SDK_INT < 26 || ctx.packageManager.canRequestPackageInstalls()) return true
@@ -61,6 +64,8 @@ object Updater {
         val pi = ctx.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         params.setAppPackageName(ctx.packageName)
+        // Android 12+: si la versión anterior la instaló el propio launcher, se actualiza sin preguntar
+        if (Build.VERSION.SDK_INT >= 31) params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
         val id = pi.createSession(params)
         pi.openSession(id).use { s ->
             s.openWrite("launcher-fare.apk", 0, file.length()).use { out ->
