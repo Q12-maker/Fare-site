@@ -1289,10 +1289,43 @@ fun SettingsPanel(
                 Chip("Sí", sounds) { onSounds(true) }
                 Chip("No", !sounds) { onSounds(false) }
             }
+            OtherAppsSection()
             MenuItem("Buscar actualización", onCheckUpdate)
             T("Launcher Fare · versión $version", 12.sp, Modifier.padding(top = 4.dp), color = pal.pri.copy(alpha = .5f), mono = true)
         }
     }
+}
+
+/** Ajustes del panel, los recibos y los sonidos encima de otras apps. */
+@Composable
+private fun OtherAppsSection() {
+    val pal = LocalPal.current
+    val ctx = LocalContext.current
+    val prefs = remember { Prefs(ctx) }
+    var active by remember { mutableStateOf(FareOverlayService.enabled(ctx)) }
+    LaunchedEffect(Unit) { while (true) { active = FareOverlayService.enabled(ctx); delay(1500) } }
+    var strip by remember { mutableStateOf(prefs.on("strip")) }
+    var snd by remember { mutableStateOf(prefs.on("sounds_global")) }
+    var rec by remember { mutableStateOf(prefs.on("recibos_global")) }
+
+    T("En todas las apps", 15.sp, Modifier.padding(top = 14.dp, bottom = 4.dp), weight = FontWeight.SemiBold)
+    T(
+        if (active) "Activado. Desliza hacia abajo desde arriba en cualquier app: a la izquierda notificaciones, a la derecha el centro de control. Mantén oprimido arriba para la cortina normal."
+        else "Para usar tu panel y tus sonidos encima de otras apps, activa Launcher Fare en Accesibilidad.",
+        12.sp, Modifier.padding(bottom = 8.dp), color = pal.pri.copy(alpha = .6f), lines = 4
+    )
+    if (!active) MenuItem("Activar en Accesibilidad") { FareOverlayService.askEnable(ctx) }
+    @Composable
+    fun row(label: String, v: Boolean, set: (Boolean) -> Unit) {
+        Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            T(label, 16.sp, Modifier.weight(1f))
+            Chip("Sí", v) { set(true) }
+            Chip("No", !v) { set(false) }
+        }
+    }
+    row("Panel arriba", strip) { strip = it; prefs.putOn("strip", it) }
+    row("Recibos de notificaciones", rec) { rec = it; prefs.putOn("recibos_global", it) }
+    row("Sonidos al tocar y escribir", snd) { snd = it; prefs.putOn("sounds_global", it) }
 }
 
 /** Selector de color visual: cuadro de saturación/brillo, barra de tono y colores rápidos. */

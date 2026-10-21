@@ -85,6 +85,7 @@ fun NotificationPanel(
     mode: String,
     onMode: (String) -> Unit,
     onClose: () -> Unit,
+    onAction: () -> Unit = {},
 ) {
     val pal = LocalPal.current
     val ctx = LocalContext.current
@@ -123,7 +124,7 @@ fun NotificationPanel(
                         "Para ver aquí tus notificaciones, activa Launcher Fare en \"Acceso a notificaciones\".",
                         13.sp, Modifier.padding(top = 6.dp, bottom = 12.dp), color = pal.pri.copy(alpha = .75f), lines = 3
                     )
-                    Chip("Dar permiso", true) { FareNotifications.askAccess(ctx) }
+                    Chip("Dar permiso", true) { FareNotifications.askAccess(ctx); onAction() }
                 }
             } else if (list.isEmpty()) {
                 Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
@@ -137,7 +138,7 @@ fun NotificationPanel(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     itemsIndexed(list, key = { _, n -> n.key }) { i, n ->
-                        NotifCard(n, apps[n.pkg], i, block = true)
+                        NotifCard(n, apps[n.pkg], i, block = true, onAction)
                     }
                 }
             } else {
@@ -147,7 +148,7 @@ fun NotificationPanel(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     itemsIndexed(list, key = { _, n -> n.key }) { i, n ->
-                        NotifCard(n, apps[n.pkg], i, block = false)
+                        NotifCard(n, apps[n.pkg], i, block = false, onAction)
                     }
                 }
             }
@@ -167,7 +168,7 @@ fun NotificationPanel(
 
 /** Tarjeta de notificación: sale impresa como un recibo de vidrio. */
 @Composable
-private fun NotifCard(n: Notif, app: AppEntry?, index: Int, block: Boolean) {
+private fun NotifCard(n: Notif, app: AppEntry?, index: Int, block: Boolean, onAction: () -> Unit) {
     val pal = LocalPal.current
     val ctx = LocalContext.current
     val print = remember(n.key) { Animatable(0f) }
@@ -186,7 +187,7 @@ private fun NotifCard(n: Notif, app: AppEntry?, index: Int, block: Boolean) {
             maxDeg = if (block) 18f else 6f,
             tint = app?.color,
             liquid = true,
-            onClick = { FareNotifications.open(ctx, n) },
+            onClick = { FareNotifications.open(ctx, n); onAction() },
             onLongClick = if (n.clearable) ({ FareNotifications.dismiss(n); Sfx.play(Sfx.SWIPE) }) else null,
         ) {
             Column(Modifier.fillMaxSize().padding(14.dp)) {
@@ -275,9 +276,10 @@ object Controls {
 private enum class Glyph { WIFI, DATA, BT, PLANE, TORCH, PIN, MOON, GEAR, SUN, SPEAKER }
 
 @Composable
-fun ControlCenter(onClose: () -> Unit, onNotice: (String, String) -> Unit) {
+fun ControlCenter(onClose: () -> Unit, onNotice: (String, String) -> Unit, onAction: () -> Unit = {}) {
     val pal = LocalPal.current
     val ctx = LocalContext.current
+    fun go(action: String) { Controls.open(ctx, action); onAction() }
     var tick by remember { mutableStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(1200); tick++ } }
     val wifi = remember(tick) { Controls.wifiOn(ctx) }
@@ -329,15 +331,15 @@ fun ControlCenter(onClose: () -> Unit, onNotice: (String, String) -> Unit) {
                     ) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             RoundToggle(Glyph.WIFI, wifi, unit * .78f) {
-                                Controls.open(ctx, if (Build.VERSION.SDK_INT >= 29) Settings.Panel.ACTION_WIFI else Settings.ACTION_WIFI_SETTINGS)
+                                go(if (Build.VERSION.SDK_INT >= 29) Settings.Panel.ACTION_WIFI else Settings.ACTION_WIFI_SETTINGS)
                             }
                             RoundToggle(Glyph.DATA, !plane, unit * .78f) {
-                                Controls.open(ctx, if (Build.VERSION.SDK_INT >= 29) Settings.Panel.ACTION_INTERNET_CONNECTIVITY else Settings.ACTION_WIRELESS_SETTINGS)
+                                go(if (Build.VERSION.SDK_INT >= 29) Settings.Panel.ACTION_INTERNET_CONNECTIVITY else Settings.ACTION_WIRELESS_SETTINGS)
                             }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            RoundToggle(Glyph.BT, false, unit * .78f) { Controls.open(ctx, Settings.ACTION_BLUETOOTH_SETTINGS) }
-                            RoundToggle(Glyph.PLANE, plane, unit * .78f) { Controls.open(ctx, Settings.ACTION_AIRPLANE_MODE_SETTINGS) }
+                            RoundToggle(Glyph.BT, false, unit * .78f) { go(Settings.ACTION_BLUETOOTH_SETTINGS) }
+                            RoundToggle(Glyph.PLANE, plane, unit * .78f) { go(Settings.ACTION_AIRPLANE_MODE_SETTINGS) }
                         }
                     }
                     // Barras grandes de brillo y volumen
@@ -345,7 +347,7 @@ fun ControlCenter(onClose: () -> Unit, onNotice: (String, String) -> Unit) {
                         if (Controls.canSetBrightness(ctx)) {
                             bright = v; Controls.setBrightness(ctx, v)
                         } else {
-                            Controls.askBrightness(ctx)
+                            Controls.askBrightness(ctx); onAction()
                             onNotice("BRILLO", "Activa \"Modificar ajustes del sistema\" para Launcher Fare")
                         }
                     }
@@ -355,9 +357,9 @@ fun ControlCenter(onClose: () -> Unit, onNotice: (String, String) -> Unit) {
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Tile(Glyph.TORCH, torch, unit) { Controls.setTorch(ctx, !torch) }
-                    Tile(Glyph.PIN, loc, unit) { Controls.open(ctx, Settings.ACTION_LOCATION_SOURCE_SETTINGS) }
-                    Tile(Glyph.MOON, false, unit) { Controls.open(ctx, "android.settings.ZEN_MODE_SETTINGS") }
-                    Tile(Glyph.GEAR, false, unit) { Controls.open(ctx, Settings.ACTION_SETTINGS) }
+                    Tile(Glyph.PIN, loc, unit) { go(Settings.ACTION_LOCATION_SOURCE_SETTINGS) }
+                    Tile(Glyph.MOON, false, unit) { go("android.settings.ZEN_MODE_SETTINGS") }
+                    Tile(Glyph.GEAR, false, unit) { go(Settings.ACTION_SETTINGS) }
                 }
             }
         }

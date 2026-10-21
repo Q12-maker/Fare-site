@@ -115,6 +115,15 @@ class Prefs(ctx: Context) {
     fun putStr(k: String, v: String) = sp.edit().putString(k, v).apply()
     fun int(k: String, d: Int) = sp.getInt(k, d)
     fun putInt(k: String, v: Int) = sp.edit().putInt(k, v).apply()
+    fun on(k: String, d: Boolean = true) = str(k, if (d) "si" else "no") == "si"
+    fun putOn(k: String, v: Boolean) = putStr(k, if (v) "si" else "no")
+    val raw get() = sp
+
+    /** La paleta elegida en Ajustes (la usan también los paneles encima de otras apps). */
+    fun palette(): Palette {
+        val name = str("palette", "Fare")
+        return (StandardPalettes + customPalettes()).firstOrNull { it.name == name } ?: StandardPalettes[0]
+    }
 
     fun customPalettes(): List<Palette> = sp.getString("palettes", "")!!.lines().mapNotNull { line ->
         val p = line.split(";")

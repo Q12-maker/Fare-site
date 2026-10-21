@@ -26,6 +26,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        visible = true
         resumed.value++
+    }
+
+    override fun onPause() {
+        super.onPause()
+        visible = false
+    }
+
+    companion object {
+        /** Si el launcher está en pantalla (para no repetir encima los recibos y sonidos). */
+        @Volatile var visible = false
     }
 }

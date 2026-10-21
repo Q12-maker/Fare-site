@@ -46,7 +46,11 @@ object Sfx {
 
     /** Todos los sonidos usan la tecla de escribir (pedido de Juan); cambia solo un poco el tono. */
     fun play(which: Int, volume: Float = .5f) {
-        if (!enabled) return
+        if (enabled) raw(which, volume)
+    }
+
+    /** Suena aunque los sonidos del launcher estén apagados (lo usan los sonidos en otras apps). */
+    fun raw(which: Int, volume: Float = .5f) {
         val id = ids[KEY]
         val rate = when (which) {
             TICK -> 1.15f
