@@ -47,6 +47,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Dp
@@ -137,11 +139,14 @@ fun TiltCard(
     idle: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: (() -> Unit)? = null,
+    longDrag: LongDrag? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val pal = LocalPal.current
     val click by rememberUpdatedState(onClick)
     val long by rememberUpdatedState(onLongClick)
+    val drag by rememberUpdatedState(longDrag)
+    val coords = remember { arrayOfNulls<LayoutCoordinates>(1) }
     var touching by remember { mutableStateOf(false) }
     var tx by remember { mutableFloatStateOf(.5f) }
     var ty by remember { mutableFloatStateOf(.5f) }
@@ -167,6 +172,7 @@ fun TiltCard(
                 rotationY = ry
                 cameraDistance = 10f * density
             }
+            .onGloballyPositioned { coords[0] = it }
             .pointerInput(Unit) {
                 val slop = viewConfiguration.touchSlop
                 awaitEachGesture {
@@ -189,7 +195,24 @@ fun TiltCard(
                     set(down.position)
                     val released = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) { track(); true }
                     var longFired = false
-                    if (released == null) {
+                    val d = drag
+                    if (released == null && !moved && d != null) {
+                        // Mantener oprimido y arrastrar: sirve para unir apps en una carpeta
+                        longFired = true
+                        d.onStart()
+                        var dragged = false
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            val c = ev.changes.firstOrNull() ?: break
+                            c.consume()
+                            set(c.position)
+                            if (!dragged && (c.position - down.position).getDistance() > slop) dragged = true
+                            val lc = coords[0]
+                            if (dragged && lc != null && lc.isAttached) d.onMove(lc.localToRoot(c.position))
+                            if (ev.changes.none { it.pressed }) break
+                        }
+                        d.onEnd(dragged)
+                    } else if (released == null) {
                         val l = long
                         if (!moved && l != null) {
                             longFired = true
@@ -217,6 +240,9 @@ fun TiltCard(
         content = content
     )
 }
+
+/** Qué hacer al mantener oprimida una tarjeta y moverla. */
+class LongDrag(val onStart: () -> Unit, val onMove: (Offset) -> Unit, val onEnd: (dragged: Boolean) -> Unit)
 
 /* ---------- Animación de impresora (recibo) ---------- */
 

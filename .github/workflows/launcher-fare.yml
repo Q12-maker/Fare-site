@@ -2,6 +2,9 @@ name: Launcher Fare APK
 
 on:
   push:
+    branches:
+      - main
+      - claude/project-thread-j9l3pi
     paths:
       - "launcher-fare/**"
       - ".github/workflows/launcher-fare.yml"
@@ -27,12 +30,29 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      # Conserva la misma llave de firma entre compilaciones para que el APK nuevo
-      # se instale encima del anterior (la caché dura mientras se use cada 7 días).
+      # Llave de firma fija: sin ella cada APK sale con una firma distinta y Android
+      # no deja instalarlo encima ("No puedes instalar la aplicación").
+      # Usa el secreto LAUNCHER_KEYSTORE_B64 si existe; si no, una llave creada aquí
+      # una sola vez y guardada en la caché de Actions (se renueva al usarla).
       - uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: launcher-fare-debug-keystore
+          path: ~/fare-keys
+          key: launcher-fare-signing-v1
+      - name: Llave de firma
+        env:
+          KS_B64: ${{ secrets.LAUNCHER_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.LAUNCHER_KEY_PASS }}
+        run: |
+          mkdir -p ~/fare-keys
+          PASS="${KS_PASS:-faresite-launcher}"
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > ~/fare-keys/fare.keystore
+          elif [ ! -f ~/fare-keys/fare.keystore ]; then
+            keytool -genkeypair -keystore ~/fare-keys/fare.keystore -storepass "$PASS" -keypass "$PASS" \
+              -alias fare -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Faresite, O=Faresite, C=CO"
+          fi
+          echo "FARE_KEYSTORE=$HOME/fare-keys/fare.keystore" >> "$GITHUB_ENV"
+          echo "FARE_KEY_PASS=$PASS" >> "$GITHUB_ENV"
       - name: Compilar APK
         run: |
           chmod +x gradlew

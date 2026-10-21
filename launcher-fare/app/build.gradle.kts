@@ -16,9 +16,21 @@ android {
         versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
     }
 
+    // Llave fija (la guarda GitHub Actions) para que cada versión se instale encima de la anterior
+    val ks = System.getenv("FARE_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (ks != null) create("fare") {
+            storeFile = ks
+            storePassword = System.getenv("FARE_KEY_PASS")
+            keyAlias = "fare"
+            keyPassword = System.getenv("FARE_KEY_PASS")
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
+            if (ks != null) signingConfig = signingConfigs.getByName("fare")
         }
     }
 

@@ -12,6 +12,9 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
+/** Carpeta de apps: se forma arrastrando una app encima de otra en el cajón. */
+data class AppGroup(val id: String, val name: String, val keys: List<String>)
+
 class AppEntry(val label: String, val pkg: String, val activity: String, val icon: ImageBitmap) {
     val key get() = "$pkg/$activity"
 }
@@ -91,6 +94,15 @@ class Prefs(ctx: Context) {
         val a = parseHex(p[1]); val b = parseHex(p[2]); val c = parseHex(p[3])
         if (a == null || b == null || c == null) null else Palette(p[0], a, b, c)
     }
+
+    fun groups(): List<AppGroup> = sp.getString("groups", "")!!.lines().mapNotNull { line ->
+        val p = line.split(";")
+        if (p.size != 3) null else AppGroup(p[0], p[1], p[2].split("|").filter { it.isNotEmpty() })
+    }
+
+    fun putGroups(v: List<AppGroup>) = sp.edit().putString(
+        "groups", v.joinToString("\n") { "${it.id};${it.name.replace(";", " ").replace("\n", " ")};${it.keys.joinToString("|")}" }
+    ).apply()
 
     fun putCustomPalettes(v: List<Palette>) = sp.edit().putString(
         "palettes", v.joinToString("\n") { "${it.name.replace(";", " ")};${it.amb.hex()};${it.pri.hex()};${it.sec.hex()}" }

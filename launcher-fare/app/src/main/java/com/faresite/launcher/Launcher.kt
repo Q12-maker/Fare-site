@@ -10,6 +10,13 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.drawBehind
@@ -139,6 +146,12 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     var menuApp by remember { mutableStateOf<AppEntry?>(null) }
     var settings by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<Weather?>(null) }
+    val groups = remember { mutableStateListOf<AppGroup>().apply { addAll(prefs.groups()) } }
+    var openGroup by remember { mutableStateOf<String?>(null) }
+    var update by remember { mutableStateOf<Updater.Update?>(null) }
+    var installing by remember { mutableStateOf(false) }
+    var lastCheck by remember { mutableStateOf(0L) }
+    val version = remember { runCatching { Updater.currentVersion(ctx) }.getOrDefault(0) }
 
     val pager = rememberPagerState(initialPage = HOME) { 2 }
     val focus = LocalFocusManager.current
@@ -148,6 +161,42 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     fun print(title: String, vararg lines: String) { receipt = Receipt(title, lines.toList()) }
     fun saveCarousel() { chosen = true; prefs.putList("carousel", carousel.toList()) }
     fun saveQuick() = prefs.putStr("quick", quick.joinToString(","))
+    fun saveGroups() = prefs.putGroups(groups.toList())
+    fun setGroup(g: AppGroup) {
+        val i = groups.indexOfFirst { it.id == g.id }
+        if (g.keys.size < 2) { if (i >= 0) groups.removeAt(i) } else if (i >= 0) groups[i] = g else groups.add(g)
+        saveGroups()
+    }
+    fun drop(dragged: String, target: String) {
+        if (target.startsWith("g:")) {
+            val g = groups.firstOrNull { "g:" + it.id == target } ?: return
+            setGroup(g.copy(keys = g.keys + dragged))
+            print("CARPETA", "Añadida a:", g.name)
+        } else {
+            val name = "Carpeta ${groups.size + 1}"
+            setGroup(AppGroup(System.currentTimeMillis().toString(36), name, listOf(target, dragged)))
+            print("CARPETA CREADA", name, "Tócala para cambiarle el nombre")
+        }
+    }
+    fun doUpdate(u: Updater.Update) {
+        if (installing) return
+        if (!Updater.canInstall(ctx)) {
+            print("PERMISO", "Activa \"Permitir de esta fuente\"", "y vuelve a tocar Actualizar")
+            return
+        }
+        installing = true
+        print("ACTUALIZANDO", "Versión ${u.version}", "Descargando...")
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { Updater.install(ctx, u) }
+            installing = false
+            if (!ok) print("ERROR", "No se pudo descargar", "Revisa el internet")
+        }
+    }
+    suspend fun checkUpdate(manual: Boolean) {
+        lastCheck = System.currentTimeMillis()
+        update = withContext(Dispatchers.IO) { Updater.check(ctx) }
+        if (manual && update == null) print("AL DÍA", "Versión $version", "No hay nada nuevo")
+    }
 
     LaunchedEffect(tick) {
         apps = withContext(Dispatchers.Default) { loadApps(ctx) }
@@ -159,6 +208,13 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
             s.forEachIndexed { i, k -> quick[i] = k }
         }
     }
+    // Igual que Audio Fare: busca versión nueva al abrir, al volver y cada 30 min
+    LaunchedEffect(tick) {
+        while (true) {
+            if (System.currentTimeMillis() - lastCheck > 30 * 60 * 1000L || tick <= 1) checkUpdate(false)
+            delay(30 * 60 * 1000L)
+        }
+    }
     LaunchedEffect(tick) {
         while (true) {
             weather = withContext(Dispatchers.IO) { fetchWeather() } ?: weather
@@ -166,7 +222,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
         }
     }
     LaunchedEffect(home) {
-        menuApp = null; settings = false; preview = null; query = ""; focus.clearFocus()
+        menuApp = null; settings = false; openGroup = null; preview = null; query = ""; focus.clearFocus()
         pager.animateScrollToPage(HOME)
     }
     LaunchedEffect(pager.currentPage) { if (pager.currentPage == HOME) { query = ""; focus.clearFocus() } }
@@ -174,6 +230,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     BackHandler {
         when {
             menuApp != null -> menuApp = null
+            openGroup != null -> openGroup = null
             settings -> { settings = false; preview = null }
             pager.currentPage != HOME -> scope.launch { pager.animateScrollToPage(HOME) }
         }
@@ -200,10 +257,13 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
               Box(Modifier.fillMaxSize().clipToBounds()) {
                 if (page == DRAWER) {
                     Drawer(
-                        apps, query, { query = it }, mode,
+                        apps, groups, query, { query = it }, mode,
                         { mode = it; prefs.putStr("mode", it) }, cols,
                         { cols = it; prefs.putInt("cols", it) },
-                        open, { menuApp = it }, { settings = true }
+                        open, { menuApp = it },
+                        onOpenGroup = { openGroup = it.id },
+                        onDrop = { d, t -> drop(d, t) },
+                        onSettings = { settings = true }
                     )
                 } else {
                     Home(
@@ -222,6 +282,37 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                     )
                 }
               }
+            }
+
+            update?.let { u ->
+                if (menuApp == null && !settings && openGroup == null) {
+                    Box(Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 34.dp), contentAlignment = Alignment.BottomCenter) {
+                        Row(
+                            Modifier.glass(pal, cutShape(12.dp), strong = true).background(pal.amb.copy(alpha = .75f))
+                                .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            T("Versión ${u.version} lista", 14.sp, weight = FontWeight.SemiBold)
+                            Spacer(Modifier.width(12.dp))
+                            Chip(if (installing) "Descargando..." else "Actualizar", true) { doUpdate(u) }
+                        }
+                    }
+                }
+            }
+
+            val g = openGroup?.let { id -> groups.firstOrNull { it.id == id } }
+            if (g != null) {
+                FolderSheet(
+                    g, g.keys.mapNotNull { byKey[it] },
+                    onRename = { n -> if (n.isNotBlank()) setGroup(g.copy(name = n.trim())) },
+                    onOpen = { open(it) },
+                    onRemove = { app ->
+                        setGroup(g.copy(keys = g.keys - app.key))
+                        print("CARPETA", "Sacada:", app.label)
+                        if (g.keys.size <= 2) openGroup = null
+                    },
+                    onDismiss = { openGroup = null },
+                )
             }
 
             menuApp?.let { app ->
@@ -267,6 +358,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         custom.remove(p); prefs.putCustomPalettes(custom)
                         if (palName == p.name) { palName = "Fare"; prefs.putStr("palette", "Fare") }
                     },
+                    version = version,
+                    onCheckUpdate = { scope.launch { checkUpdate(true) } },
                     onHomeSettings = {
                         runCatching { ctx.startActivity(Intent(Settings.ACTION_HOME_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                     },
@@ -522,9 +615,25 @@ fun WeatherIcon(code: Int, modifier: Modifier) {
 
 /* ---------- Cajón de apps ---------- */
 
+private sealed class Item {
+    abstract val key: String
+    abstract val label: String
+}
+
+private class AppItem(val app: AppEntry) : Item() {
+    override val key get() = app.key
+    override val label get() = app.label
+}
+
+private class FolderItem(val group: AppGroup, val apps: List<AppEntry>) : Item() {
+    override val key get() = "g:" + group.id
+    override val label get() = group.name
+}
+
 @Composable
 fun Drawer(
     apps: List<AppEntry>,
+    groups: List<AppGroup>,
     query: String,
     onQuery: (String) -> Unit,
     mode: String,
@@ -533,94 +642,258 @@ fun Drawer(
     onCols: (Int) -> Unit,
     onOpen: (AppEntry) -> Unit,
     onLong: (AppEntry) -> Unit,
+    onOpenGroup: (AppGroup) -> Unit,
+    onDrop: (dragged: String, target: String) -> Unit,
     onSettings: () -> Unit,
 ) {
     val pal = LocalPal.current
+    val haptic = LocalHapticFeedback.current
     val q = query.trim().lowercase()
-    val list = if (q.isEmpty()) apps else apps.filter { q in it.label.lowercase() }
+    val byKey = apps.associateBy { it.key }
+    val items: List<Item> = if (q.isNotEmpty()) {
+        apps.filter { q in it.label.lowercase() }.map { AppItem(it) }
+    } else {
+        val inGroups = groups.flatMap { it.keys }.toSet()
+        (groups.mapNotNull { g -> g.keys.mapNotNull { byKey[it] }.takeIf { it.isNotEmpty() }?.let { FolderItem(g, it) } } +
+            apps.filter { it.key !in inGroups }.map { AppItem(it) })
+            .sortedBy { it.label.lowercase() }
+    }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(horizontal = 16.dp)) {
-        // Barra de búsqueda
-        Row(
-            Modifier.padding(top = 14.dp).fillMaxWidth().height(54.dp).glass(pal, cutShape(16.dp), strong = true).padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+    // Arrastre para formar carpetas
+    var dragKey by remember { mutableStateOf<String?>(null) }
+    var dragIcon by remember { mutableStateOf<ImageBitmap?>(null) }
+    var dragPos by remember { mutableStateOf(Offset.Zero) }
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    val bounds = remember { mutableMapOf<String, Rect>() }
+    fun targetAt(p: Offset, self: String) = bounds.entries.firstOrNull { it.key != self && it.value.contains(p) }?.key
+    val hover = dragKey?.let { targetAt(dragPos, it) }
+
+    @Composable
+    fun Cell(item: Item, content: @Composable (Modifier, LongDrag?) -> Unit) {
+        DisposableEffect(item.key) { onDispose { bounds.remove(item.key) } }
+        val lifted = item.key == dragKey
+        val over = item.key == hover
+        Box(
+            Modifier
+                .onGloballyPositioned { bounds[item.key] = it.boundsInRoot() }
+                .graphicsLayer {
+                    val sc = if (over) 1.08f else 1f
+                    scaleX = sc; scaleY = sc
+                    alpha = if (lifted) .35f else 1f
+                }
         ) {
-            Canvas(Modifier.size(18.dp)) {
-                val r = size.width * .36f
-                drawCircle(pal.pri, r, Offset(r + 1, r + 1), style = Stroke(size.width * .12f))
-                drawLine(pal.pri, Offset(r * 1.75f, r * 1.75f), Offset(size.width, size.height), size.width * .12f)
-            }
-            Spacer(Modifier.width(12.dp))
-            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                if (query.isEmpty()) T("Buscar apps", 16.sp, color = pal.pri.copy(alpha = .5f))
-                BasicTextField(
-                    query, onQuery, Modifier.fillMaxWidth(), singleLine = true,
-                    textStyle = TextStyle(color = pal.pri, fontSize = 16.sp),
-                    cursorBrush = SolidColor(pal.pri),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = { list.firstOrNull()?.let(onOpen) })
+            val drag = (item as? AppItem)?.let { ai ->
+                LongDrag(
+                    onStart = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        dragKey = ai.key; dragIcon = ai.app.icon
+                        dragPos = bounds[ai.key]?.center ?: Offset.Zero
+                    },
+                    onMove = { dragPos = it },
+                    onEnd = { dragged ->
+                        val target = if (dragged) targetAt(dragPos, ai.key) else null
+                        dragKey = null; dragIcon = null
+                        when {
+                            !dragged -> onLong(ai.app)
+                            target != null -> onDrop(ai.key, target)
+                        }
+                    }
                 )
             }
-            if (query.isNotEmpty()) {
-                T("✕", 16.sp, Modifier.clickable { onQuery("") }.padding(8.dp))
-            }
+            content(Modifier, drag)
         }
+    }
 
-        // Opciones: bloques / líneas, columnas, ajustes
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Chip("Bloques", mode == "bloques") { onMode("bloques") }
-            Chip("Líneas", mode == "lineas") { onMode("lineas") }
+    Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(horizontal = 16.dp)) {
+            // Barra de búsqueda
+            Row(
+                Modifier.padding(top = 14.dp).fillMaxWidth().height(54.dp).glass(pal, cutShape(16.dp), strong = true).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Canvas(Modifier.size(18.dp)) {
+                    val r = size.width * .36f
+                    drawCircle(pal.pri, r, Offset(r + 1, r + 1), style = Stroke(size.width * .12f))
+                    drawLine(pal.pri, Offset(r * 1.75f, r * 1.75f), Offset(size.width, size.height), size.width * .12f)
+                }
+                Spacer(Modifier.width(12.dp))
+                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                    if (query.isEmpty()) T("Buscar apps", 16.sp, color = pal.pri.copy(alpha = .5f))
+                    BasicTextField(
+                        query, onQuery, Modifier.fillMaxWidth(), singleLine = true,
+                        textStyle = TextStyle(color = pal.pri, fontSize = 16.sp),
+                        cursorBrush = SolidColor(pal.pri),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                        keyboardActions = KeyboardActions(onGo = { (items.firstOrNull() as? AppItem)?.let { onOpen(it.app) } })
+                    )
+                }
+                if (query.isNotEmpty()) {
+                    T("✕", 16.sp, Modifier.clickable { onQuery("") }.padding(8.dp))
+                }
+            }
+
+            // Opciones: bloques / líneas, columnas, ajustes
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Chip("Bloques", mode == "bloques") { onMode("bloques") }
+                Chip("Líneas", mode == "lineas") { onMode("lineas") }
+                if (mode == "bloques") {
+                    Spacer(Modifier.width(4.dp))
+                    for (c in 2..4) Chip("$c", cols == c) { onCols(c) }
+                }
+                Spacer(Modifier.weight(1f))
+                Chip("Ajustes", false, onSettings)
+            }
+
             if (mode == "bloques") {
-                Spacer(Modifier.width(4.dp))
-                for (c in 2..4) Chip("$c", cols == c) { onCols(c) }
+                LazyVerticalGrid(
+                    GridCells.Fixed(cols),
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 90.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(items, key = { it.key }) { item ->
+                        Cell(item) { _, drag ->
+                            TiltCard(
+                                Modifier.aspectRatio(.88f), cutShape(if (cols == 2) 20.dp else 14.dp), maxDeg = 22f,
+                                onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
+                                onLongClick = (item as? FolderItem)?.let { f -> { onOpenGroup(f.group) } },
+                                longDrag = drag
+                            ) {
+                                val iconSize = if (cols == 2) 72.dp else if (cols == 3) 52.dp else 40.dp
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    when (item) {
+                                        is AppItem -> AppIcon(item.app.icon, iconSize)
+                                        is FolderItem -> FolderIcons(item.apps, iconSize)
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                                    T(item.label, if (cols == 4) 11.sp else 13.sp, Modifier.padding(horizontal = 6.dp), align = TextAlign.Center)
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 90.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(items, key = { it.key }) { item ->
+                        Cell(item) { _, drag ->
+                            TiltCard(
+                                Modifier.fillMaxWidth().height(62.dp), cutShape(12.dp), maxDeg = 5f,
+                                onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
+                                onLongClick = (item as? FolderItem)?.let { f -> { onOpenGroup(f.group) } },
+                                longDrag = drag
+                            ) {
+                                Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    when (item) {
+                                        is AppItem -> AppIcon(item.app.icon, 38.dp)
+                                        is FolderItem -> FolderIcons(item.apps, 38.dp)
+                                    }
+                                    Spacer(Modifier.width(14.dp))
+                                    T(item.label, 16.sp)
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            Spacer(Modifier.weight(1f))
-            Chip("Ajustes", false, onSettings)
         }
 
-        if (mode == "bloques") {
-            LazyVerticalGrid(
-                GridCells.Fixed(cols),
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 90.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(list, key = { it.key }) { app ->
-                    TiltCard(
-                        Modifier.aspectRatio(.88f), cutShape(if (cols == 2) 20.dp else 14.dp), maxDeg = 22f,
-                        onClick = { onOpen(app) }, onLongClick = { onLong(app) }
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            AppIcon(app.icon, if (cols == 2) 72.dp else if (cols == 3) 52.dp else 40.dp)
-                            Spacer(Modifier.height(8.dp))
-                            T(app.label, if (cols == 4) 11.sp else 13.sp, Modifier.padding(horizontal = 6.dp), align = TextAlign.Center)
-                        }
+        // La app que se está arrastrando sigue al dedo
+        val icon = dragIcon
+        if (dragKey != null && icon != null) {
+            val d = LocalDensity.current
+            val half = with(d) { 30.dp.toPx() }
+            Box(
+                Modifier
+                    .graphicsLayer {
+                        translationX = dragPos.x - origin.x - half
+                        translationY = dragPos.y - origin.y - half
                     }
-                }
+                    .size(60.dp)
+                    .glass(pal, cutShape(12.dp), strong = true),
+                contentAlignment = Alignment.Center
+            ) { AppIcon(icon, 44.dp) }
+            T(
+                if (hover != null) "Suelta para unir en una carpeta" else "Arrastra encima de otra app para hacer una carpeta",
+                12.sp,
+                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 24.dp)
+                    .glass(pal, cutShape(8.dp), strong = true).background(pal.amb.copy(alpha = .8f)).padding(horizontal = 14.dp, vertical = 10.dp),
+                mono = true
+            )
+        }
+    }
+}
+
+/** Ícono de carpeta: hasta 4 apps en miniatura. */
+@Composable
+fun FolderIcons(apps: List<AppEntry>, size: Dp) {
+    val pal = LocalPal.current
+    val mini = size * .44f
+    Column(
+        Modifier.size(size).glass(pal, cutShape(size * .18f), strong = true).padding(size * .04f),
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        apps.take(4).chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                row.forEach { AppIcon(it.icon, mini) }
+                if (row.size == 1) Spacer(Modifier.size(mini))
             }
-        } else {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 90.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(list, key = { it.key }) { app ->
-                    TiltCard(
-                        Modifier.fillMaxWidth().height(62.dp), cutShape(12.dp), maxDeg = 5f,
-                        onClick = { onOpen(app) }, onLongClick = { onLong(app) }
-                    ) {
-                        Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            AppIcon(app.icon, 38.dp)
-                            Spacer(Modifier.width(14.dp))
-                            T(app.label, 16.sp)
+        }
+    }
+}
+
+/* ---------- Carpeta abierta ---------- */
+
+@Composable
+fun FolderSheet(
+    group: AppGroup,
+    apps: List<AppEntry>,
+    onRename: (String) -> Unit,
+    onOpen: (AppEntry) -> Unit,
+    onRemove: (AppEntry) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val pal = LocalPal.current
+    var name by remember(group.id) { mutableStateOf(group.name) }
+    Sheet({ onRename(name); onDismiss() }) {
+        Box(
+            Modifier.fillMaxWidth().glass(pal, cutShape(10.dp)).padding(horizontal = 12.dp, vertical = 11.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            if (name.isEmpty()) T("Nombre de la carpeta", 18.sp, color = pal.pri.copy(alpha = .5f))
+            BasicTextField(
+                name, { if (it.length <= 28) { name = it; onRename(it) } }, Modifier.fillMaxWidth(), singleLine = true,
+                textStyle = TextStyle(color = pal.pri, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+                cursorBrush = SolidColor(pal.pri)
+            )
+        }
+        T("Mantén oprimida una app para sacarla de la carpeta", 12.sp, Modifier.padding(top = 8.dp, bottom = 12.dp), color = pal.pri.copy(alpha = .6f), mono = true, lines = 2)
+        apps.chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { app ->
+                    key(app.key) {
+                        TiltCard(
+                            Modifier.weight(1f).aspectRatio(.9f), cutShape(14.dp), maxDeg = 20f,
+                            onClick = { onOpen(app) }, onLongClick = { onRemove(app) }
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                AppIcon(app.icon, 46.dp)
+                                Spacer(Modifier.height(6.dp))
+                                T(app.label, 12.sp, Modifier.padding(horizontal = 4.dp), align = TextAlign.Center)
+                            }
                         }
                     }
                 }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
@@ -705,6 +978,8 @@ fun SettingsPanel(
     onPick: (Palette) -> Unit,
     onSave: (Palette) -> Unit,
     onDelete: (Palette) -> Unit,
+    version: Int,
+    onCheckUpdate: () -> Unit,
     onHomeSettings: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -775,6 +1050,8 @@ fun SettingsPanel(
             }
             Spacer(Modifier.height(18.dp))
             MenuItem("Elegir Launcher Fare como pantalla de inicio", onHomeSettings)
+            MenuItem("Buscar actualización", onCheckUpdate)
+            T("Launcher Fare · versión $version", 12.sp, Modifier.padding(top = 4.dp), color = pal.pri.copy(alpha = .5f), mono = true)
         }
     }
 }
