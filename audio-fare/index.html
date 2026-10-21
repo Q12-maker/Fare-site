@@ -322,6 +322,10 @@ nav.navbar{translate:0 0;transition:translate .35s cubic-bezier(.2,.8,.2,1),opac
 .more{display:grid;place-items:center;height:44px;width:44px;flex:none;border-radius:16px;background:var(--solid);border:1px solid var(--line);color:var(--muted)}
 .more svg{width:20px;height:20px}
 /* Hojas de editar y recortar */
+.edimg{display:flex;gap:12px;align-items:center;margin-top:4px}
+.edimg .cover{width:96px;height:96px;flex:none;border-radius:14px;font-size:1rem}
+.edib{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1}
+.edib .btn2{padding:9px 12px;font-size:.82rem;text-align:center}
 .fl{display:grid;gap:6px;font-size:.8rem;color:var(--muted);margin-top:10px}
 .edf .btn-add{width:100%;justify-content:center;margin-top:4px}
 .trim{--a:0%;--b:100%;--ph:0%;position:relative;height:56px;margin:12px 4px 4px}
@@ -523,7 +527,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
       <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 48</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 49</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -985,17 +989,33 @@ const shHead=s=>'<div class="sh-head"><div class="cover"></div><div><b>'+esc(s.t
 const shCover=(el,s)=>{const c=el.querySelector('.sh-head .cover');if(c)cover(c,s)};
 const f1=x=>fmt(x)+'.'+String(Math.round((x%1)*1000)%1000).padStart(3,'0');
 function npMenu(){const s=curSong();if(!s)return;
-  openSheet(shHead(s)+shBtn('ed',IC2.edit,'Editar nombre y descripción')+shBtn('trim',IC2.cut,'Recortar',s.trim?'recortada · '+fmt(durOf(s)):'')+(s.trim?shBtn('reset',IC2.reset,'Restablecer canción completa'):'')+shBtn('x','','Cancelar','','ghost'),el=>{shCover(el,s);
+  openSheet(shHead(s)+shBtn('ed',IC2.edit,'Editar nombre, descripción e imagen')+shBtn('trim',IC2.cut,'Recortar',s.trim?'recortada · '+fmt(durOf(s)):'')+(s.trim?shBtn('reset',IC2.reset,'Restablecer canción completa'):'')+shBtn('x','','Cancelar','','ghost'),el=>{shCover(el,s);
     el.querySelectorAll('.sh-btn').forEach(b=>b.onclick=()=>{const k=b.dataset.k;
       if(k==='x')closeSheet();else if(k==='ed')editSheet(s);else if(k==='trim')trimSheet(s);else if(k==='reset')trimReset(s)})})}
 $('#npMore').onclick=npMenu;
 function songChanged(s){render();if(view==='pl')renderPl();updateUI();if(curId===s.id){setMeta(s);progress()}}
 function editSheet(s){
-  openSheet(shHead(s)+'<div class="sh-sub">Editar nombre y descripción</div><form class="edf"><label class="fl">Nombre<input class="search" id="edT" maxlength="120" autocomplete="off"></label><label class="fl">Descripción<input class="search" id="edA" maxlength="160" autocomplete="off"></label><p class="err" role="status"></p><button class="btn-add" type="submit">Guardar</button></form>'+shBtn('x','','Cancelar','','ghost'),el=>{shCover(el,s);
+  openSheet(shHead(s)+'<div class="sh-sub">Editar nombre, descripción e imagen</div><div class="edimg"><div class="cover" id="edCov"></div><div class="edib"><button type="button" class="btn2 pri" data-i="pick">Cambiar imagen</button><button type="button" class="btn2" data-i="rm">Quitar imagen</button><button type="button" class="btn2" data-i="orig">Volver a la original</button></div><input type="file" id="edFile" accept="image/*" hidden></div><form class="edf"><label class="fl">Nombre<input class="search" id="edT" maxlength="120" autocomplete="off"></label><label class="fl">Descripción<input class="search" id="edA" maxlength="160" autocomplete="off"></label><p class="err" role="status"></p><button class="btn-add" type="submit">Guardar</button></form>'+shBtn('x','','Cancelar','','ghost'),el=>{shCover(el,s);
     const t=el.querySelector('#edT'),a=el.querySelector('#edA'),er=el.querySelector('.err');t.value=s.title;a.value=s.artist;
+    // Imagen: se cambia al guardar. La original del archivo queda guardada para poder volver a ella.
+    let img;const orig=s.origArt!==undefined?s.origArt:s.art,fi=el.querySelector('#edFile');
+    const prev=()=>{const cur=img===undefined?s.art:img;cover(el.querySelector('#edCov'),{id:'prev'+Math.random(),title:t.value||s.title,art:cur});
+      el.querySelector('[data-i="rm"]').hidden=!cur;el.querySelector('[data-i="orig"]').hidden=!orig||cur===orig};
+    el.querySelector('[data-i="pick"]').onclick=()=>fi.click();
+    el.querySelector('[data-i="rm"]').onclick=()=>{img=null;prev()};
+    el.querySelector('[data-i="orig"]').onclick=()=>{img=orig;prev()};
+    fi.onchange=async()=>{const f=fi.files[0];fi.value='';if(!f)return;er.textContent='';try{img=await squareImg(f);prev()}catch(e){er.textContent='No pude abrir esa imagen.'}};
+    prev();
     el.querySelector('[data-k="x"]').onclick=closeSheet;
     el.querySelector('form').onsubmit=e=>{e.preventDefault();const T=t.value.trim();if(!T){er.textContent='Escribe un nombre.';return}
-      s.title=T;s.artist=a.value.trim()||'Sin descripción';saveSong(s);closeSheet();songChanged(s);ticket('CANCIÓN EDITADA',[['Nombre',s.title],['Descripción',s.artist]])}})}
+      s.title=T;s.artist=a.value.trim()||'Sin descripción';
+      if(img!==undefined&&img!==s.art){if(s.origArt===undefined)s.origArt=s.art||null;s.art=img||null;const u=artUrls.get(s.id);if(u)URL.revokeObjectURL(u);artUrls.delete(s.id);tints.delete(s.id);if(curId===s.id)applyTint(s)}
+      saveSong(s);closeSheet();songChanged(s);ticket('CANCIÓN EDITADA',[['Nombre',s.title],['Descripción',s.artist]].concat(img!==undefined?[['Imagen',img?(img===orig?'la original':'nueva'):'quitada']]:[]))}})}
+/* La imagen elegida se recorta cuadrada al centro y se guarda en 640 px para no llenar el teléfono. */
+function squareImg(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),im=new Image();
+  im.onload=()=>{try{const n=Math.min(im.naturalWidth,im.naturalHeight),S=Math.min(640,n),c=document.createElement('canvas');c.width=c.height=S;
+    c.getContext('2d').drawImage(im,(im.naturalWidth-n)/2,(im.naturalHeight-n)/2,n,n,0,0,S,S);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(),'image/jpeg',.88)}catch(e){rej(e)}};
+  im.onerror=()=>{URL.revokeObjectURL(u);rej()};im.src=u})}
 function trimReset(s){delete s.trim;saveSong(s);closeSheet();songChanged(s);ticket('CANCIÓN RESTABLECIDA',[['Canción',s.title],['Duración',fmt(s.dur)]])}
 function trimSheet(s){
   const D=(curId===s.id&&isFinite(audio.duration)&&audio.duration)||s.dur||0;
@@ -1317,12 +1337,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=48';
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=49';
 $('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
   try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
   catch(e){$('#shareInfo').textContent=APP_URL}};
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','48');if(pv&&pv!=='48')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 48']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','49');if(pv&&pv!=='49')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 49']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
