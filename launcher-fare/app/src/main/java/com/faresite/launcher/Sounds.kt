@@ -14,7 +14,8 @@ import kotlin.random.Random
 
 /**
  * Sonidos de sistema del launcher, sintetizados al abrir (no hay archivos de audio):
- * tick suave al mover el carrusel, clic de vidrio al tocar, tecla al buscar y un barrido al cambiar de pantalla.
+ * gota de marimba al mover el carrusel, burbuja al tocar, tecla al escribir, soplo al cambiar de pantalla
+ * y campanita al abrir paneles.
  */
 object Sfx {
     private const val RATE = 44100
@@ -44,48 +45,45 @@ object Sfx {
         pool = p
     }
 
-    /** Todos los sonidos usan la tecla de escribir (pedido de Juan); cambia solo un poco el tono. */
     fun play(which: Int, volume: Float = .5f) {
         if (enabled) raw(which, volume)
     }
 
-    /** Suena aunque los sonidos del launcher estén apagados (lo usan los sonidos en otras apps). */
+    /** La tecla de escribir solo suena al escribir; el resto son sonidos suaves propios. */
     fun raw(which: Int, volume: Float = .5f) {
-        val id = ids[KEY]
-        val rate = when (which) {
-            TICK -> 1.15f
-            TAP -> .95f
-            SWIPE -> .85f
-            OPEN -> .9f
-            else -> 1f
-        }
-        if (id != 0) pool?.play(id, volume, volume, 1, 0, rate)
+        val id = ids.getOrElse(which) { 0 }
+        if (id != 0) pool?.play(id, volume, volume, 1, 0, 1f)
     }
 
-    // --- Síntesis ---
+    // --- Síntesis (sonidos suaves: ataque lento para que no "piquen" y caída natural) ---
 
     private fun buf(seconds: Double) = FloatArray((RATE * seconds).toInt())
 
-    /** Tick de cristal: dos parciales agudos que se apagan en 25 ms. */
-    private fun tick() = buf(.035).also { b ->
+    /** Ataque corto y suave (sin chasquido). */
+    private fun attack(t: Double, ms: Double) = minOf(1.0, t / (ms / 1000))
+
+    /** Tick de carrusel: gota de marimba muy corta y grave-media. */
+    private fun tick() = buf(.09).also { b ->
         for (i in b.indices) {
             val t = i.toDouble() / RATE
-            b[i] = ((sin(2 * PI * 2600 * t) * .6 + sin(2 * PI * 4100 * t) * .3) * exp(-t * 190)).toFloat()
+            val env = attack(t, 2.0) * exp(-t * 55)
+            b[i] = ((sin(2 * PI * 1046.5 * t) * .7 + sin(2 * PI * 2093 * t) * .12 + sin(2 * PI * 4 * 1046.5 * t) * .03 * exp(-t * 200)) * env * .55).toFloat()
         }
     }
 
-    /** Clic de vidrio: golpe corto con un tono que baja. */
-    private fun tap() = buf(.09).also { b ->
+    /** Toque: burbuja suave, un tono redondo que baja un poco. */
+    private fun tap() = buf(.12).also { b ->
         var ph = 0.0
         for (i in b.indices) {
             val t = i.toDouble() / RATE
-            val f = 1400 - 700 * (t / .09)
+            val f = 520 + 260 * exp(-t * 40)
             ph += 2 * PI * f / RATE
-            b[i] = ((sin(ph) * .7 + sin(ph * 2.01) * .2) * exp(-t * 55) + (Random.nextDouble() - .5) * .25 * exp(-t * 900)).toFloat()
+            val env = attack(t, 3.0) * exp(-t * 32)
+            b[i] = ((sin(ph) * .8 + sin(ph * 2) * .08) * env * .6).toFloat()
         }
     }
 
-    /** Tecla: chasquido muy corto y seco. */
+    /** Tecla de escribir: chasquido corto y seco (se conserva). */
     private fun key() = buf(.02).also { b ->
         for (i in b.indices) {
             val t = i.toDouble() / RATE
@@ -93,24 +91,30 @@ object Sfx {
         }
     }
 
-    /** Barrido de aire suave al cambiar de pantalla. */
-    private fun swipe() = buf(.22).also { b ->
+    /** Cambio de pantalla: soplo de aire muy suave y grave. */
+    private fun swipe() = buf(.3).also { b ->
         var lp = 0.0
+        var lp2 = 0.0
         for (i in b.indices) {
             val t = i.toDouble() / RATE
-            val env = sin(PI * t / .22)
-            val a = .04 + .25 * (t / .22)
+            val env = sin(PI * t / .3).let { it * it }
+            val a = .02 + .08 * (t / .3)
             lp += a * ((Random.nextDouble() - .5) - lp)
-            b[i] = (lp * env * 2.2).toFloat()
+            lp2 += a * (lp - lp2)
+            b[i] = (lp2 * env * 5.5).toFloat()
         }
     }
 
-    /** Apertura de panel: acorde corto que sube. */
-    private fun open() = buf(.25).also { b ->
+    /** Apertura de panel: campanita de dos notas (Do y Mi), suave y luminosa. */
+    private fun open() = buf(.6).also { b ->
         for (i in b.indices) {
             val t = i.toDouble() / RATE
-            val env = (1 - exp(-t * 80)) * exp(-t * 14)
-            b[i] = ((sin(2 * PI * 660 * t) + sin(2 * PI * 990 * t) * .6 + sin(2 * PI * 1320 * t * (1 + t * .3)) * .3) * env * .45).toFloat()
+            val e1 = attack(t, 4.0) * exp(-t * 7)
+            val t2 = t - .07
+            val e2 = if (t2 > 0) attack(t2, 4.0) * exp(-t2 * 7) else 0.0
+            val n1 = sin(2 * PI * 784 * t) + sin(2 * PI * 1568 * t) * .15
+            val n2 = if (t2 > 0) sin(2 * PI * 987.8 * t2) + sin(2 * PI * 1975.5 * t2) * .15 else 0.0
+            b[i] = ((n1 * e1 + n2 * e2) * .3).toFloat()
         }
     }
 

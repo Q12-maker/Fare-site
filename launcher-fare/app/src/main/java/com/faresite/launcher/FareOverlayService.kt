@@ -209,7 +209,7 @@ class FareOverlayService : AccessibilityService() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
             setContent {
                 val pal = remember { prefs.palette() }
-                val animBg = remember { prefs.str("fondo", "red") == "red" }
+                val animBg = remember { prefs.str("fondo", "red") != "simple" }
                 val map by apps.collectAsState()
                 var mode by remember { mutableStateOf(prefs.str("nmode", "bloques")) }
                 var r by remember { mutableStateOf<Receipt?>(null) }

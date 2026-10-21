@@ -105,6 +105,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -166,7 +167,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     var controlOpen by remember { mutableStateOf(false) }
     var nmode by remember { mutableStateOf(prefs.str("nmode", "bloques")) }
     var sounds by remember { mutableStateOf(prefs.str("sounds", "si") == "si") }
-    var animBg by remember { mutableStateOf(prefs.str("fondo", "red") == "red") }
+    var bg by remember { mutableStateOf(prefs.bg()) }
     remember { Sfx.init(ctx); 0 }
     Sfx.enabled = sounds
     val groups = remember { mutableStateListOf<AppGroup>().apply { addAll(prefs.groups()) } }
@@ -254,6 +255,10 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
         menuApp = null; settings = false; openGroup = null; notifOpen = false; controlOpen = false; preview = null; query = ""; focus.clearFocus()
         pager.animateScrollToPage(HOME)
     }
+    LaunchedEffect(Unit) {
+        var last = pager.currentPage + pager.currentPageOffsetFraction
+        snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }.collect { ScrollBus.add(it - last); last = it }
+    }
     LaunchedEffect(pager.currentPage) { if (pager.currentPage == HOME) { query = ""; focus.clearFocus() } }
     LaunchedEffect(Unit) {
         snapshotFlow { pager.currentPage }.drop(1).collect { Sfx.play(Sfx.SWIPE, .5f) }
@@ -290,9 +295,9 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     val byKey = apps.associateBy { it.key }
     val open: (AppEntry) -> Unit = { lastOpened = it.key; launchApp(ctx, it) }
 
-    CompositionLocalProvider(LocalPal provides pal, LocalAnimatedBg provides animBg) {
+    CompositionLocalProvider(LocalPal provides pal, LocalAnimatedBg provides (bg.base != "simple")) {
         Box(Modifier.fillMaxSize().background(pal.amb)) {
-            Backdrop()
+            Wallpaper(bg)
             HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
               // Cada pantalla recorta lo suyo: nada del carrusel se cuela en el cajón
               Box(Modifier.fillMaxSize().clipToBounds()) {
@@ -404,8 +409,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         custom.remove(p); prefs.putCustomPalettes(custom)
                         if (palName == p.name) { palName = "Fare"; prefs.putStr("palette", "Fare") }
                     },
-                    animBg = animBg,
-                    onAnimBg = { animBg = it; prefs.putStr("fondo", if (it) "red" else "simple") },
+                    bg = bg,
+                    onBg = { bg = it; prefs.putBg(it) },
                     sounds = sounds,
                     onSounds = { sounds = it; prefs.putStr("sounds", if (it) "si" else "no") },
                     version = version,
@@ -612,12 +617,30 @@ fun Home(
             Modifier.fillMaxWidth().clickable(remember { MutableInteractionSource() }, null) { onClock() },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(verticalAlignment = Alignment.Bottom) {
-                T(hour, 76.sp, weight = FontWeight.Light)
-                Spacer(Modifier.width(8.dp))
-                T(ampm, 22.sp, Modifier.padding(bottom = 16.dp), weight = FontWeight.Medium, color = pal.pri.copy(alpha = .8f))
+            Box(contentAlignment = Alignment.Center) {
+                // Halo oscuro detrás para que la hora se lea sobre cualquier fondo
+                Box(
+                    Modifier.requiredSize(340.dp, 210.dp)
+                        .background(Brush.radialGradient(listOf(pal.amb.copy(alpha = .75f), pal.amb.copy(alpha = .35f), Color.Transparent)))
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BasicText(
+                        hour,
+                        style = TextStyle(
+                            brush = Brush.verticalGradient(listOf(pal.pri, pal.pri.copy(alpha = .82f))),
+                            fontSize = 104.sp, fontWeight = FontWeight.Bold, letterSpacing = (-4).sp,
+                            shadow = Shadow(pal.pri.copy(alpha = .55f), Offset.Zero, 38f),
+                        )
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Box(
+                        Modifier.clip(cutShape(8.dp)).background(pal.pri).padding(horizontal = 9.dp, vertical = 5.dp)
+                    ) {
+                        T(ampm, 17.sp, weight = FontWeight.Bold, color = pal.amb)
+                    }
+                }
             }
-            T(date, 15.sp, color = pal.pri.copy(alpha = .7f))
+            T(date, 16.sp, Modifier.padding(top = 2.dp), weight = FontWeight.Medium, color = pal.pri.copy(alpha = .85f))
         }
         Spacer(Modifier.weight(1f))
 
@@ -664,15 +687,19 @@ fun Carousel(
     val moveStart = remember { floatArrayOf(Float.NaN) }
     LaunchedEffect(n) { if (pos.value > n - 1) pos.snapTo((n - 1).toFloat()) }
     LaunchedEffect(Unit) {
+        var last = pos.value
+        snapshotFlow { pos.value }.collect { ScrollBus.add(it - last); last = it }
+    }
+    LaunchedEffect(Unit) {
         snapshotFlow { pos.value.roundToInt() }.distinctUntilChanged().drop(1).collect { Sfx.play(Sfx.TICK, .35f) }
     }
     val density = LocalDensity.current
 
     BoxWithConstraints(Modifier.fillMaxWidth().height(400.dp)) {
-        val cardW = minOf(maxWidth * .56f, 250.dp)
-        val cardH = cardW * 1.45f
+        val cardW = minOf(maxWidth * .66f, 290.dp)
+        val cardH = cardW * 1.3f
         val cardPx = with(density) { cardW.toPx() }
-        val step = cardPx * .66f
+        val step = cardPx * .7f
         fun settle() {
             val target = (pos.value - sign(lastDx[0]) * .2f).roundToInt().coerceIn(0, n - 1)
             scope.launch { pos.animateTo(target.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
@@ -700,9 +727,9 @@ fun Carousel(
                         Modifier
                             .zIndex(if (isMoving) 10f else -a)
                             .graphicsLayer {
-                                translationX = sign(off) * (near * .66f + far * .3f) * cardPx + if (isMoving) moveDx else 0f
+                                translationX = sign(off) * (near * .7f + far * .26f) * cardPx + if (isMoving) moveDx else 0f
                                 translationY = if (isMoving) -18.dp.toPx() else 0f
-                                scaleX = sc * (1f - near * .22f); scaleY = sc
+                                scaleX = sc * (1f - near * .1f); scaleY = sc
                                 rotationY = -off.coerceIn(-1f, 1f) * 16f
                                 cameraDistance = 14f * density.density
                                 alpha = (1f - (a - 3.2f).coerceAtLeast(0f)).coerceIn(0f, 1f)
@@ -870,6 +897,14 @@ fun Drawer(
     var listRect by remember { mutableStateOf(Rect.Zero) }
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
+    val rowPx = with(LocalDensity.current) { 110.dp.toPx() }
+    LaunchedEffect(mode, cols) {
+        var last = Float.NaN
+        snapshotFlow {
+            if (mode == "bloques") gridState.firstVisibleItemIndex / cols.coerceAtLeast(1) + gridState.firstVisibleItemScrollOffset / rowPx
+            else listState.firstVisibleItemIndex * .6f + listState.firstVisibleItemScrollOffset / rowPx
+        }.collect { v -> if (!last.isNaN()) ScrollBus.add((v - last) * .5f); last = v }
+    }
     val density = LocalDensity.current
     val longNow by rememberUpdatedState(onLong)
     val dropNow by rememberUpdatedState(onDrop)
@@ -1233,8 +1268,8 @@ fun SettingsPanel(
     onPick: (Palette) -> Unit,
     onSave: (Palette) -> Unit,
     onDelete: (Palette) -> Unit,
-    animBg: Boolean,
-    onAnimBg: (Boolean) -> Unit,
+    bg: BgConfig,
+    onBg: (BgConfig) -> Unit,
     sounds: Boolean,
     onSounds: (Boolean) -> Unit,
     version: Int,
@@ -1309,11 +1344,7 @@ fun SettingsPanel(
             }
             Spacer(Modifier.height(18.dp))
             MenuItem("Elegir Launcher Fare como pantalla de inicio", onHomeSettings)
-            Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                T("Fondo", 16.sp, Modifier.weight(1f))
-                Chip("Red animada", animBg) { onAnimBg(true) }
-                Chip("Simple", !animBg) { onAnimBg(false) }
-            }
+            BackgroundSettings(bg, onBg)
             Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 T("Sonidos", 16.sp, Modifier.weight(1f))
                 Chip("Sí", sounds) { onSounds(true) }
