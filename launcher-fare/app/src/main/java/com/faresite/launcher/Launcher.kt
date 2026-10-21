@@ -684,8 +684,8 @@ fun Home(
                             hour,
                             style = TextStyle(
                                 color = pal.pri,
-                                fontSize = 104.sp, fontWeight = FontWeight.Bold, letterSpacing = (-4).sp,
-                                shadow = Shadow(pal.pri.copy(alpha = .55f), Offset.Zero, 38f),
+                                fontSize = 104.sp, fontWeight = FontWeight.Black, letterSpacing = (-4).sp,
+                                shadow = Shadow(pal.pri.copy(alpha = .7f), Offset.Zero, 44f),
                             )
                         )
                         Spacer(Modifier.width(10.dp))
@@ -708,7 +708,7 @@ fun Home(
                     Clock()
                     Spacer(Modifier.weight(1f))
                 }
-                Carousel(carousel, onOpen, onLong, onMove, Modifier.weight(1.2f).fillMaxHeight().clipToBounds().padding(vertical = 8.dp))
+                Carousel(carousel, onOpen, onLong, onMove, Modifier.weight(1.2f).fillMaxHeight().padding(vertical = 8.dp))
             }
         } else {
             WeatherRow()
