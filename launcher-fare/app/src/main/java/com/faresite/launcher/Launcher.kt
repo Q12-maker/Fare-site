@@ -203,7 +203,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     fun saveGroups() = prefs.putGroups(groups.toList())
     fun setGroup(g: AppGroup) {
         val i = groups.indexOfFirst { it.id == g.id }
-        if (g.keys.size < 2) { if (i >= 0) groups.removeAt(i) } else if (i >= 0) groups[i] = g else groups.add(g)
+        if (g.keys.isEmpty()) { if (i >= 0) groups.removeAt(i) } else if (i >= 0) groups[i] = g else groups.add(g)
         saveGroups()
     }
     fun moveGroup(from: String, to: String) {
@@ -423,6 +423,16 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                     app,
                     inCarousel = app.key in carousel,
                     quickSlot = quick.indexOf(app.key),
+                    canNewFolder = app.key !in carousel && groups.none { app.key in it.keys },
+                    onNewFolder = {
+                        val used = groups.mapNotNull { it.name.removePrefix("Carpeta ").toIntOrNull() }.toSet()
+                        val name = "Carpeta ${generateSequence(1) { it + 1 }.first { it !in used }}"
+                        val g = AppGroup(System.currentTimeMillis().toString(36), name, listOf(app.key))
+                        setGroup(g)
+                        menuApp = null
+                        openGroup = g.id
+                        print("CARPETA CREADA", name, app.label)
+                    },
                     onDismiss = { menuApp = null },
                     onToggleCarousel = {
                         if (app.key in carousel) {
@@ -1480,6 +1490,8 @@ fun AppMenu(
     onDismiss: () -> Unit,
     onToggleCarousel: () -> Unit,
     onQuick: (Int) -> Unit,
+    canNewFolder: Boolean = false,
+    onNewFolder: () -> Unit = {},
     onInfo: () -> Unit,
     onUninstall: () -> Unit,
 ) {
@@ -1492,6 +1504,7 @@ fun AppMenu(
         }
         Spacer(Modifier.height(10.dp))
         MenuItem(if (inCarousel) "Quitar del carrusel" else "Añadir al carrusel", onToggleCarousel)
+        if (canNewFolder) MenuItem("Crear carpeta con esta app", onNewFolder)
         MenuItem("Información de la app", onInfo)
         MenuItem("Desinstalar", onUninstall)
     }
