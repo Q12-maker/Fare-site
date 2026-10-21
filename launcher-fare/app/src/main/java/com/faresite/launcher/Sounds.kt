@@ -44,10 +44,18 @@ object Sfx {
         pool = p
     }
 
+    /** Todos los sonidos usan la tecla de escribir (pedido de Juan); cambia solo un poco el tono. */
     fun play(which: Int, volume: Float = .5f) {
         if (!enabled) return
-        val id = ids.getOrNull(which) ?: return
-        if (id != 0) pool?.play(id, volume, volume, 1, 0, 1f)
+        val id = ids[KEY]
+        val rate = when (which) {
+            TICK -> 1.15f
+            TAP -> .95f
+            SWIPE -> .85f
+            OPEN -> .9f
+            else -> 1f
+        }
+        if (id != 0) pool?.play(id, volume, volume, 1, 0, rate)
     }
 
     // --- Síntesis ---
