@@ -944,12 +944,28 @@ private class AppItem(val app: AppEntry) : Item() {
     override val label get() = app.label
 }
 
-/** Color del aura: el de la app, o la mezcla de los colores de las apps de la carpeta. */
+/** Color del aura: el de la app, o el color que más se repite entre las apps de la carpeta. */
 private fun itemTint(item: Item): Color? = when (item) {
     is AppItem -> item.app.color
-    is FolderItem -> item.apps.mapNotNull { it.color }.takeIf { it.isNotEmpty() }?.let { cs ->
-        Color(cs.sumOf { it.red.toDouble() }.toFloat() / cs.size, cs.sumOf { it.green.toDouble() }.toFloat() / cs.size, cs.sumOf { it.blue.toDouble() }.toFloat() / cs.size)
-    }
+    is FolderItem -> representative(item.apps.mapNotNull { it.color })
+}
+
+/**
+ * El color más representativo de una mezcla: agrupa los colores por tono (12 grupos de 30°),
+ * elige el grupo que más pesa (más apps y más vivos) y promedia solo esos.
+ * Así una carpeta con 3 apps rojas y 1 azul sale roja, no café.
+ */
+private fun representative(cs: List<Color>): Color? {
+    if (cs.isEmpty()) return null
+    val hsv = cs.map { c -> FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) } }
+    val weight = FloatArray(12)
+    hsv.forEach { weight[(it[0] / 30f).toInt() % 12] += .2f + it[1] * it[2] }
+    val best = weight.indices.maxBy { weight[it] }
+    val pick = cs.indices.filter { i ->
+        val bin = (hsv[i][0] / 30f).toInt() % 12
+        bin == best || (bin + 1) % 12 == best || (bin + 11) % 12 == best
+    }.map { cs[it] }
+    return Color(pick.map { it.red }.average().toFloat(), pick.map { it.green }.average().toFloat(), pick.map { it.blue }.average().toFloat())
 }
 
 private class FolderItem(val group: AppGroup, val apps: List<AppEntry>) : Item() {
