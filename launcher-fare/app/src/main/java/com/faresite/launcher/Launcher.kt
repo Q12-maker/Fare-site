@@ -10,6 +10,16 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.input.pointer.changedToDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.layout.requiredSize
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -154,6 +164,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     var controlOpen by remember { mutableStateOf(false) }
     var nmode by remember { mutableStateOf(prefs.str("nmode", "bloques")) }
     var sounds by remember { mutableStateOf(prefs.str("sounds", "si") == "si") }
+    var animBg by remember { mutableStateOf(prefs.str("fondo", "red") == "red") }
     remember { Sfx.init(ctx); 0 }
     Sfx.enabled = sounds
     val groups = remember { mutableStateListOf<AppGroup>().apply { addAll(prefs.groups()) } }
@@ -271,7 +282,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     val byKey = apps.associateBy { it.key }
     val open: (AppEntry) -> Unit = { launchApp(ctx, it) }
 
-    CompositionLocalProvider(LocalPal provides pal) {
+    CompositionLocalProvider(LocalPal provides pal, LocalAnimatedBg provides animBg) {
         Box(Modifier.fillMaxSize().background(pal.amb)) {
             Backdrop()
             HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
@@ -382,6 +393,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         custom.remove(p); prefs.putCustomPalettes(custom)
                         if (palName == p.name) { palName = "Fare"; prefs.putStr("palette", "Fare") }
                     },
+                    animBg = animBg,
+                    onAnimBg = { animBg = it; prefs.putStr("fondo", if (it) "red" else "simple") },
                     sounds = sounds,
                     onSounds = { sounds = it; prefs.putStr("sounds", if (it) "si" else "no") },
                     version = version,
@@ -430,9 +443,23 @@ fun T(
 
 /* ---------- Fondo: luces suaves + logo Faresite discreto ---------- */
 
+/** true = fondo animado de red (predeterminado); false = fondo simple. */
+val LocalAnimatedBg = compositionLocalOf { true }
+
 @Composable
 fun Backdrop() {
     val pal = LocalPal.current
+    if (LocalAnimatedBg.current) {
+        NetworkBackground(pal.pri)
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Image(
+                painterResource(R.drawable.logo_fare), null,
+                Modifier.size(260.dp).alpha(.05f),
+                colorFilter = ColorFilter.tint(pal.pri)
+            )
+        }
+        return
+    }
     Canvas(Modifier.fillMaxSize()) {
         drawCircle(
             Brush.radialGradient(listOf(pal.sec.copy(alpha = .45f), Color.Transparent), Offset(size.width * .15f, size.height * .2f), size.width * .9f),
@@ -449,6 +476,61 @@ fun Backdrop() {
             Modifier.size(260.dp).alpha(.07f),
             colorFilter = ColorFilter.tint(pal.pri)
         )
+    }
+}
+
+/**
+ * Fondo animado como el de la app Fare: puntos que flotan despacio y se unen
+ * con líneas finas cuando se acercan, en el color principal de la paleta.
+ */
+@Composable
+fun NetworkBackground(color: Color) {
+    val n = 44
+    val pts = remember { FloatArray(n * 2) { kotlin.random.Random.nextFloat() } }
+    val vel = remember { FloatArray(n * 2) { (kotlin.random.Random.nextFloat() - .5f) * .00007f } }
+    val bright = remember { BooleanArray(n) { kotlin.random.Random.nextFloat() < .22f } }
+    var frame by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        var last = 0L
+        while (true) {
+            withFrameMillis { t ->
+                val dt = if (last == 0L) 16L else (t - last).coerceIn(0L, 50L)
+                last = t
+                for (i in 0 until n * 2) {
+                    pts[i] += vel[i] * dt
+                    if (pts[i] < -.08f || pts[i] > 1.08f) vel[i] = -vel[i]
+                }
+                frame = t
+            }
+        }
+    }
+    Canvas(Modifier.fillMaxSize()) {
+        frame
+        val w = size.width
+        val h = size.height
+        val maxD = w * .36f
+        val line = 1.dp.toPx()
+        for (i in 0 until n) {
+            val ax = pts[i * 2] * w
+            val ay = pts[i * 2 + 1] * h
+            for (j in i + 1 until n) {
+                val bx = pts[j * 2] * w
+                val by = pts[j * 2 + 1] * h
+                val dx = ax - bx
+                val dy = ay - by
+                val d = kotlin.math.sqrt(dx * dx + dy * dy)
+                if (d < maxD) drawLine(color.copy(alpha = (1f - d / maxD) * .32f), Offset(ax, ay), Offset(bx, by), line)
+            }
+        }
+        for (i in 0 until n) {
+            val c = Offset(pts[i * 2] * w, pts[i * 2 + 1] * h)
+            if (bright[i]) {
+                drawCircle(color.copy(alpha = .14f), 9.dp.toPx(), c)
+                drawCircle(color.copy(alpha = .95f), 2.6.dp.toPx(), c)
+            } else {
+                drawCircle(color.copy(alpha = .45f), 1.6.dp.toPx(), c)
+            }
+        }
     }
 }
 
@@ -736,6 +818,47 @@ fun Drawer(
     val bounds = remember { mutableMapOf<String, Rect>() }
     fun targetAt(p: Offset, self: String) = bounds.entries.firstOrNull { it.key != self && it.value.contains(p) }?.key
     val hover = dragKey?.let { targetAt(dragPos, it) }
+    // El arrastre se sigue desde el cajón (no desde la app), así funciona aunque la app salga de la pantalla
+    val dragApp = remember { arrayOfNulls<AppEntry>(1) }
+    val dragMoved = remember { booleanArrayOf(false) }
+    val downPos = remember { arrayOf(Offset.Zero) }
+    var listRect by remember { mutableStateOf(Rect.Zero) }
+    val gridState = rememberLazyGridState()
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val longNow by rememberUpdatedState(onLong)
+    val dropNow by rememberUpdatedState(onDrop)
+    fun finishDrag() {
+        val k = dragKey ?: return
+        val app = dragApp[0]
+        val target = if (dragMoved[0]) targetAt(dragPos, k) else null
+        val moved = dragMoved[0]
+        dragKey = null; dragIcon = null; dragApp[0] = null
+        when {
+            app == null -> {}
+            !moved -> longNow(app)
+            target != null -> dropNow(k, target)
+        }
+    }
+    // Mientras arrastras cerca del borde de abajo (o de arriba) la lista se mueve sola
+    LaunchedEffect(dragKey) {
+        if (dragKey == null) return@LaunchedEffect
+        val edge = with(density) { 110.dp.toPx() }
+        val maxSpeed = with(density) { 14.dp.toPx() }
+        while (dragKey != null) {
+            withFrameNanos { }
+            if (!dragMoved[0] || listRect.isEmpty) continue
+            val y = dragPos.y
+            val speed = when {
+                y > listRect.bottom - edge -> ((y - (listRect.bottom - edge)) / edge).coerceIn(0f, 1f) * maxSpeed
+                y < listRect.top + edge -> -((listRect.top + edge - y) / edge).coerceIn(0f, 1f) * maxSpeed
+                else -> 0f
+            }
+            if (speed != 0f) {
+                if (mode == "bloques") gridState.scrollBy(speed) else listState.scrollBy(speed)
+            }
+        }
+    }
 
     @Composable
     fun Cell(item: Item, content: @Composable (Modifier, LongDrag?) -> Unit) {
@@ -755,25 +878,39 @@ fun Drawer(
                 LongDrag(
                     onStart = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        dragMoved[0] = false
+                        dragApp[0] = ai.app
                         dragKey = ai.key; dragIcon = ai.app.icon
                         dragPos = bounds[ai.key]?.center ?: Offset.Zero
                     },
-                    onMove = { dragPos = it },
-                    onEnd = { dragged ->
-                        val target = if (dragged) targetAt(dragPos, ai.key) else null
-                        dragKey = null; dragIcon = null
-                        when {
-                            !dragged -> onLong(ai.app)
-                            target != null -> onDrop(ai.key, target)
-                        }
-                    }
+                    onMove = {},
+                    onEnd = { finishDrag() }
                 )
             }
             content(Modifier, drag)
         }
     }
 
-    Box(Modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }) {
+    Box(
+        Modifier.fillMaxSize()
+            .onGloballyPositioned { origin = it.positionInRoot() }
+            .pointerInput(Unit) {
+                val slop = viewConfiguration.touchSlop
+                awaitPointerEventScope {
+                    while (true) {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                        val c = ev.changes.firstOrNull() ?: continue
+                        val p = c.position + origin
+                        if (c.changedToDown()) downPos[0] = p
+                        if (dragKey != null) {
+                            if (!dragMoved[0] && (p - downPos[0]).getDistance() > slop) dragMoved[0] = true
+                            if (dragMoved[0]) dragPos = p
+                            if (ev.changes.none { it.pressed }) finishDrag()
+                        }
+                    }
+                }
+            }
+    ) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(horizontal = 16.dp)) {
             // Barra de búsqueda
             Row(
@@ -820,7 +957,8 @@ fun Drawer(
             if (mode == "bloques") {
                 LazyVerticalGrid(
                     GridCells.Fixed(cols),
-                    Modifier.fillMaxSize(),
+                    Modifier.fillMaxSize().onGloballyPositioned { listRect = it.boundsInRoot() },
+                    state = gridState,
                     contentPadding = PaddingValues(top = 4.dp, bottom = 90.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -848,7 +986,8 @@ fun Drawer(
                 }
             } else {
                 LazyColumn(
-                    Modifier.fillMaxSize(),
+                    Modifier.fillMaxSize().onGloballyPositioned { listRect = it.boundsInRoot() },
+                    state = listState,
                     contentPadding = PaddingValues(top = 4.dp, bottom = 90.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -1047,6 +1186,8 @@ fun SettingsPanel(
     onPick: (Palette) -> Unit,
     onSave: (Palette) -> Unit,
     onDelete: (Palette) -> Unit,
+    animBg: Boolean,
+    onAnimBg: (Boolean) -> Unit,
     sounds: Boolean,
     onSounds: (Boolean) -> Unit,
     version: Int,
@@ -1121,6 +1262,11 @@ fun SettingsPanel(
             }
             Spacer(Modifier.height(18.dp))
             MenuItem("Elegir Launcher Fare como pantalla de inicio", onHomeSettings)
+            Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                T("Fondo", 16.sp, Modifier.weight(1f))
+                Chip("Red animada", animBg) { onAnimBg(true) }
+                Chip("Simple", !animBg) { onAnimBg(false) }
+            }
             Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 T("Sonidos", 16.sp, Modifier.weight(1f))
                 Chip("Sí", sounds) { onSounds(true) }
