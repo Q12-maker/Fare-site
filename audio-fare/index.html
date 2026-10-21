@@ -335,8 +335,15 @@ nav.navbar{translate:0 0;transition:translate .35s cubic-bezier(.2,.8,.2,1),opac
 .trim input::-moz-range-thumb{pointer-events:auto;width:20px;height:40px;border-radius:10px;background:var(--pri);border:3px solid var(--amb)}
 .trow{display:flex;align-items:center;gap:8px;margin-top:8px}
 .trow span{flex:1;color:var(--muted);font-size:.85rem}
-.trow .tin{font-family:var(--mono);font-weight:700;font-size:1rem;width:84px;text-align:center;padding:7px 4px;border-radius:12px;background:transparent;border:1px solid transparent;color:var(--fg);outline:none}
-.trow .tin:focus{background:var(--solid);border-color:var(--sec)}
+.trow .tin{font-family:var(--mono);font-weight:700;font-size:.95rem;width:96px;text-align:center;padding:7px 2px;border-radius:12px;border:1px dashed var(--line);color:var(--fg)}
+.trow .tin[aria-expanded="true"]{background:var(--solid);border:1px solid var(--sec)}
+/* Editar un tiempo con tres cuadros: minutos, segundos y milisegundos */
+.tedit{margin:8px 0 2px;padding:10px 8px 8px;border-radius:16px;background:var(--solid);border:1px solid var(--line)}
+.tedit .tfs{margin:0}
+.tedit .tf{max-width:86px}
+.tedit .tf input{font-size:1.35rem;padding:8px 2px}
+.tedit .tfs i{font-size:1.35rem;padding-top:8px}
+.tedit .btn-add{width:100%;justify-content:center;margin-top:8px}
 .trow button{width:40px;height:36px;border-radius:12px;background:var(--solid);border:1px solid var(--line);font-weight:700}
 .back span{font-family:var(--display);font-weight:700;font-size:1.3rem;letter-spacing:-.02em}
 .bk{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:var(--solid);border:1px solid var(--line)}
@@ -516,7 +523,7 @@ nav.navbar.liquid:active{scale:1.04 .96}
       <div class="pl-actions"><button class="btn2 pri" id="shareApp" type="button">Compartir la app</button></div>
       <p class="err" id="shareInfo" role="status" style="color:var(--muted)">Manda el enlace a otra persona. Tu música no se comparte: cada quien tiene la suya.</p>
       <div class="label">Versión de la app</div>
-      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 47</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
+      <div class="pl-actions"><span class="plinfo" style="margin:0">Versión 48</span><button class="btn2" id="updBtn" type="button">Buscar actualización</button></div>
       <p class="err" id="updInfo" role="status" style="color:var(--muted)"></p>
     </section>
   </main>
@@ -976,7 +983,7 @@ const IC2={edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stro
 const shBtn=(k,ic,t,sm,cls)=>'<button class="sh-btn'+(cls?' '+cls:'')+'" data-k="'+k+'">'+ic+'<span>'+esc(t)+'</span>'+(sm?'<small>'+esc(sm)+'</small>':'')+'</button>';
 const shHead=s=>'<div class="sh-head"><div class="cover"></div><div><b>'+esc(s.title)+'</b><span>'+esc(s.artist)+'</span></div></div>';
 const shCover=(el,s)=>{const c=el.querySelector('.sh-head .cover');if(c)cover(c,s)};
-const f1=x=>fmt(x)+'.'+Math.floor((x%1)*10);
+const f1=x=>fmt(x)+'.'+String(Math.round((x%1)*1000)%1000).padStart(3,'0');
 function npMenu(){const s=curSong();if(!s)return;
   openSheet(shHead(s)+shBtn('ed',IC2.edit,'Editar nombre y descripción')+shBtn('trim',IC2.cut,'Recortar',s.trim?'recortada · '+fmt(durOf(s)):'')+(s.trim?shBtn('reset',IC2.reset,'Restablecer canción completa'):'')+shBtn('x','','Cancelar','','ghost'),el=>{shCover(el,s);
     el.querySelectorAll('.sh-btn').forEach(b=>b.onclick=()=>{const k=b.dataset.k;
@@ -996,29 +1003,34 @@ function trimSheet(s){
   let a=tA(s),b=s.trim&&s.trim.b?s.trim.b:D;const MIN=1;
   openSheet(shHead(s)+'<div class="sh-sub">Recortar · arrastra los dos extremos</div><div class="trim" id="trim"><div class="tk"></div><div class="sl"></div><div class="ph"></div>'+
     '<input id="tmA" type="range" min="0" max="'+D+'" step="0.1" aria-label="Inicio del recorte"><input id="tmB" type="range" min="0" max="'+D+'" step="0.1" aria-label="Fin del recorte"></div>'+
-    '<div class="trow"><span>Inicio</span><button data-n="a" data-d="-0.5" aria-label="Inicio medio segundo antes">−</button><input class="tin" id="tmAt" inputmode="decimal" autocomplete="off" aria-label="Inicio en minutos:segundos"><button data-n="a" data-d="0.5" aria-label="Inicio medio segundo después">+</button></div>'+
-    '<div class="trow"><span>Fin</span><button data-n="b" data-d="-0.5" aria-label="Fin medio segundo antes">−</button><input class="tin" id="tmBt" inputmode="decimal" autocomplete="off" aria-label="Fin en minutos:segundos"><button data-n="b" data-d="0.5" aria-label="Fin medio segundo después">+</button></div>'+
+    '<div class="trow"><span>Inicio</span><button data-n="a" data-d="-0.5" aria-label="Inicio medio segundo antes">−</button><button type="button" class="tin" id="tmAt" aria-expanded="false" aria-label="Editar inicio"></button><button data-n="a" data-d="0.5" aria-label="Inicio medio segundo después">+</button></div><div class="tedit" id="teA" hidden></div>'+
+    '<div class="trow"><span>Fin</span><button data-n="b" data-d="-0.5" aria-label="Fin medio segundo antes">−</button><button type="button" class="tin" id="tmBt" aria-expanded="false" aria-label="Editar fin"></button><button data-n="b" data-d="0.5" aria-label="Fin medio segundo después">+</button></div><div class="tedit" id="teB" hidden></div>'+
     '<div class="sh-sub" id="tmD" style="margin-top:10px"></div>'+
     shBtn('pa',IC2.play,'Escuchar desde el inicio')+shBtn('pb',IC2.play,'Escuchar el final')+shBtn('ok',IC2.cut,'Guardar recorte')+(s.trim?shBtn('reset',IC2.reset,'Restablecer canción completa'):'')+shBtn('x','','Cancelar','','ghost'),el=>{shCover(el,s);
     const box=el.querySelector('#trim'),ia=el.querySelector('#tmA'),ib=el.querySelector('#tmB');
     const paint=()=>{ia.value=a;ib.value=b;box.style.setProperty('--a',a/D*100+'%');box.style.setProperty('--b',b/D*100+'%');
-      const ta=el.querySelector('#tmAt'),tb=el.querySelector('#tmBt');if(document.activeElement!==ta)ta.value=f1(a);if(document.activeElement!==tb)tb.value=f1(b);el.querySelector('#tmD').textContent='Duración del recorte: '+fmt(b-a)+' de '+fmt(D)};
+      el.querySelector('#tmAt').textContent=f1(a);el.querySelector('#tmBt').textContent=f1(b);el.querySelector('#tmD').textContent='Duración del recorte: '+fmt(b-a)+' de '+fmt(D)};
     const setA=v=>{a=Math.max(0,Math.min(+v,b-MIN));paint()},setB=v=>{b=Math.min(D,Math.max(+v,a+MIN));paint()};
     ia.oninput=()=>setA(ia.value);ib.oninput=()=>setB(ib.value);
-    // Escribir el tiempo: acepta 1:23.5, 1:23 o solo segundos (83.5).
-    const parseT=v=>{v=String(v).trim().replace(',','.');if(!v)return NaN;const p=v.split(':');let x=0;for(const q of p){if(q===''||isNaN(+q))return NaN;x=x*60+ +q}return x};
-    [['#tmAt',setA],['#tmBt',setB]].forEach(([id,fn])=>{const inp=el.querySelector(id);
-      // Al tocarlo queda vacío con el tiempo actual de guía, listo para escribir; si no escribes nada, vuelve el de antes.
-      inp.onfocus=()=>{inp.placeholder=inp.value;inp.value=''};
-      const done=()=>{const x=parseT(inp.value);inp.value='';inp.blur();if(isFinite(x))fn(x);else paint()};
-      inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();done()}else if(e.key==='Escape'){e.stopPropagation();inp.blur();paint()}};
-      inp.onchange=done;inp.onblur=()=>paint()});
-    el.querySelectorAll('.trow button').forEach(x=>x.onclick=()=>{const d=+x.dataset.d;x.dataset.n==='a'?setA(a+d):setB(b+d)});
+    // Tocar un tiempo abre tres cuadros (minutos, segundos, milisegundos) para escribirlo.
+    const tbox=(id,l,max,v)=>'<label class="tf"><input data-f="'+id+'" type="number" inputmode="numeric" min="0" max="'+max+'" value="'+v+'"><span>'+l+'</span></label>';
+    const editT=(w)=>{const btn=el.querySelector(w==='a'?'#tmAt':'#tmBt'),box=el.querySelector(w==='a'?'#teA':'#teB'),other=el.querySelector(w==='a'?'#teB':'#teA');
+      other.hidden=true;other.innerHTML='';el.querySelector(w==='a'?'#tmBt':'#tmAt').setAttribute('aria-expanded','false');
+      if(!box.hidden){box.hidden=true;box.innerHTML='';btn.setAttribute('aria-expanded','false');return}
+      const x=w==='a'?a:b,ms=Math.round(x*1000),m=Math.floor(ms/60000),sec=Math.floor(ms/1000)%60,mil=ms%1000;
+      box.innerHTML='<div class="tfs">'+tbox('m','minutos',999,m)+'<i>:</i>'+tbox('s','segundos',59,sec)+'<i>.</i>'+tbox('ms','milisegundos',999,mil)+'</div><button type="button" class="btn-add">Listo</button>';
+      box.hidden=false;btn.setAttribute('aria-expanded','true');
+      const ins=[...box.querySelectorAll('input')];ins.forEach(i=>{i.onfocus=()=>i.select();i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ok()}}});
+      const ok=()=>{const v=k=>Math.max(0,Math.floor(+box.querySelector('[data-f="'+k+'"]').value||0));
+        const t=v('m')*60+Math.min(59,v('s'))+Math.min(999,v('ms'))/1000;box.hidden=true;box.innerHTML='';btn.setAttribute('aria-expanded','false');(w==='a'?setA:setB)(t)};
+      box.querySelector('.btn-add').onclick=ok;setTimeout(()=>{ins[1].focus()},50)};
+    el.querySelector('#tmAt').onclick=()=>editT('a');el.querySelector('#tmBt').onclick=()=>editT('b');
+    el.querySelectorAll('.trow button[data-n]').forEach(x=>x.onclick=()=>{const d=+x.dataset.d;x.dataset.n==='a'?setA(a+d):setB(b+d)});
     const mine=()=>curId===s.id;
     const hear=from=>{if(!mine())return;trimEdit=true;previewStop=b;audio.currentTime=from;audio.play().catch(()=>{})};
     el.querySelectorAll('.sh-btn').forEach(x=>x.onclick=()=>{const k=x.dataset.k;
       if(k==='x')closeSheet();else if(k==='pa')hear(a);else if(k==='pb')hear(Math.max(a,b-4));else if(k==='reset')trimReset(s);
-      else if(k==='ok'){const full=a<.05&&b>D-.05;if(full)delete s.trim;else s.trim={a:Math.round(a*10)/10,b:b>D-.05?0:Math.round(b*10)/10};
+      else if(k==='ok'){const full=a<.05&&b>D-.05;if(full)delete s.trim;else s.trim={a:Math.round(a*1000)/1000,b:b>D-.05?0:Math.round(b*1000)/1000};
         saveSong(s);closeSheet();if(mine()&&(audio.currentTime<tA(s)||audio.currentTime>tB(s)))audio.currentTime=tA(s);songChanged(s);
         ticket(full?'CANCIÓN COMPLETA':'CANCIÓN RECORTADA',[['Canción',s.title],['Inicio',f1(a)],['Fin',f1(b)]],[['DURACIÓN',fmt(b-a)]])}});
     if(!mine()){el.querySelector('[data-k="pa"]').hidden=true;el.querySelector('[data-k="pb"]').hidden=true}
@@ -1305,12 +1317,12 @@ $('#sndTest').onclick=async()=>{const was=sndOn;sndOn=true;prepSfx();const c=aud
   const r=await sndP;
   $('#sndInfo').textContent='Resultado: '+r+' · audio '+(c?c.state:'no disponible')+' · música '+(audio.paused?'en pausa':'sonando')};
 sndUI();
-const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=47';
+const APP_URL='https://q12-maker.github.io/Fare-site/audio-fare/?app=48';
 $('#shareApp').onclick=async()=>{const d={title:'Audio Fare',text:'Audio Fare: tu música en tu teléfono. Instálala desde Chrome con "Agregar a la pantalla principal".',url:APP_URL};
   try{if(navigator.share){await navigator.share(d);return}}catch(e){if(e.name==='AbortError')return}
   try{await navigator.clipboard.writeText(APP_URL);ticket('ENLACE COPIADO',[['Pégalo en','WhatsApp']]);$('#shareInfo').textContent='Enlace copiado: '+APP_URL}
   catch(e){$('#shareInfo').textContent=APP_URL}};
-try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','47');if(pv&&pv!=='47')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 47']]),900)}catch(e){}
+try{const pv=localStorage.getItem('af-ver');localStorage.setItem('af-ver','48');if(pv&&pv!=='48')setTimeout(()=>ticket('APP ACTUALIZADA',[['Antes','versión '+pv],['Ahora','versión 48']]),900)}catch(e){}
 $('#updBtn').onclick=async()=>{const i=$('#updInfo');if(!('serviceWorker' in navigator)){i.textContent='Aquí no hay actualización automática (abre la app instalada).';return}
   i.textContent='Buscando…';try{const r=await navigator.serviceWorker.getRegistration();if(!r){i.textContent='Abre la app instalada para actualizar.';return}await r.update();
     const w=r.installing||r.waiting;if(w){i.textContent='Hay versión nueva. Se abrirá sola en un momento.';if(r.waiting)setTimeout(()=>location.reload(),1500)}else i.textContent='Ya tienes la última versión.'}
