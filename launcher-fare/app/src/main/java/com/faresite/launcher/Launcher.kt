@@ -409,6 +409,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                     },
                     onRename = { n -> if (n.isNotBlank()) setGroup(g.copy(name = n.trim())) },
                     onOpen = { open(it) },
+                    onLong = { menuApp = it },
                     onDragOut = { app ->
                         setGroup(g.copy(keys = g.keys - app.key))
                         openGroup = null
@@ -1290,6 +1291,7 @@ fun FolderSheet(
     onOpen: (AppEntry) -> Unit,
     onDragOut: (AppEntry) -> Unit,
     onDismiss: () -> Unit,
+    onLong: (AppEntry) -> Unit = {},
 ) {
     val pal = LocalPal.current
     val haptic = LocalHapticFeedback.current
@@ -1424,7 +1426,11 @@ fun FolderSheet(
                                                     onDragOut(app)
                                                 }
                                             },
-                                            onEnd = { holding = null }
+                                            onEnd = {
+                                                // Soltarla sin sacarla abre su menú (carrusel, información, etc.)
+                                                if (holding == app.key) onLong(app)
+                                                holding = null
+                                            }
                                         )
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
