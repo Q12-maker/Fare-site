@@ -411,7 +411,7 @@ private fun FramesDialog(current: Int, onSave: (Int) -> Unit, onDismiss: () -> U
                 contentAlignment = Alignment.Center
             ) {
                 BasicTextField(
-                    text, { t -> if (t.length <= 3 && t.all { it.isDigit() }) text = t },
+                    text, { t -> if (t.length <= 3 && t.all { it.isDigit() }) { Sfx.typed(text, t); text = t } },
                     Modifier.fillMaxWidth().focusRequester(focus), singleLine = true,
                     textStyle = TextStyle(color = pal.pri, fontSize = 34.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = FontFamily.Monospace),
                     cursorBrush = SolidColor(pal.pri),

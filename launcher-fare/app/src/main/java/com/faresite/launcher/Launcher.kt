@@ -1286,6 +1286,8 @@ fun FolderSheet(
     var name by remember(group.id) { mutableStateOf(group.name) }
     // "main": la carpeta · "add": elegir apps · "merge": elegir carpeta · "name": nombre de la fusionada
     var step by remember(group.id) { mutableStateOf("main") }
+    var area by remember { mutableStateOf(Rect.Zero) }
+    var holding by remember { mutableStateOf<String?>(null) }
     Sheet({ onRename(name); onDismiss() }) {
         when (step) {
             "add" -> {
@@ -1308,7 +1310,7 @@ fun FolderSheet(
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                         if (find.isEmpty()) T("Buscar apps", 15.sp, color = pal.pri.copy(alpha = .5f))
                         BasicTextField(
-                            find, { if (it.length != find.length) Sfx.play(Sfx.KEY, .35f); find = it }, Modifier.fillMaxWidth(), singleLine = true,
+                            find, { Sfx.typed(find, it); find = it }, Modifier.fillMaxWidth(), singleLine = true,
                             textStyle = TextStyle(color = pal.pri, fontSize = 15.sp),
                             cursorBrush = SolidColor(pal.pri)
                         )
@@ -1362,7 +1364,7 @@ fun FolderSheet(
                 ) {
                     if (name.isEmpty()) T(group.name, 18.sp, color = pal.pri.copy(alpha = .4f))
                     BasicTextField(
-                        name, { if (it.length <= 28) name = it }, Modifier.fillMaxWidth().focusRequester(focus), singleLine = true,
+                        name, { if (it.length <= 28) { Sfx.typed(name, it); name = it } }, Modifier.fillMaxWidth().focusRequester(focus), singleLine = true,
                         textStyle = TextStyle(color = pal.pri, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
                         cursorBrush = SolidColor(pal.pri)
                     )
@@ -1381,7 +1383,7 @@ fun FolderSheet(
                 ) {
                     if (name.isEmpty()) T("Nombre de la carpeta", 18.sp, color = pal.pri.copy(alpha = .5f))
                     BasicTextField(
-                        name, { if (it.length <= 28) { name = it; onRename(it) } }, Modifier.fillMaxWidth(), singleLine = true,
+                        name, { if (it.length <= 28) { Sfx.typed(name, it); name = it; onRename(it) } }, Modifier.fillMaxWidth(), singleLine = true,
                         textStyle = TextStyle(color = pal.pri, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
                         cursorBrush = SolidColor(pal.pri)
                     )
@@ -1390,7 +1392,10 @@ fun FolderSheet(
                     Chip("+ Añadir app", false) { step = "add" }
                     Chip("Fusionar carpeta", false) { step = "merge" }
                 }
-                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                Column(
+                    Modifier.heightIn(max = 460.dp).onGloballyPositioned { area = it.boundsInRoot() }
+                        .verticalScroll(rememberScrollState())
+                ) {
                     apps.chunked(3).forEach { row ->
                         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             row.forEach { app ->
@@ -1398,10 +1403,18 @@ fun FolderSheet(
                                     TiltCard(
                                         Modifier.weight(1f).aspectRatio(.9f), cutShape(14.dp), maxDeg = 20f,
                                         tint = app.color, liquid = true,
+                                        selected = holding == app.key,
                                         onClick = { onOpen(app) },
+                                        // Mantener oprimida no la saca: solo sale si la arrastras fuera de la carpeta
                                         longDrag = LongDrag(
-                                            onStart = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDragOut(app) },
-                                            onMove = {}, onEnd = {}
+                                            onStart = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); holding = app.key },
+                                            onMove = { p ->
+                                                if (holding == app.key && !area.isEmpty && !area.inflate(24f).contains(p)) {
+                                                    holding = null
+                                                    onDragOut(app)
+                                                }
+                                            },
+                                            onEnd = { holding = null }
                                         )
                                     ) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1554,7 +1567,7 @@ fun SettingsPanel(
             ) {
                 if (name.isEmpty()) T("Nombre de la paleta", 15.sp, color = pal.pri.copy(alpha = .5f))
                 BasicTextField(
-                    name, { if (it.length <= 28) name = it }, Modifier.fillMaxWidth(), singleLine = true,
+                    name, { if (it.length <= 28) { Sfx.typed(name, it); name = it } }, Modifier.fillMaxWidth(), singleLine = true,
                     textStyle = TextStyle(color = pal.pri, fontSize = 15.sp),
                     cursorBrush = SolidColor(pal.pri)
                 )

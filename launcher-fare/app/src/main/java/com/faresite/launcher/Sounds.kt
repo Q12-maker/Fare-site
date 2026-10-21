@@ -45,6 +45,11 @@ object Sfx {
         pool = p
     }
 
+    /** Tecla al escribir en cualquier cuadro de texto del launcher. */
+    fun typed(old: String, new: String) {
+        if (old != new) play(KEY, .35f)
+    }
+
     fun play(which: Int, volume: Float = .5f) {
         if (enabled) raw(which, volume)
     }
