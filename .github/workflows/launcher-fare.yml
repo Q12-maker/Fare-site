@@ -1,0 +1,53 @@
+name: Launcher Fare APK
+
+on:
+  push:
+    paths:
+      - "launcher-fare/**"
+      - ".github/workflows/launcher-fare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: launcher-fare
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: launcher-fare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      # Conserva la misma llave de firma entre compilaciones para que el APK nuevo
+      # se instale encima del anterior (la caché dura mientras se use cada 7 días).
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: launcher-fare-debug-keystore
+      - name: Compilar APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk launcher-fare.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launcher-fare
+          path: launcher-fare/launcher-fare.apk
+      - name: Publicar en la descarga fija
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete launcher-fare --yes --cleanup-tag || true
+          gh release create launcher-fare launcher-fare.apk \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Launcher Fare (versión ${GITHUB_RUN_NUMBER})" \
+            --notes "APK del Launcher Fare. Rama ${GITHUB_REF_NAME}, commit ${GITHUB_SHA::7}."
