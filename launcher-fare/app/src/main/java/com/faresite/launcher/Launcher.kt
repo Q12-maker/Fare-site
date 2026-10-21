@@ -88,6 +88,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.layout.heightIn
@@ -676,13 +677,13 @@ fun Home(
                     // Halo oscuro detrás para que la hora se lea sobre cualquier fondo
                     Box(
                         Modifier.requiredSize(340.dp, 210.dp)
-                            .background(Brush.radialGradient(listOf(pal.amb.copy(alpha = .75f), pal.amb.copy(alpha = .35f), Color.Transparent)))
+                            .background(Brush.radialGradient(listOf(pal.amb.copy(alpha = .9f), pal.amb.copy(alpha = .5f), Color.Transparent)))
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         BasicText(
                             hour,
                             style = TextStyle(
-                                brush = Brush.verticalGradient(listOf(pal.pri, pal.pri.copy(alpha = .82f))),
+                                color = pal.pri,
                                 fontSize = 104.sp, fontWeight = FontWeight.Bold, letterSpacing = (-4).sp,
                                 shadow = Shadow(pal.pri.copy(alpha = .55f), Offset.Zero, 38f),
                             )
@@ -701,13 +702,13 @@ fun Home(
         if (land) {
             // Horizontal: hora a la izquierda y carrusel a la derecha, a toda la altura
             Row(Modifier.fillMaxSize()) {
-                Column(Modifier.weight(1f).fillMaxHeight()) {
+                Column(Modifier.weight(1f).fillMaxHeight().zIndex(1f)) {
                     WeatherRow()
                     Spacer(Modifier.weight(.5f))
                     Clock()
                     Spacer(Modifier.weight(1f))
                 }
-                Carousel(carousel, onOpen, onLong, onMove, Modifier.weight(1.2f).fillMaxHeight().padding(vertical = 8.dp))
+                Carousel(carousel, onOpen, onLong, onMove, Modifier.weight(1.2f).fillMaxHeight().clipToBounds().padding(vertical = 8.dp))
             }
         } else {
             WeatherRow()
@@ -769,8 +770,10 @@ fun Carousel(
 
     BoxWithConstraints(modifier) {
         // Lo más ancha posible sin pasarse del alto disponible
-        val cardW = minOf(maxWidth * .8f, 340.dp, maxHeight * .94f / 1.25f)
-        val cardH = cardW * 1.25f
+        // Vertical: alto como antes y más ancho. Horizontal: lo que quepa en el alto.
+        val tall = maxHeight > maxWidth * .8f
+        val cardH = if (tall) minOf(maxWidth * .66f, 290.dp) * 1.3f else maxHeight * .94f
+        val cardW = if (tall) minOf(maxWidth * .82f, 340.dp) else cardH / 1.25f
         val cardPx = with(density) { cardW.toPx() }
         val step = cardPx * .7f
         fun settle() {
@@ -1412,14 +1415,14 @@ fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
 fun Sheet(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     val pal = LocalPal.current
     Box(
-        Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f))
+        Modifier.fillMaxSize().background(Color.Black.copy(alpha = .55f))
             .clickable(remember { MutableInteractionSource() }, null) { onDismiss() },
-        contentAlignment = Alignment.BottomCenter
+        contentAlignment = Alignment.Center
     ) {
         Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().imePadding().padding(12.dp)
+            Modifier.widthIn(max = 520.dp).fillMaxWidth().statusBarsPadding().navigationBarsPadding().imePadding().padding(16.dp)
                 .glass(pal, cutShape(22.dp), strong = true)
-                .background(pal.amb.copy(alpha = .88f))
+                .background(pal.amb.copy(alpha = .95f))
                 .clickable(remember { MutableInteractionSource() }, null) {}
                 .padding(20.dp)
         ) { content() }
