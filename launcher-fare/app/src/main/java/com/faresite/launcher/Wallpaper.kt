@@ -35,6 +35,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -87,16 +101,18 @@ data class BgConfig(
     val baseScroll: Boolean,
     val layer: String,
     val layerUri: String,
+    /** Cuadros del video que avanza cada paso de scroll (una ventana del carrusel o una pantalla). */
+    val frames: Int = 18,
 )
 
 fun Prefs.bg() = BgConfig(
     str("fondo", "red"), str("fondo_uri", ""), on("fondo_scroll", false),
-    str("capa", "hex"), str("capa_uri", ""),
+    str("capa", "hex"), str("capa_uri", ""), int("cuadros_scroll", 18),
 )
 
 fun Prefs.putBg(b: BgConfig) {
     putStr("fondo", b.base); putStr("fondo_uri", b.baseUri); putOn("fondo_scroll", b.baseScroll)
-    putStr("capa", b.layer); putStr("capa_uri", b.layerUri)
+    putStr("capa", b.layer); putStr("capa_uri", b.layerUri); putInt("cuadros_scroll", b.frames)
 }
 
 @Composable
@@ -108,7 +124,7 @@ fun Wallpaper(cfg: BgConfig) {
             Shade()
         }
         cfg.base == "video" && base != null -> {
-            VideoLayer(base, scrub = cfg.baseScroll, Modifier.fillMaxSize())
+            VideoLayer(base, scrub = cfg.baseScroll, Modifier.fillMaxSize(), cfg.frames)
             Shade()
         }
         else -> Backdrop()
@@ -126,7 +142,7 @@ fun Wallpaper(cfg: BgConfig) {
     val a by animateFloatAsState(if (scrolling) 1f else 0f, tween(if (scrolling) 180 else 700), label = "capa")
     val layerUri = cfg.layerUri.takeIf { it.isNotEmpty() }?.let(Uri::parse)
     if (cfg.layer == "video" && layerUri != null) {
-        VideoLayer(layerUri, scrub = true, Modifier.fillMaxSize().alpha(a * .55f))
+        VideoLayer(layerUri, scrub = true, Modifier.fillMaxSize().alpha(a * .55f), cfg.frames)
     } else if (a > 0f) {
         HexLayer(Modifier.fillMaxSize().alpha(a))
     }
@@ -164,7 +180,7 @@ private fun ImageLayer(uri: Uri) {
  * avanza o retrocede según el scroll (ScrollBus). Si no, se repite en bucle.
  */
 @Composable
-fun VideoLayer(uri: Uri, scrub: Boolean, modifier: Modifier) {
+fun VideoLayer(uri: Uri, scrub: Boolean, modifier: Modifier, frames: Int = 18) {
     val ctx = LocalContext.current
     val owner = LocalLifecycleOwner.current
     val mp = remember(uri, scrub) { MediaPlayer() }
@@ -211,11 +227,26 @@ fun VideoLayer(uri: Uri, scrub: Boolean, modifier: Modifier) {
     }
 
     if (scrub) {
-        LaunchedEffect(uri) {
+        // Cuadros por segundo del video (si el archivo no lo dice, se asume 30)
+        val fps by produceState(30f, uri) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    val r = android.media.MediaMetadataRetriever()
+                    try {
+                        r.setDataSource(ctx, uri)
+                        val n = if (Build.VERSION.SDK_INT >= 28) r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toFloatOrNull() else null
+                        val ms = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toFloatOrNull()
+                        if (n != null && ms != null && ms > 0) n / (ms / 1000f) else null
+                    } finally { r.release() }
+                }.getOrNull()?.takeIf { it in 5f..240f } ?: 30f
+            }
+        }
+        val msPerStep = frames.coerceAtLeast(1) * 1000f / fps
+        LaunchedEffect(uri, msPerStep) {
             snapshotFlow { ScrollBus.value }.collect { v ->
                 val d = st.duration
                 if (d > 1) {
-                    val ms = (v * 600f).toInt() % d
+                    val ms = (v * msPerStep).toInt() % d
                     seek(if (ms < 0) ms + d else ms)
                 }
             }
@@ -341,11 +372,57 @@ fun BackgroundSettings(cfg: BgConfig, onChange: (BgConfig) -> Unit) {
                 Chip("Por scroll", cfg.baseScroll) { onChange(cfg.copy(baseScroll = true)) }
             }
         }
+        if ((cfg.base == "video" && cfg.baseScroll) || cfg.layer == "video") {
+            var ask by remember { mutableStateOf(false) }
+            Row(
+                Modifier.padding(top = 10.dp).fillMaxWidth().glass(pal, cutShape(10.dp)).clickable { ask = true }
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                T("Cuadros por scroll", 15.sp, Modifier.weight(1f))
+                T("${cfg.frames}", 16.sp, weight = FontWeight.Bold, mono = true)
+            }
+            if (ask) FramesDialog(cfg.frames, { onChange(cfg.copy(frames = it)); ask = false }) { ask = false }
+        }
         T("Capa al hacer scroll", 14.sp, Modifier.padding(top = 12.dp, bottom = 6.dp), color = pal.pri.copy(alpha = .7f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Hexágonos", cfg.layer == "hex") { onChange(cfg.copy(layer = "hex")) }
             Chip("Video…", cfg.layer == "video") { pickLayer.launch(arrayOf("video/*")) }
             Chip("Ninguna", cfg.layer == "no") { onChange(cfg.copy(layer = "no")) }
+        }
+    }
+}
+
+/** Ventana con un cuadro para escribir cuántos cuadros del video avanza cada scroll. */
+@Composable
+private fun FramesDialog(current: Int, onSave: (Int) -> Unit, onDismiss: () -> Unit) {
+    val pal = LocalPal.current
+    var text by remember { mutableStateOf(current.toString()) }
+    val n = text.toIntOrNull()?.takeIf { it in 1..600 }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    Dialog(onDismiss) {
+        Column(
+            Modifier.fillMaxWidth().glass(pal, cutShape(22.dp), strong = true).background(pal.amb.copy(alpha = .95f)).padding(20.dp)
+        ) {
+            T("Cuadros por scroll", 20.sp, weight = FontWeight.SemiBold)
+            Box(
+                Modifier.padding(top = 14.dp).fillMaxWidth().glass(pal, cutShape(10.dp)).padding(horizontal = 14.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                BasicTextField(
+                    text, { t -> if (t.length <= 3 && t.all { it.isDigit() }) text = t },
+                    Modifier.fillMaxWidth().focusRequester(focus), singleLine = true,
+                    textStyle = TextStyle(color = pal.pri, fontSize = 34.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = FontFamily.Monospace),
+                    cursorBrush = SolidColor(pal.pri),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { n?.let(onSave) }),
+                )
+            }
+            Row(Modifier.padding(top = 14.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                Chip("Cancelar", false, onDismiss)
+                Chip("Guardar", n != null) { n?.let(onSave) }
+            }
         }
     }
 }
