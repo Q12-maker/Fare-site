@@ -944,6 +944,14 @@ private class AppItem(val app: AppEntry) : Item() {
     override val label get() = app.label
 }
 
+/** Color del aura: el de la app, o la mezcla de los colores de las apps de la carpeta. */
+private fun itemTint(item: Item): Color? = when (item) {
+    is AppItem -> item.app.color
+    is FolderItem -> item.apps.mapNotNull { it.color }.takeIf { it.isNotEmpty() }?.let { cs ->
+        Color(cs.sumOf { it.red.toDouble() }.toFloat() / cs.size, cs.sumOf { it.green.toDouble() }.toFloat() / cs.size, cs.sumOf { it.blue.toDouble() }.toFloat() / cs.size)
+    }
+}
+
 private class FolderItem(val group: AppGroup, val apps: List<AppEntry>) : Item() {
     override val key get() = "g:" + group.id
     override val label get() = group.name
@@ -1195,7 +1203,7 @@ fun Drawer(
                                 Modifier.aspectRatio(.88f), cutShape(if (cols == 2) 20.dp else 14.dp), maxDeg = 22f,
                                 onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
                                 longDrag = drag,
-                                tint = (item as? AppItem)?.app?.color,
+                                tint = itemTint(item),
                                 liquid = true,
                                 aura = true,
                                 selected = item.key == selectedKey || item.key == dragKey,
@@ -1226,7 +1234,7 @@ fun Drawer(
                                 Modifier.fillMaxWidth().height(62.dp), cutShape(12.dp), maxDeg = 5f,
                                 onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
                                 longDrag = drag,
-                                tint = (item as? AppItem)?.app?.color,
+                                tint = itemTint(item),
                                 liquid = true,
                                 aura = true,
                                 selected = item.key == selectedKey || item.key == dragKey,
