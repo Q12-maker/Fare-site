@@ -342,7 +342,6 @@ fun BackgroundSettings(cfg: BgConfig, onChange: (BgConfig) -> Unit) {
             }
         }
         T("Capa al hacer scroll", 14.sp, Modifier.padding(top = 12.dp, bottom = 6.dp), color = pal.pri.copy(alpha = .7f))
-        T("Aparece transparente encima mientras deslizas y avanza con tu dedo.", 12.sp, Modifier.padding(bottom = 8.dp), color = pal.pri.copy(alpha = .55f), lines = 2)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Chip("Hexágonos", cfg.layer == "hex") { onChange(cfg.copy(layer = "hex")) }
             Chip("Video…", cfg.layer == "video") { pickLayer.launch(arrayOf("video/*")) }

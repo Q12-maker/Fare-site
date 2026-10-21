@@ -88,6 +88,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.layout.heightIn
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.alpha
@@ -222,7 +225,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
             if (dragged !in g.keys) setGroup(g.copy(keys = g.keys + dragged))
             print("CARPETA", "Añadida a:", g.name)
         } else {
-            val name = "Carpeta ${groups.size + 1}"
+            val used = groups.mapNotNull { it.name.removePrefix("Carpeta ").toIntOrNull() }.toSet()
+            val name = "Carpeta ${generateSequence(1) { it + 1 }.first { it !in used }}"
             setGroup(AppGroup(System.currentTimeMillis().toString(36), name, listOf(target, dragged)))
             print("CARPETA CREADA", name, "Tócala para cambiarle el nombre")
         }
@@ -394,6 +398,14 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
             if (g != null) {
                 FolderSheet(
                     g, g.keys.mapNotNull { byKey[it] },
+                    allApps = apps,
+                    others = groups.filter { it.id != g.id }.map { o -> o to o.keys.mapNotNull { byKey[it] } },
+                    onAdd = { app -> drop(app.key, "g:" + g.id) },
+                    onMerge = { o ->
+                        groups.removeAll { it.id == o.id }
+                        setGroup(g.copy(keys = (g.keys + o.keys).distinct()))
+                        print("CARPETAS FUSIONADAS", g.name, "+ " + o.name)
+                    },
                     onRename = { n -> if (n.isNotBlank()) setGroup(g.copy(name = n.trim())) },
                     onOpen = { open(it) },
                     onDragOut = { app ->
@@ -732,7 +744,7 @@ fun Carousel(
     val pal = LocalPal.current
     if (items.isEmpty()) {
         Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-            T("Mantén oprimida una app en el cajón\npara añadirla aquí", 13.sp, color = pal.pri.copy(alpha = .6f), align = TextAlign.Center, lines = 2)
+            T("Carrusel vacío", 13.sp, color = pal.pri.copy(alpha = .6f), align = TextAlign.Center)
         }
         return
     }
@@ -1141,7 +1153,7 @@ fun Drawer(
 
             if (items.isEmpty() && folders && q.isEmpty()) {
                 T(
-                    "Aún no hay carpetas. Desliza otra vez a la izquierda, a Todas las apps, y suelta una app encima de otra para crear una.",
+                    "Aún no hay carpetas",
                     14.sp, Modifier.padding(top = 30.dp), color = pal.pri.copy(alpha = .6f), align = TextAlign.Center, lines = 4
                 )
             } else if (mode == "bloques") {
@@ -1225,17 +1237,6 @@ fun Drawer(
                     .glass(pal, cutShape(12.dp), strong = true),
                 contentAlignment = Alignment.Center
             ) { AppIcon(icon, 44.dp) }
-            T(
-                when {
-                    dragFolder[0] != null -> if (hover != null) "Suelta para ponerla en ese lugar" else "Arrastra la carpeta al lugar que quieras"
-                    folders -> if (hover != null) "Suelta para meterla en esa carpeta" else "Suéltala encima de una carpeta, o fuera para dejarla suelta"
-                    else -> if (hover != null) "Suelta para unir en una carpeta" else "Arrastra encima de otra app para hacer una carpeta"
-                },
-                12.sp,
-                Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 24.dp)
-                    .glass(pal, cutShape(8.dp), strong = true).background(pal.amb.copy(alpha = .8f)).padding(horizontal = 14.dp, vertical = 10.dp),
-                mono = true
-            )
         }
     }
 }
@@ -1265,6 +1266,10 @@ fun FolderIcons(apps: List<AppEntry>, size: Dp) {
 fun FolderSheet(
     group: AppGroup,
     apps: List<AppEntry>,
+    allApps: List<AppEntry>,
+    others: List<Pair<AppGroup, List<AppEntry>>>,
+    onAdd: (AppEntry) -> Unit,
+    onMerge: (AppGroup) -> Unit,
     onRename: (String) -> Unit,
     onOpen: (AppEntry) -> Unit,
     onDragOut: (AppEntry) -> Unit,
@@ -1273,40 +1278,116 @@ fun FolderSheet(
     val pal = LocalPal.current
     val haptic = LocalHapticFeedback.current
     var name by remember(group.id) { mutableStateOf(group.name) }
+    // "main": la carpeta · "add": elegir apps · "merge": elegir carpeta · "name": nombre de la fusionada
+    var step by remember(group.id) { mutableStateOf("main") }
     Sheet({ onRename(name); onDismiss() }) {
-        Box(
-            Modifier.fillMaxWidth().glass(pal, cutShape(10.dp)).padding(horizontal = 12.dp, vertical = 11.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            if (name.isEmpty()) T("Nombre de la carpeta", 18.sp, color = pal.pri.copy(alpha = .5f))
-            BasicTextField(
-                name, { if (it.length <= 28) { name = it; onRename(it) } }, Modifier.fillMaxWidth(), singleLine = true,
-                textStyle = TextStyle(color = pal.pri, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
-                cursorBrush = SolidColor(pal.pri)
-            )
-        }
-        T("Mantén oprimida una app y arrástrala: suéltala en otra carpeta o fuera para sacarla", 12.sp, Modifier.padding(top = 8.dp, bottom = 12.dp), color = pal.pri.copy(alpha = .6f), mono = true, lines = 2)
-        apps.chunked(3).forEach { row ->
-            Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { app ->
-                    key(app.key) {
-                        TiltCard(
-                            Modifier.weight(1f).aspectRatio(.9f), cutShape(14.dp), maxDeg = 20f,
-                            onClick = { onOpen(app) },
-                            longDrag = LongDrag(
-                                onStart = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDragOut(app) },
-                                onMove = {}, onEnd = {}
-                            )
+        when (step) {
+            "add" -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    T("Añadir apps", 20.sp, Modifier.weight(1f), weight = FontWeight.SemiBold)
+                    Chip("Listo", true) { step = "main" }
+                }
+                val inside = apps.map { it.key }.toSet()
+                LazyColumn(Modifier.padding(top = 12.dp).heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(allApps.filter { it.key !in inside }.sortedBy { it.label.lowercase() }, key = { it.key }) { app ->
+                        Row(
+                            Modifier.fillMaxWidth().glass(pal, cutShape(10.dp), tint = app.color)
+                                .clickable { onAdd(app); Sfx.play(Sfx.TAP) }.padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                AppIcon(app.icon, 46.dp)
-                                Spacer(Modifier.height(6.dp))
-                                T(app.label, 12.sp, Modifier.padding(horizontal = 4.dp), align = TextAlign.Center)
-                            }
+                            AppIcon(app.icon, 34.dp)
+                            Spacer(Modifier.width(12.dp))
+                            T(app.label, 15.sp, Modifier.weight(1f))
+                            T("+", 20.sp, weight = FontWeight.Bold)
                         }
                     }
                 }
-                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+            "merge" -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    T("Fusionar con…", 20.sp, Modifier.weight(1f), weight = FontWeight.SemiBold)
+                    Chip("Cancelar", false) { step = "main" }
+                }
+                if (others.isEmpty()) T("No hay otras carpetas", 14.sp, Modifier.padding(top = 14.dp), color = pal.pri.copy(alpha = .6f))
+                LazyColumn(Modifier.padding(top = 12.dp).heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(others, key = { it.first.id }) { (o, oApps) ->
+                        Row(
+                            Modifier.fillMaxWidth().glass(pal, cutShape(10.dp))
+                                .clickable { onMerge(o); name = ""; step = "name"; Sfx.play(Sfx.OPEN, .4f) }
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (oApps.isNotEmpty()) FolderIcons(oApps, 38.dp)
+                            Spacer(Modifier.width(12.dp))
+                            T(o.name, 15.sp, Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+            "name" -> {
+                T("Nombre de la carpeta fusionada", 18.sp, weight = FontWeight.SemiBold)
+                val focus = remember { FocusRequester() }
+                LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+                Box(
+                    Modifier.padding(top = 12.dp).fillMaxWidth().glass(pal, cutShape(10.dp)).padding(horizontal = 12.dp, vertical = 11.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (name.isEmpty()) T(group.name, 18.sp, color = pal.pri.copy(alpha = .4f))
+                    BasicTextField(
+                        name, { if (it.length <= 28) name = it }, Modifier.fillMaxWidth().focusRequester(focus), singleLine = true,
+                        textStyle = TextStyle(color = pal.pri, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+                        cursorBrush = SolidColor(pal.pri)
+                    )
+                }
+                Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Chip("Guardar", true) {
+                        if (name.isBlank()) name = group.name
+                        onRename(name); step = "main"
+                    }
+                }
+            }
+            else -> {
+                Box(
+                    Modifier.fillMaxWidth().glass(pal, cutShape(10.dp)).padding(horizontal = 12.dp, vertical = 11.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (name.isEmpty()) T("Nombre de la carpeta", 18.sp, color = pal.pri.copy(alpha = .5f))
+                    BasicTextField(
+                        name, { if (it.length <= 28) { name = it; onRename(it) } }, Modifier.fillMaxWidth(), singleLine = true,
+                        textStyle = TextStyle(color = pal.pri, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+                        cursorBrush = SolidColor(pal.pri)
+                    )
+                }
+                Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip("+ Añadir app", false) { step = "add" }
+                    Chip("Fusionar carpeta", false) { step = "merge" }
+                }
+                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+                    apps.chunked(3).forEach { row ->
+                        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            row.forEach { app ->
+                                key(app.key) {
+                                    TiltCard(
+                                        Modifier.weight(1f).aspectRatio(.9f), cutShape(14.dp), maxDeg = 20f,
+                                        tint = app.color, liquid = true,
+                                        onClick = { onOpen(app) },
+                                        longDrag = LongDrag(
+                                            onStart = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDragOut(app) },
+                                            onMove = {}, onEnd = {}
+                                        )
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            AppIcon(app.icon, 46.dp)
+                                            Spacer(Modifier.height(6.dp))
+                                            T(app.label, 12.sp, Modifier.padding(horizontal = 4.dp), align = TextAlign.Center)
+                                        }
+                                    }
+                                }
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1419,7 +1500,6 @@ fun SettingsPanel(
             }
 
             T("Nueva paleta", 15.sp, Modifier.padding(top = 14.dp, bottom = 4.dp), weight = FontWeight.SemiBold)
-            T("Toca un color para elegirlo. La pantalla cambia mientras eliges.", 12.sp, Modifier.padding(bottom = 10.dp), color = pal.pri.copy(alpha = .6f), lines = 2)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf("Ambiente" to "70%", "Principal" to "20%", "Secundario" to "10%").forEachIndexed { i, (label, pct) ->
                     Column(
@@ -1488,8 +1568,7 @@ private fun OtherAppsSection() {
 
     T("En todas las apps", 15.sp, Modifier.padding(top = 14.dp, bottom = 4.dp), weight = FontWeight.SemiBold)
     T(
-        if (active) "Activado. Desliza hacia abajo desde arriba en cualquier app: a la izquierda notificaciones, a la derecha el centro de control. Mantén oprimido arriba para la cortina normal."
-        else "Para usar tu panel y tus sonidos encima de otras apps, activa Launcher Fare en Accesibilidad.",
+        if (active) "Activado" else "Desactivado",
         12.sp, Modifier.padding(bottom = 8.dp), color = pal.pri.copy(alpha = .6f), lines = 4
     )
     if (!active) MenuItem("Activar en Accesibilidad") { FareOverlayService.askEnable(ctx) }
