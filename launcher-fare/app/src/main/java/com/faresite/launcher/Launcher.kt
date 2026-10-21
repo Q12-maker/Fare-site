@@ -758,6 +758,7 @@ fun Carousel(
     var moving by remember { mutableStateOf<String?>(null) }
     var moveDx by remember { mutableFloatStateOf(0f) }
     val moveStart = remember { floatArrayOf(Float.NaN) }
+    val swapped = remember { booleanArrayOf(false) }
     LaunchedEffect(n) { if (pos.value > n - 1) pos.snapTo((n - 1).toFloat()) }
     LaunchedEffect(Unit) {
         var last = pos.value
@@ -831,7 +832,7 @@ fun Carousel(
                                 else scope.launch { pos.animateTo(i.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
                             },
                             longDrag = LongDrag(
-                                onStart = { moving = app.key; moveDx = 0f; moveStart[0] = Float.NaN; Sfx.play(Sfx.OPEN, .3f) },
+                                onStart = { moving = app.key; moveDx = 0f; moveStart[0] = Float.NaN; swapped[0] = false; Sfx.play(Sfx.OPEN, .3f) },
                                 onMove = { p ->
                                     if (moveStart[0].isNaN()) moveStart[0] = p.x - moveDx
                                     moveDx = p.x - moveStart[0]
@@ -842,12 +843,14 @@ fun Carousel(
                                     if (dir != 0 && cur >= 0 && to in list.indices) {
                                         onMove(list[cur], list[to])
                                         moveStart[0] += dir * step
+                                        swapped[0] = true
                                         moveDx -= dir * step
                                     }
                                 },
                                 onEnd = { dragged ->
                                     moving = null; moveDx = 0f
-                                    if (!dragged) onLong(app)
+                                    // Si no cambió de lugar, se abre el menú (con "Quitar del carrusel")
+                                    if (!swapped[0]) onLong(app)
                                     val at = list.indexOfFirst { it.key == app.key }.coerceAtLeast(0)
                                     scope.launch { pos.animateTo(at.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
                                 }
