@@ -135,7 +135,14 @@ import kotlin.math.sin
 
 private val ES = Locale.forLanguageTag("es-CO")
 private const val HOME = 0
-private const val DRAWER = 1
+private const val FOLDERS = 1
+private const val ALL = 2
+
+/** Dónde está el dedo en toda la pantalla (sirve para seguir arrastrando una app que sale de una carpeta). */
+object Finger {
+    var pos by mutableStateOf(Offset.Zero)
+    var down by mutableStateOf(false)
+}
 
 @Composable
 fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
@@ -177,7 +184,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     var lastCheck by remember { mutableStateOf(0L) }
     val version = remember { runCatching { Updater.currentVersion(ctx) }.getOrDefault(0) }
 
-    val pager = rememberPagerState(initialPage = HOME) { 2 }
+    var carry by remember { mutableStateOf<AppEntry?>(null) }
+    val pager = rememberPagerState(initialPage = HOME) { 3 }
     val focus = LocalFocusManager.current
     val tick by resumed.collectAsState()
     val home by homePressed.collectAsState()
@@ -191,10 +199,24 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
         if (g.keys.size < 2) { if (i >= 0) groups.removeAt(i) } else if (i >= 0) groups[i] = g else groups.add(g)
         saveGroups()
     }
+    fun moveGroup(from: String, to: String) {
+        val i = groups.indexOfFirst { "g:" + it.id == from }
+        val j = groups.indexOfFirst { "g:" + it.id == to }
+        if (i < 0 || j < 0 || i == j) return
+        val g = groups.removeAt(i)
+        groups.add(j, g)
+        saveGroups()
+    }
     fun drop(dragged: String, target: String) {
-        if (target.startsWith("g:")) {
+        // Cada app vive en una sola carpeta: se saca de la que estuviera
+        groups.filter { dragged in it.keys && "g:" + it.id != target }.forEach { setGroup(it.copy(keys = it.keys - dragged)) }
+        val home = groups.firstOrNull { target in it.keys }
+        if (home != null) {
+            if (dragged !in home.keys) setGroup(home.copy(keys = home.keys + dragged))
+            print("CARPETA", "Añadida a:", home.name)
+        } else if (target.startsWith("g:")) {
             val g = groups.firstOrNull { "g:" + it.id == target } ?: return
-            setGroup(g.copy(keys = g.keys + dragged))
+            if (dragged !in g.keys) setGroup(g.copy(keys = g.keys + dragged))
             print("CARPETA", "Añadida a:", g.name)
         } else {
             val name = "Carpeta ${groups.size + 1}"
@@ -296,12 +318,22 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     val open: (AppEntry) -> Unit = { lastOpened = it.key; launchApp(ctx, it) }
 
     CompositionLocalProvider(LocalPal provides pal, LocalAnimatedBg provides (bg.base != "simple")) {
-        Box(Modifier.fillMaxSize().background(pal.amb)) {
+        Box(
+            Modifier.fillMaxSize().background(pal.amb).pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                        ev.changes.firstOrNull()?.let { Finger.pos = it.position }
+                        Finger.down = ev.changes.any { it.pressed }
+                    }
+                }
+            }
+        ) {
             Wallpaper(bg)
             HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
               // Cada pantalla recorta lo suyo: nada del carrusel se cuela en el cajón
               Box(Modifier.fillMaxSize().clipToBounds()) {
-                if (page == DRAWER) {
+                if (page == FOLDERS || page == ALL) {
                     Drawer(
                         apps, groups, query, { if (it.length != query.length) Sfx.play(Sfx.KEY, .35f); query = it }, mode,
                         { mode = it; prefs.putStr("mode", it) }, cols,
@@ -311,6 +343,10 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         onDrop = { d, t -> drop(d, t) },
                         onSettings = { settings = true },
                         selectedKey = menuApp?.key ?: lastOpened,
+                        section = page,
+                        external = if (page == FOLDERS) carry else null,
+                        onExternalDone = { app, placed -> carry = null; if (!placed) print("CARPETA", "Sacada:", app.label) },
+                        onReorder = { f, t -> moveGroup(f, t) },
                     )
                 } else {
                     Home(
@@ -357,10 +393,10 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                     g, g.keys.mapNotNull { byKey[it] },
                     onRename = { n -> if (n.isNotBlank()) setGroup(g.copy(name = n.trim())) },
                     onOpen = { open(it) },
-                    onRemove = { app ->
+                    onDragOut = { app ->
                         setGroup(g.copy(keys = g.keys - app.key))
-                        print("CARPETA", "Sacada:", app.label)
-                        if (g.keys.size <= 2) openGroup = null
+                        openGroup = null
+                        carry = app
                     },
                     onDismiss = { openGroup = null },
                 )
@@ -868,18 +904,21 @@ fun Drawer(
     onDrop: (dragged: String, target: String) -> Unit,
     onSettings: () -> Unit,
     selectedKey: String? = null,
+    section: Int = ALL,
+    external: AppEntry? = null,
+    onExternalDone: (AppEntry, placed: Boolean) -> Unit = { _, _ -> },
+    onReorder: (from: String, to: String) -> Unit = { _, _ -> },
 ) {
     val pal = LocalPal.current
     val haptic = LocalHapticFeedback.current
     val q = query.trim().lowercase()
     val byKey = apps.associateBy { it.key }
-    val items: List<Item> = if (q.isNotEmpty()) {
-        apps.filter { q in it.label.lowercase() }.map { AppItem(it) }
-    } else {
-        val inGroups = groups.flatMap { it.keys }.toSet()
-        (groups.mapNotNull { g -> g.keys.mapNotNull { byKey[it] }.takeIf { it.isNotEmpty() }?.let { FolderItem(g, it) } } +
-            apps.filter { it.key !in inGroups }.map { AppItem(it) })
-            .sortedBy { it.label.lowercase() }
+    val folders = section == FOLDERS
+    // Carpetas: solo carpetas, en el orden que elijas. Todas las apps: cada app en orden alfabético.
+    val items: List<Item> = when {
+        q.isNotEmpty() -> apps.filter { q in it.label.lowercase() }.map { AppItem(it) }
+        folders -> groups.mapNotNull { g -> g.keys.mapNotNull { byKey[it] }.takeIf { it.isNotEmpty() }?.let { FolderItem(g, it) } }
+        else -> apps.sortedBy { it.label.lowercase() }.map { AppItem(it) }
     }
 
     // Arrastre para formar carpetas
@@ -908,17 +947,45 @@ fun Drawer(
     val density = LocalDensity.current
     val longNow by rememberUpdatedState(onLong)
     val dropNow by rememberUpdatedState(onDrop)
+    val reorderNow by rememberUpdatedState(onReorder)
+    val externalDone by rememberUpdatedState(onExternalDone)
+    val openGroupNow by rememberUpdatedState(onOpenGroup)
+    val dragFolder = remember { arrayOfNulls<AppGroup>(1) }
+    val dragExternal = remember { booleanArrayOf(false) }
     fun finishDrag() {
         val k = dragKey ?: return
         val app = dragApp[0]
+        val folder = dragFolder[0]
         val target = if (dragMoved[0]) targetAt(dragPos, k) else null
         val moved = dragMoved[0]
-        dragKey = null; dragIcon = null; dragApp[0] = null
+        val ext = dragExternal[0]
+        dragKey = null; dragIcon = null; dragApp[0] = null; dragFolder[0] = null; dragExternal[0] = false
         when {
+            folder != null -> when {
+                !moved -> openGroupNow(folder)
+                target != null && target.startsWith("g:") -> { reorderNow(k, target); Sfx.play(Sfx.TICK, .4f) }
+            }
             app == null -> {}
+            ext -> {
+                if (target != null) dropNow(k, target)
+                externalDone(app, target != null)
+            }
             !moved -> longNow(app)
             target != null -> dropNow(k, target)
         }
+    }
+    // App que sacaste de una carpeta: la sigues llevando con el dedo hasta soltarla encima de otra carpeta
+    LaunchedEffect(external) {
+        val app = external ?: return@LaunchedEffect
+        dragApp[0] = app; dragFolder[0] = null; dragExternal[0] = true
+        dragMoved[0] = true
+        dragKey = app.key; dragIcon = app.icon
+        dragPos = Finger.pos
+        while (Finger.down) {
+            withFrameNanos { }
+            dragPos = Finger.pos
+        }
+        finishDrag()
     }
     // Mientras arrastras cerca del borde de abajo (o de arriba) la lista se mueve sola
     LaunchedEffect(dragKey) {
@@ -954,12 +1021,24 @@ fun Drawer(
                     alpha = if (lifted) .35f else 1f
                 }
         ) {
-            val drag = (item as? AppItem)?.let { ai ->
+            val drag = if (item is FolderItem) {
                 LongDrag(
                     onStart = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         dragMoved[0] = false
-                        dragApp[0] = ai.app
+                        dragApp[0] = null; dragFolder[0] = item.group
+                        dragKey = item.key; dragIcon = item.apps.first().icon
+                        dragPos = bounds[item.key]?.center ?: Offset.Zero
+                    },
+                    onMove = {},
+                    onEnd = { finishDrag() }
+                )
+            } else (item as? AppItem)?.let { ai ->
+                LongDrag(
+                    onStart = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        dragMoved[0] = false
+                        dragApp[0] = ai.app; dragFolder[0] = null
                         dragKey = ai.key; dragIcon = ai.app.icon
                         dragPos = bounds[ai.key]?.center ?: Offset.Zero
                     },
@@ -992,9 +1071,10 @@ fun Drawer(
             }
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(horizontal = 16.dp)) {
+            T(if (folders) "Carpetas" else "Todas las apps", 24.sp, Modifier.padding(top = 12.dp), weight = FontWeight.SemiBold)
             // Barra de búsqueda
             Row(
-                Modifier.padding(top = 14.dp).fillMaxWidth().height(54.dp).glass(pal, cutShape(16.dp), strong = true).padding(horizontal = 16.dp),
+                Modifier.padding(top = 10.dp).fillMaxWidth().height(54.dp).glass(pal, cutShape(16.dp), strong = true).padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Canvas(Modifier.size(18.dp)) {
@@ -1034,7 +1114,12 @@ fun Drawer(
                 Chip("Ajustes", false, onSettings)
             }
 
-            if (mode == "bloques") {
+            if (items.isEmpty() && folders && q.isEmpty()) {
+                T(
+                    "Aún no hay carpetas. Desliza otra vez a la izquierda, a Todas las apps, y suelta una app encima de otra para crear una.",
+                    14.sp, Modifier.padding(top = 30.dp), color = pal.pri.copy(alpha = .6f), align = TextAlign.Center, lines = 4
+                )
+            } else if (mode == "bloques") {
                 LazyVerticalGrid(
                     GridCells.Fixed(cols),
                     Modifier.fillMaxSize().onGloballyPositioned { listRect = it.boundsInRoot() },
@@ -1048,7 +1133,6 @@ fun Drawer(
                             TiltCard(
                                 Modifier.aspectRatio(.88f), cutShape(if (cols == 2) 20.dp else 14.dp), maxDeg = 22f,
                                 onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
-                                onLongClick = (item as? FolderItem)?.let { f -> { onOpenGroup(f.group) } },
                                 longDrag = drag,
                                 tint = (item as? AppItem)?.app?.color,
                                 liquid = true,
@@ -1080,7 +1164,6 @@ fun Drawer(
                             TiltCard(
                                 Modifier.fillMaxWidth().height(62.dp), cutShape(12.dp), maxDeg = 5f,
                                 onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
-                                onLongClick = (item as? FolderItem)?.let { f -> { onOpenGroup(f.group) } },
                                 longDrag = drag,
                                 tint = (item as? AppItem)?.app?.color,
                                 liquid = true,
@@ -1118,7 +1201,11 @@ fun Drawer(
                 contentAlignment = Alignment.Center
             ) { AppIcon(icon, 44.dp) }
             T(
-                if (hover != null) "Suelta para unir en una carpeta" else "Arrastra encima de otra app para hacer una carpeta",
+                when {
+                    dragFolder[0] != null -> if (hover != null) "Suelta para ponerla en ese lugar" else "Arrastra la carpeta al lugar que quieras"
+                    folders -> if (hover != null) "Suelta para meterla en esa carpeta" else "Suéltala encima de una carpeta, o fuera para dejarla suelta"
+                    else -> if (hover != null) "Suelta para unir en una carpeta" else "Arrastra encima de otra app para hacer una carpeta"
+                },
                 12.sp,
                 Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 24.dp)
                     .glass(pal, cutShape(8.dp), strong = true).background(pal.amb.copy(alpha = .8f)).padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1155,10 +1242,11 @@ fun FolderSheet(
     apps: List<AppEntry>,
     onRename: (String) -> Unit,
     onOpen: (AppEntry) -> Unit,
-    onRemove: (AppEntry) -> Unit,
+    onDragOut: (AppEntry) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val pal = LocalPal.current
+    val haptic = LocalHapticFeedback.current
     var name by remember(group.id) { mutableStateOf(group.name) }
     Sheet({ onRename(name); onDismiss() }) {
         Box(
@@ -1172,14 +1260,18 @@ fun FolderSheet(
                 cursorBrush = SolidColor(pal.pri)
             )
         }
-        T("Mantén oprimida una app para sacarla de la carpeta", 12.sp, Modifier.padding(top = 8.dp, bottom = 12.dp), color = pal.pri.copy(alpha = .6f), mono = true, lines = 2)
+        T("Mantén oprimida una app y arrástrala: suéltala en otra carpeta o fuera para sacarla", 12.sp, Modifier.padding(top = 8.dp, bottom = 12.dp), color = pal.pri.copy(alpha = .6f), mono = true, lines = 2)
         apps.chunked(3).forEach { row ->
             Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { app ->
                     key(app.key) {
                         TiltCard(
                             Modifier.weight(1f).aspectRatio(.9f), cutShape(14.dp), maxDeg = 20f,
-                            onClick = { onOpen(app) }, onLongClick = { onRemove(app) }
+                            onClick = { onOpen(app) },
+                            longDrag = LongDrag(
+                                onStart = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onDragOut(app) },
+                                onMove = {}, onEnd = {}
+                            )
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 AppIcon(app.icon, 46.dp)
