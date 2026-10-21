@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.sin
+import kotlin.math.cos
 import kotlin.random.Random
 
 /* ---------- Paleta 70 / 20 / 10 ---------- */
@@ -87,7 +88,16 @@ fun parseHex(s: String): Color? {
 fun cutShape(cut: Dp): Shape = CutCornerShape(topStart = cut, topEnd = 0.dp, bottomEnd = cut, bottomStart = 0.dp)
 
 /** Vidrio claro: casi sin tinte, borde fino con brillo, esquinas cortadas. */
-fun Modifier.glass(pal: Palette, shape: Shape, strong: Boolean = false, tint: Color? = null): Modifier = this
+fun Modifier.glass(pal: Palette, shape: Shape, strong: Boolean = false, tint: Color? = null, tints: List<Color>? = null): Modifier =
+    if (tints != null && tints.size > 1) glassMulti(shape, tints) else glassOne(pal, shape, strong, tint)
+
+/** Vidrio multicolor: los colores predominantes se funden en diagonal y el borde los recorre. */
+private fun Modifier.glassMulti(shape: Shape, tints: List<Color>): Modifier = this
+    .clip(shape)
+    .background(Brush.linearGradient(tints.flatMapIndexed { i, c -> listOf(c.copy(alpha = if (i % 2 == 0) .40f else .30f), c.copy(alpha = .12f)) }))
+    .border(1.5.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = .75f)) + tints.map { it.copy(alpha = .85f) }), shape)
+
+private fun Modifier.glassOne(pal: Palette, shape: Shape, strong: Boolean, tint: Color?): Modifier = this
     .clip(shape)
     .background(
         Brush.linearGradient(
@@ -145,6 +155,8 @@ fun TiltCard(
     onLongClick: (() -> Unit)? = null,
     longDrag: LongDrag? = null,
     tint: Color? = null,
+    /** Varios colores predominantes: vidrio y aura multicolor. */
+    tints: List<Color>? = null,
     liquid: Boolean = false,
     aura: Boolean = false,
     selected: Boolean = false,
@@ -186,13 +198,29 @@ fun TiltCard(
                     val wide = size.width > size.height * 1.6f
                     val c = if (wide) Offset(size.height * .6f, size.height / 2) else center
                     val r = (if (wide) size.height * 1.3f else size.maxDimension * .62f) * (1f + .25f * hi)
-                    drawCircle(
-                        Brush.radialGradient(
-                            listOf(glow.copy(alpha = .30f + .30f * hi), glow.copy(alpha = .08f), Color.Transparent),
-                            center = c, radius = r
-                        ),
-                        r, c
-                    )
+                    val many = tints?.takeIf { it.size > 1 }
+                    if (many == null) {
+                        drawCircle(
+                            Brush.radialGradient(
+                                listOf(glow.copy(alpha = .30f + .30f * hi), glow.copy(alpha = .08f), Color.Transparent),
+                                center = c, radius = r
+                            ),
+                            r, c
+                        )
+                    } else {
+                        // Aura multicolor: una mancha de cada color alrededor del centro
+                        many.forEachIndexed { k, col ->
+                            val ang = 2.0 * Math.PI * k / many.size - Math.PI / 2
+                            val o = Offset(c.x + (cos(ang) * r * .3f).toFloat(), c.y + (sin(ang) * r * .3f).toFloat())
+                            drawCircle(
+                                Brush.radialGradient(
+                                    listOf(col.copy(alpha = .26f + .26f * hi), col.copy(alpha = .06f), Color.Transparent),
+                                    center = o, radius = r * .85f
+                                ),
+                                r * .85f, o
+                            )
+                        }
+                    }
                 }
             }
             .graphicsLayer {
@@ -254,7 +282,7 @@ fun TiltCard(
                     if (!moved && !longFired) { Sfx.play(Sfx.TAP); click() }
                 }
             }
-            .glass(pal, shape, tint = tint)
+            .glass(pal, shape, tint = tint, tints = tints)
             .drawWithContent {
                 drawContent()
                 if (hi > 0f) {

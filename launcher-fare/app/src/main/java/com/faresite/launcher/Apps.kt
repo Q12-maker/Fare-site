@@ -2,6 +2,8 @@ package com.faresite.launcher
 
 import android.content.ComponentName
 import android.content.Context
+import kotlin.math.abs
+import androidx.compose.ui.graphics.toArgb
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -20,8 +22,13 @@ import java.net.URL
 /** Carpeta de apps: se forma arrastrando una app encima de otra en el cajón. */
 data class AppGroup(val id: String, val name: String, val keys: List<String>)
 
-class AppEntry(val label: String, val pkg: String, val activity: String, val icon: ImageBitmap, val color: Color?) {
+class AppEntry(
+    val label: String, val pkg: String, val activity: String, val icon: ImageBitmap,
+    /** Colores predominantes del ícono (1 a 3), del que más pesa al que menos. */
+    val colors: List<Color> = emptyList(),
+) {
     val key get() = "$pkg/$activity"
+    val color: Color? get() = colors.firstOrNull()
 }
 
 fun loadApps(ctx: Context): List<AppEntry> {
@@ -37,33 +44,78 @@ fun loadApps(ctx: Context): List<AppEntry> {
                 ri.activityInfo.packageName,
                 ri.activityInfo.name,
                 bmp.asImageBitmap(),
-                runCatching { dominantColor(bmp) }.getOrNull()
+                runCatching { iconColors(bmp) }.getOrDefault(emptyList())
             )
         }
         .distinctBy { it.key }
         .sortedBy { it.label.lowercase() }
 }
 
-/** Color principal del ícono (el más vivo), para teñir la ventana y su aura. */
-fun dominantColor(src: Bitmap): Color? {
+/** Colores predominantes del ícono (los más vivos): uno si domina, o hasta tres si hay varios. */
+fun iconColors(src: Bitmap): List<Color> {
     val b = Bitmap.createScaledBitmap(src, 24, 24, true)
-    var x = 0.0; var y = 0.0; var ws = 0.0; var wv = 0.0; var total = 0.0
     val hsv = FloatArray(3)
+    val samples = ArrayList<Pair<FloatArray, Float>>()
     for (i in 0 until 24) for (j in 0 until 24) {
         val c = b.getPixel(i, j)
         if (android.graphics.Color.alpha(c) < 200) continue
         android.graphics.Color.colorToHSV(c, hsv)
-        val w = (hsv[1] * hsv[2]).toDouble()
-        if (w < .15) continue
-        val rad = Math.toRadians(hsv[0].toDouble())
-        x += cos(rad) * w; y += sin(rad) * w
-        ws += hsv[1] * w; wv += hsv[2] * w; total += w
+        val w = hsv[1] * hsv[2]
+        if (w < .15f) continue
+        samples += hsv.copyOf() to w
     }
-    if (total < 3.0) return null
-    var hue = Math.toDegrees(atan2(y, x)).toFloat()
-    if (hue < 0) hue += 360f
-    return Color.hsv(hue, (ws / total).toFloat().coerceIn(.55f, 1f), (wv / total).toFloat().coerceIn(.75f, 1f))
+    if (samples.sumOf { it.second.toDouble() } < 3.0) return emptyList()
+    return dominantHues(samples).map { c ->
+        // Vivos y claros, para que el vidrio y el aura se noten
+        val h = FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) }
+        Color.hsv(h[0], h[1].coerceIn(.55f, 1f), h[2].coerceIn(.75f, 1f))
+    }
 }
+
+/**
+ * Agrupa colores (HSV + peso) por tono en 12 grupos de 30° y devuelve los predominantes:
+ * solo uno si pesa la mayoría; si no, hasta [max] (los que pesan al menos un tercio del mayor).
+ */
+fun dominantHues(samples: List<Pair<FloatArray, Float>>, max: Int = 3): List<Color> {
+    if (samples.isEmpty()) return emptyList()
+    fun bin(h: Float) = (h / 30f).toInt().coerceIn(0, 11)
+    val weight = FloatArray(12)
+    samples.forEach { (h, w) -> weight[bin(h[0])] += w }
+    // Junta cada grupo con sus vecinos para no partir un mismo color en dos
+    val smooth = FloatArray(12) { weight[it] + .5f * (weight[(it + 1) % 12] + weight[(it + 11) % 12]) }
+    val total = weight.sum()
+    val order = smooth.indices.sortedByDescending { smooth[it] }
+    val picked = ArrayList<Int>()
+    for (k in order) {
+        if (picked.size == max) break
+        if (picked.any { p -> val d = abs(p - k); minOf(d, 12 - d) <= 1 }) continue
+        if (picked.isNotEmpty() && smooth[k] < smooth[picked[0]] / 3f) break
+        picked += k
+        if (picked.size == 1 && smooth[k] >= total * .62f) break
+    }
+    return picked.map { k ->
+        var x = 0.0; var y = 0.0; var s = 0.0; var v = 0.0; var t = 0.0
+        samples.forEach { (h, w) ->
+            val d = abs(bin(h[0]) - k)
+            if (minOf(d, 12 - d) <= 1) {
+                val rad = Math.toRadians(h[0].toDouble())
+                x += cos(rad) * w; y += sin(rad) * w; s += h[1] * w; v += h[2] * w; t += w
+            }
+        }
+        var hue = Math.toDegrees(atan2(y, x)).toFloat()
+        if (hue < 0) hue += 360f
+        Color.hsv(hue, (s / t).toFloat().coerceIn(0f, 1f), (v / t).toFloat().coerceIn(0f, 1f))
+    }
+}
+
+/** Colores de una carpeta: los predominantes entre los colores de todas sus apps. */
+fun folderColors(apps: List<AppEntry>): List<Color> = dominantHues(
+    apps.flatMap { a ->
+        a.colors.mapIndexed { i, c ->
+            FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) } to (if (i == 0) 1f else .55f)
+        }
+    }
+)
 
 fun launchApp(ctx: Context, app: AppEntry) {
     val i = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)

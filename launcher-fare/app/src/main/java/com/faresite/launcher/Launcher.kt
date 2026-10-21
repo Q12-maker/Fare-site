@@ -833,16 +833,29 @@ fun Carousel(
                         contentAlignment = Alignment.Center
                     ) {
                         // Aura del color de la app detrás de la ventana del centro
-                        Box(
-                            Modifier.requiredSize(cardW * 1.8f).alpha((1f - a).coerceIn(0f, 1f) * .9f)
-                                .background(Brush.radialGradient(listOf(tint.copy(alpha = .55f), tint.copy(alpha = .18f), Color.Transparent)))
-                        )
+                        val auraCols = app.colors.ifEmpty { listOf(tint) }
+                        auraCols.forEachIndexed { k, col ->
+                            val n2 = auraCols.size
+                            Box(
+                                Modifier.requiredSize(cardW * (if (n2 > 1) 1.5f else 1.8f))
+                                    .graphicsLayer {
+                                        if (n2 > 1) {
+                                            val ang = 2.0 * Math.PI * k / n2 - Math.PI / 2
+                                            translationX = (cos(ang) * cardW.toPx() * .3f).toFloat()
+                                            translationY = (sin(ang) * cardW.toPx() * .3f).toFloat()
+                                        }
+                                    }
+                                    .alpha((1f - a).coerceIn(0f, 1f) * .9f)
+                                    .background(Brush.radialGradient(listOf(col.copy(alpha = if (n2 > 1) .45f else .55f), col.copy(alpha = .15f), Color.Transparent)))
+                            )
+                        }
                         TiltCard(
                             Modifier.fillMaxSize(),
                             SlantShape,
                             maxDeg = 22f,
                             idle = a < .5f,
                             tint = app.color,
+                            tints = app.colors,
                             liquid = true,
                             selected = isMoving,
                             onClick = {
@@ -877,7 +890,8 @@ fun Carousel(
                             // "Foto" del panel: degradado del color de la app con el ícono grande
                             Box(
                                 Modifier.fillMaxSize().background(
-                                    Brush.verticalGradient(listOf(tint.copy(alpha = .5f), tint.copy(alpha = .22f), pal.amb.copy(alpha = .35f)))
+                                    if (app.colors.size > 1) Brush.linearGradient(app.colors.map { it.copy(alpha = .38f) } + pal.amb.copy(alpha = .35f))
+                                    else Brush.verticalGradient(listOf(tint.copy(alpha = .5f), tint.copy(alpha = .22f), pal.amb.copy(alpha = .35f)))
                                 )
                             )
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -944,29 +958,13 @@ private class AppItem(val app: AppEntry) : Item() {
     override val label get() = app.label
 }
 
-/** Color del aura: el de la app, o el color que más se repite entre las apps de la carpeta. */
-private fun itemTint(item: Item): Color? = when (item) {
-    is AppItem -> item.app.color
-    is FolderItem -> representative(item.apps.mapNotNull { it.color })
+/** Colores del aura: los del ícono, o los predominantes entre las apps de la carpeta. */
+private fun itemTints(item: Item): List<Color> = when (item) {
+    is AppItem -> item.app.colors
+    is FolderItem -> folderColors(item.apps)
 }
 
-/**
- * El color más representativo de una mezcla: agrupa los colores por tono (12 grupos de 30°),
- * elige el grupo que más pesa (más apps y más vivos) y promedia solo esos.
- * Así una carpeta con 3 apps rojas y 1 azul sale roja, no café.
- */
-private fun representative(cs: List<Color>): Color? {
-    if (cs.isEmpty()) return null
-    val hsv = cs.map { c -> FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) } }
-    val weight = FloatArray(12)
-    hsv.forEach { weight[(it[0] / 30f).toInt() % 12] += .2f + it[1] * it[2] }
-    val best = weight.indices.maxBy { weight[it] }
-    val pick = cs.indices.filter { i ->
-        val bin = (hsv[i][0] / 30f).toInt() % 12
-        bin == best || (bin + 1) % 12 == best || (bin + 11) % 12 == best
-    }.map { cs[it] }
-    return Color(pick.map { it.red }.average().toFloat(), pick.map { it.green }.average().toFloat(), pick.map { it.blue }.average().toFloat())
-}
+private fun itemTint(item: Item): Color? = itemTints(item).firstOrNull()
 
 private class FolderItem(val group: AppGroup, val apps: List<AppEntry>) : Item() {
     override val key get() = "g:" + group.id
@@ -1219,7 +1217,7 @@ fun Drawer(
                                 Modifier.aspectRatio(.88f), cutShape(if (cols == 2) 20.dp else 14.dp), maxDeg = 22f,
                                 onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
                                 longDrag = drag,
-                                tint = itemTint(item),
+                                tint = itemTint(item), tints = itemTints(item),
                                 liquid = true,
                                 aura = true,
                                 selected = item.key == selectedKey || item.key == dragKey,
@@ -1250,7 +1248,7 @@ fun Drawer(
                                 Modifier.fillMaxWidth().height(62.dp), cutShape(12.dp), maxDeg = 5f,
                                 onClick = { if (item is AppItem) onOpen(item.app) else if (item is FolderItem) onOpenGroup(item.group) },
                                 longDrag = drag,
-                                tint = itemTint(item),
+                                tint = itemTint(item), tints = itemTints(item),
                                 liquid = true,
                                 aura = true,
                                 selected = item.key == selectedKey || item.key == dragKey,
@@ -1364,7 +1362,7 @@ fun FolderSheet(
                 LazyColumn(Modifier.padding(top = 10.dp).heightIn(max = 420.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     items(allApps.filter { it.key !in inside && (f.isEmpty() || f in it.label.lowercase()) }.sortedBy { it.label.lowercase() }, key = { it.key }) { app ->
                         Row(
-                            Modifier.fillMaxWidth().glass(pal, cutShape(10.dp), tint = app.color)
+                            Modifier.fillMaxWidth().glass(pal, cutShape(10.dp), tint = app.color, tints = app.colors)
                                 .clickable { onAdd(app); Sfx.play(Sfx.TAP) }.padding(horizontal = 12.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -1445,7 +1443,7 @@ fun FolderSheet(
                                 key(app.key) {
                                     TiltCard(
                                         Modifier.weight(1f).aspectRatio(.9f), cutShape(14.dp), maxDeg = 20f,
-                                        tint = app.color, liquid = true,
+                                        tint = app.color, tints = app.colors, liquid = true,
                                         selected = holding == app.key,
                                         onClick = { onOpen(app) },
                                         // Mantener oprimida no la saca: solo sale si la arrastras fuera de la carpeta

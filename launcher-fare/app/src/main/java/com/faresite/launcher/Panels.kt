@@ -186,6 +186,7 @@ private fun NotifCard(n: Notif, app: AppEntry?, index: Int, block: Boolean, onAc
             cutShape(16.dp),
             maxDeg = if (block) 18f else 6f,
             tint = app?.color,
+            tints = app?.colors,
             liquid = true,
             onClick = { FareNotifications.open(ctx, n); onAction() },
             onLongClick = if (n.clearable) ({ FareNotifications.dismiss(n); Sfx.play(Sfx.SWIPE) }) else null,
