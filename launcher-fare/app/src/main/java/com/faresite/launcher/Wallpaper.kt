@@ -115,8 +115,9 @@ fun Prefs.putBg(b: BgConfig) {
     putStr("capa", b.layer); putStr("capa_uri", b.layerUri); putInt("cuadros_scroll", b.frames)
 }
 
+/** onHome: el video por scroll solo se mueve y se ve en la pantalla del carrusel. */
 @Composable
-fun Wallpaper(cfg: BgConfig) {
+fun Wallpaper(cfg: BgConfig, onHome: Boolean = true) {
     val base = cfg.baseUri.takeIf { it.isNotEmpty() }?.let(Uri::parse)
     when {
         cfg.base == "imagen" && base != null -> {
@@ -131,7 +132,7 @@ fun Wallpaper(cfg: BgConfig) {
     }
 
     // Capa transparente que aparece al hacer scroll y se desvanece al soltar
-    if (cfg.layer == "no") return
+    if (cfg.layer == "no" || !onHome) return
     var scrolling by remember { mutableStateOf(false) }
     LaunchedEffect(ScrollBus.lastMove) {
         if (ScrollBus.lastMove == 0L) return@LaunchedEffect

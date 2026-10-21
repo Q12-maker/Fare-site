@@ -287,7 +287,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     }
     LaunchedEffect(Unit) {
         var last = pager.currentPage + pager.currentPageOffsetFraction
-        snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }.collect { ScrollBus.add(it - last); last = it }
+        snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }.collect { last = it }
     }
     LaunchedEffect(pager.currentPage) { if (pager.currentPage == HOME) { query = ""; focus.clearFocus() } }
     LaunchedEffect(Unit) {
@@ -337,7 +337,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                 }
             }
         ) {
-            Wallpaper(bg)
+            Wallpaper(bg, onHome = pager.currentPage == HOME && pager.currentPageOffsetFraction == 0f)
             HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
               // Cada pantalla recorta lo suyo: nada del carrusel se cuela en el cajón
               Box(Modifier.fillMaxSize().clipToBounds()) {
@@ -1025,7 +1025,7 @@ fun Drawer(
         snapshotFlow {
             if (mode == "bloques") gridState.firstVisibleItemIndex / cols.coerceAtLeast(1) + gridState.firstVisibleItemScrollOffset / rowPx
             else listState.firstVisibleItemIndex * .6f + listState.firstVisibleItemScrollOffset / rowPx
-        }.collect { v -> if (!last.isNaN()) ScrollBus.add((v - last) * .5f); last = v }
+        }.collect { v -> last = v }
     }
     val density = LocalDensity.current
     val longNow by rememberUpdatedState(onLong)
