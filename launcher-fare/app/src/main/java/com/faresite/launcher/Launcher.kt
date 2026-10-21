@@ -685,7 +685,7 @@ fun Home(
                             style = TextStyle(
                                 color = pal.pri,
                                 fontSize = 104.sp, fontWeight = FontWeight.Black, letterSpacing = (-4).sp,
-                                shadow = Shadow(pal.pri.copy(alpha = .7f), Offset.Zero, 44f),
+                                shadow = Shadow(pal.pri, Offset.Zero, 64f),
                             )
                         )
                         Spacer(Modifier.width(10.dp))
