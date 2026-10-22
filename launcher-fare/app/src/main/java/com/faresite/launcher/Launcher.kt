@@ -174,6 +174,9 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
 
     var mode by remember { mutableStateOf(prefs.str("mode", "bloques")) }
     var cols by remember { mutableIntStateOf(prefs.int("cols", 3)) }
+    // La pantalla de Carpetas tiene su propia vista (bloques o líneas), aparte de Todas las apps
+    var fmode by remember { mutableStateOf(prefs.str("fmode", mode)) }
+    var fcols by remember { mutableIntStateOf(prefs.int("fcols", cols)) }
     var query by remember { mutableStateOf("") }
 
     var receipt by remember { mutableStateOf<Receipt?>(null) }
@@ -347,9 +350,11 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
               Box(Modifier.fillMaxSize().clipToBounds()) {
                 if (page == FOLDERS || page == ALL) {
                     Drawer(
-                        apps, groups, query, { if (it.length != query.length) Sfx.play(Sfx.KEY, .35f); query = it }, mode,
-                        { mode = it; prefs.putStr("mode", it) }, cols,
-                        { cols = it; prefs.putInt("cols", it) },
+                        apps, groups, query, { if (it.length != query.length) Sfx.play(Sfx.KEY, .35f); query = it },
+                        if (page == FOLDERS) fmode else mode,
+                        { if (page == FOLDERS) { fmode = it; prefs.putStr("fmode", it) } else { mode = it; prefs.putStr("mode", it) } },
+                        if (page == FOLDERS) fcols else cols,
+                        { if (page == FOLDERS) { fcols = it; prefs.putInt("fcols", it) } else { cols = it; prefs.putInt("cols", it) } },
                         open, { menuApp = it },
                         onOpenGroup = { openGroup = it.id },
                         onDrop = { d, t -> drop(d, t) },
