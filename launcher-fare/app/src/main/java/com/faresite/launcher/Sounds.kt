@@ -15,13 +15,12 @@ import kotlin.random.Random
 /**
  * Sonidos de sistema del launcher: notas de piano sintetizadas al abrir (no hay archivos de audio).
  * Tocar = Do, carrusel = Sol corto, cambiar de pantalla = Do grave, abrir paneles = arpegio Do-Mi-Sol,
- * escribir = una nota al azar de la escala pentatónica (siempre suena bonito).
+ * escribir conserva su chasquido de tecla.
  */
 object Sfx {
     private const val RATE = 44100
     private var pool: SoundPool? = null
     private val ids = IntArray(5)
-    private val keyIds = IntArray(6)
     var enabled = true
 
     const val TICK = 0
@@ -33,11 +32,8 @@ object Sfx {
     // Frecuencias de las notas (Hz)
     private const val C4 = 261.63
     private const val C5 = 523.25
-    private const val D5 = 587.33
     private const val E5 = 659.26
     private const val G5 = 783.99
-    private const val A5 = 880.0
-    private const val C6 = 1046.5
 
     fun init(ctx: Context) {
         if (pool != null) return
@@ -55,7 +51,7 @@ object Sfx {
         ids[TAP] = load("tap", piano(C5, .7))
         ids[SWIPE] = load("swipe", piano(C4, .9, soft = .7))
         ids[OPEN] = load("open", chord(listOf(C5, E5, G5), .07, 1.1))
-        listOf(C5, D5, E5, G5, A5, C6).forEachIndexed { i, f -> keyIds[i] = load("key$i", piano(f, .4, soft = .55)) }
+        ids[KEY] = load("key", key())
         pool = p
     }
 
@@ -69,7 +65,7 @@ object Sfx {
     }
 
     fun raw(which: Int, volume: Float = .5f) {
-        val id = if (which == KEY) keyIds[Random.nextInt(keyIds.size)] else ids.getOrElse(which) { 0 }
+        val id = ids.getOrElse(which) { 0 }
         if (id != 0) pool?.play(id, volume, volume, 1, 0, 1f)
     }
 
@@ -77,6 +73,14 @@ object Sfx {
     // más rápido cuanto más agudo, y un golpecito de martillo al inicio ---
 
     private fun buf(seconds: Double) = FloatArray((RATE * seconds).toInt())
+
+    /** Tecla de escribir: chasquido corto y seco (se conserva). */
+    private fun key() = buf(.02).also { b ->
+        for (i in b.indices) {
+            val t = i.toDouble() / RATE
+            b[i] = ((Random.nextDouble() - .5) * exp(-t * 600) * .8 + sin(2 * PI * 1800 * t) * exp(-t * 400) * .3).toFloat()
+        }
+    }
 
     private fun pianoSample(f: Double, t: Double, len: Double, soft: Double): Double {
         if (t < 0) return 0.0
