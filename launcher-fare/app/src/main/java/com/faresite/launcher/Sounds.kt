@@ -14,8 +14,8 @@ import kotlin.random.Random
 
 /**
  * Sonidos de sistema del launcher, sintetizados al abrir (no hay archivos de audio):
- * gota de marimba al mover el carrusel, burbuja al tocar, tecla al escribir, soplo al cambiar de pantalla
- * y campanita al abrir paneles.
+ * gota de marimba al mover el carrusel, tecla al escribir y soplo al cambiar de pantalla.
+ * Los toques y la apertura de paneles usan el bip de vidrio de res/raw/ui_glass.ogg.
  */
 object Sfx {
     private const val RATE = 44100
@@ -41,6 +41,11 @@ object Sfx {
         sounds.forEachIndexed { i, pcm ->
             val f = File(ctx.cacheDir, "sfx$i.wav")
             runCatching { writeWav(f, pcm); ids[i] = p.load(f.path, 1) }
+        }
+        // Sonido de interfaz elegido por Juan (bip de vidrio): toques y apertura de paneles
+        runCatching {
+            val glass = p.load(ctx, R.raw.ui_glass, 1)
+            ids[TAP] = glass; ids[OPEN] = glass
         }
         pool = p
     }
