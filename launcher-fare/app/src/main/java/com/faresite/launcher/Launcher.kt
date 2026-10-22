@@ -1077,7 +1077,10 @@ fun Drawer(
     val folders = section == FOLDERS
     // Carpetas: solo carpetas, en el orden que elijas. Todas las apps: cada app en orden alfabético.
     val items: List<Item> = when {
-        q.isNotEmpty() -> apps.filter { q in it.label.lowercase() }.map { AppItem(it) }
+        // Al buscar aparecen primero las carpetas cuyo nombre coincide y luego las apps
+        q.isNotEmpty() -> groups.filter { q in it.name.lowercase() }
+            .mapNotNull { g -> g.keys.mapNotNull { byKey[it] }.takeIf { it.isNotEmpty() }?.let { FolderItem(g, it) } } +
+            apps.filter { q in it.label.lowercase() }.map { AppItem(it) }
         folders -> groups.mapNotNull { g -> g.keys.mapNotNull { byKey[it] }.takeIf { it.isNotEmpty() }?.let { FolderItem(g, it) } }
         else -> apps.sortedBy { it.label.lowercase() }.map { AppItem(it) }
     }
@@ -1245,13 +1248,19 @@ fun Drawer(
                 }
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (query.isEmpty()) T("Buscar apps", 16.sp, color = pal.pri.copy(alpha = .5f))
+                    if (query.isEmpty()) T("Buscar apps o carpetas", 16.sp, color = pal.pri.copy(alpha = .5f))
                     BasicTextField(
                         query, onQuery, Modifier.fillMaxWidth(), singleLine = true,
                         textStyle = TextStyle(color = pal.pri, fontSize = 16.sp),
                         cursorBrush = SolidColor(pal.pri),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = { (items.firstOrNull() as? AppItem)?.let { onOpen(it.app) } })
+                        keyboardActions = KeyboardActions(onGo = {
+                            when (val first = items.firstOrNull()) {
+                                is AppItem -> onOpen(first.app)
+                                is FolderItem -> onOpenGroup(first.group)
+                                else -> {}
+                            }
+                        })
                     )
                 }
                 if (query.isNotEmpty()) {
