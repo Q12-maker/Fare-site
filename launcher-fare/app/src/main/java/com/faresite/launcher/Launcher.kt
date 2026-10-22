@@ -45,6 +45,10 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -729,12 +733,62 @@ fun Home(
                 Carousel(carousel, onOpen, onLong, onMove, Modifier.weight(1.2f).fillMaxHeight().padding(vertical = 8.dp))
             }
         } else {
-            WeatherRow()
-            Spacer(Modifier.weight(.6f))
-            Clock()
-            Spacer(Modifier.weight(1f))
-            Carousel(carousel, onOpen, onLong, onMove)
-            Spacer(Modifier.height(14.dp))
+            // Vertical: carrusel pequeño abajo; al moverlo se agranda y se centra sobre un fondo de vidrio
+            val ctl = remember { CarouselCtl() }
+            val scope = rememberCoroutineScope()
+            var focused by remember { mutableStateOf(false) }
+            var holding by remember { mutableStateOf(false) }
+            var tick by remember { mutableIntStateOf(0) }
+            LaunchedEffect(focused, holding, tick) {
+                if (focused && !holding) { delay(3500); focused = false }
+            }
+            val f by animateFloatAsState(if (focused) 1f else 0f, spring(dampingRatio = .82f, stiffness = 220f), label = "focus")
+            val small = .48f
+            val carH = 440.dp
+            val gap = 14.dp
+            val touch: (Boolean) -> Unit = { h -> focused = true; holding = h; tick++ }
+            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                val boxH = maxHeight
+                Column(Modifier.fillMaxSize().blur((22 * f).dp)) {
+                    WeatherRow()
+                    Spacer(Modifier.weight(.6f))
+                    Clock()
+                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.height(carH * small + gap))
+                }
+                if (f > 0.01f) {
+                    // Lo demás queda como fondo transparente de liquid glass; deslizar aquí también mueve el carrusel
+                    Box(
+                        Modifier.align(Alignment.Center)
+                            .requiredSize(maxWidth + 40.dp, maxHeight + 240.dp)
+                            .alpha(f)
+                            .background(pal.amb.copy(alpha = .38f))
+                            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .10f), Color.Transparent, Color.White.copy(alpha = .03f), Color.White.copy(alpha = .09f))))
+                            .background(Brush.radialGradient(listOf(pal.pri.copy(alpha = .07f), Color.Transparent)))
+                            .pointerInput(Unit) { detectTapGestures { focused = false; holding = false } }
+                            .pointerInput(Unit) {
+                                detectHorizontalDragGestures(
+                                    onDragStart = { touch(true) },
+                                    onDragEnd = { ctl.settle(scope); touch(false) },
+                                    onDragCancel = { ctl.settle(scope); touch(false) },
+                                ) { ch, dx -> ch.consume(); ctl.drag(scope, dx) }
+                            }
+                    )
+                }
+                val lift = with(LocalDensity.current) { ((boxH - gap) - (boxH / 2 + carH / 2)).coerceAtLeast(0.dp).toPx() }
+                Carousel(
+                    carousel, onOpen, onLong, onMove,
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = gap).fillMaxWidth().height(carH)
+                        .graphicsLayer {
+                            val sc = small + (1f - small) * f
+                            scaleX = sc; scaleY = sc
+                            transformOrigin = TransformOrigin(.5f, 1f)
+                            translationY = -lift * f
+                        },
+                    ctl = ctl,
+                    onInteract = touch,
+                )
+            }
         }
     }
 }
@@ -745,6 +799,24 @@ fun AppIcon(icon: ImageBitmap, size: Dp) {
 }
 
 /* ---------- Carrusel en abanico: paneles de vidrio inclinados con tilt 3D, glare y sway ---------- */
+
+/** Posición del carrusel, compartida para que otras zonas también lo puedan deslizar. */
+class CarouselCtl {
+    val pos = Animatable(0f)
+    val lastDx = floatArrayOf(0f)
+    var step = 1f
+    var n = 0
+    fun drag(scope: kotlinx.coroutines.CoroutineScope, dx: Float) {
+        if (n == 0) return
+        lastDx[0] = dx
+        scope.launch { pos.snapTo((pos.value - dx / step).coerceIn(-.35f, n - 1 + .35f)) }
+    }
+    fun settle(scope: kotlinx.coroutines.CoroutineScope) {
+        if (n == 0) return
+        val target = (pos.value - sign(lastDx[0]) * .2f).roundToInt().coerceIn(0, n - 1)
+        scope.launch { pos.animateTo(target.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
+    }
+}
 
 /** Panel inclinado como "/" (paralelogramo), estilo del carrusel. */
 val SlantShape = GenericShape { size, _ ->
@@ -759,6 +831,8 @@ fun Carousel(
     onLong: (AppEntry) -> Unit,
     onMove: (from: AppEntry, to: AppEntry) -> Unit,
     modifier: Modifier = Modifier.fillMaxWidth().height(440.dp),
+    ctl: CarouselCtl = remember { CarouselCtl() },
+    onInteract: (holding: Boolean) -> Unit = {},
 ) {
     val pal = LocalPal.current
     if (items.isEmpty()) {
@@ -768,9 +842,10 @@ fun Carousel(
         return
     }
     val scope = rememberCoroutineScope()
-    val pos = remember { Animatable(0f) }
-    val lastDx = remember { floatArrayOf(0f) }
+    val pos = ctl.pos
+    val lastDx = ctl.lastDx
     val n = items.size
+    ctl.n = n
     val list by rememberUpdatedState(items)
     // Ventana que se está moviendo de lugar (mantener oprimida y arrastrar)
     var moving by remember { mutableStateOf<String?>(null) }
@@ -795,16 +870,16 @@ fun Carousel(
         val cardW = if (tall) minOf(maxWidth * .82f, 340.dp) else cardH / 1.25f
         val cardPx = with(density) { cardW.toPx() }
         val step = cardPx * .7f
-        fun settle() {
-            val target = (pos.value - sign(lastDx[0]) * .2f).roundToInt().coerceIn(0, n - 1)
-            scope.launch { pos.animateTo(target.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
-        }
+        ctl.step = step
         Box(
             Modifier.fillMaxSize().pointerInput(n) {
-                detectHorizontalDragGestures(onDragEnd = { settle() }, onDragCancel = { settle() }) { ch, dx ->
+                detectHorizontalDragGestures(
+                    onDragStart = { onInteract(true) },
+                    onDragEnd = { ctl.settle(scope); onInteract(false) },
+                    onDragCancel = { ctl.settle(scope); onInteract(false) },
+                ) { ch, dx ->
                     ch.consume()
-                    lastDx[0] = dx
-                    scope.launch { pos.snapTo((pos.value - dx / step).coerceIn(-.35f, n - 1 + .35f)) }
+                    ctl.drag(scope, dx)
                 }
             },
             contentAlignment = Alignment.Center
@@ -860,7 +935,10 @@ fun Carousel(
                             selected = isMoving,
                             onClick = {
                                 if (a < .5f) onOpen(app)
-                                else scope.launch { pos.animateTo(i.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
+                                else {
+                                    onInteract(false)
+                                    scope.launch { pos.animateTo(i.toFloat(), spring(dampingRatio = .78f, stiffness = 180f)) }
+                                }
                             },
                             longDrag = LongDrag(
                                 onStart = { moving = app.key; moveDx = 0f; moveStart[0] = Float.NaN; swapped[0] = false; Sfx.play(Sfx.OPEN, .3f) },
