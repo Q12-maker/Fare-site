@@ -1,0 +1,73 @@
+name: Launcher Fare APK
+
+on:
+  push:
+    branches:
+      - main
+      - claude/project-thread-j9l3pi
+    paths:
+      - "launcher-fare/**"
+      - ".github/workflows/launcher-fare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: launcher-fare
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: launcher-fare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      # Llave de firma fija: sin ella cada APK sale con una firma distinta y Android
+      # no deja instalarlo encima ("No puedes instalar la aplicación").
+      # Usa el secreto LAUNCHER_KEYSTORE_B64 si existe; si no, una llave creada aquí
+      # una sola vez y guardada en la caché de Actions (se renueva al usarla).
+      - uses: actions/cache@v4
+        with:
+          path: ~/fare-keys
+          key: launcher-fare-signing-v1
+      - name: Llave de firma
+        env:
+          KS_B64: ${{ secrets.LAUNCHER_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.LAUNCHER_KEY_PASS }}
+        run: |
+          mkdir -p ~/fare-keys
+          PASS="${KS_PASS:-faresite-launcher}"
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > ~/fare-keys/fare.keystore
+          elif [ ! -f ~/fare-keys/fare.keystore ]; then
+            keytool -genkeypair -keystore ~/fare-keys/fare.keystore -storepass "$PASS" -keypass "$PASS" \
+              -alias fare -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Faresite, O=Faresite, C=CO"
+          fi
+          echo "FARE_KEYSTORE=$HOME/fare-keys/fare.keystore" >> "$GITHUB_ENV"
+          echo "FARE_KEY_PASS=$PASS" >> "$GITHUB_ENV"
+      - name: Compilar APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          cp app/build/outputs/apk/debug/app-debug.apk launcher-fare.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: launcher-fare
+          path: launcher-fare/launcher-fare.apk
+      - name: Publicar en la descarga fija
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete launcher-fare --yes --cleanup-tag || true
+          gh release create launcher-fare launcher-fare.apk \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "Launcher Fare (versión ${GITHUB_RUN_NUMBER})" \
+            --notes "APK del Launcher Fare. Rama ${GITHUB_REF_NAME}, commit ${GITHUB_SHA::7}."
