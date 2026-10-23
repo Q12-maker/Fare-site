@@ -13,9 +13,9 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * Sonidos de sistema del launcher: notas de piano sintetizadas al abrir (no hay archivos de audio).
- * Tocar = Do, carrusel = Sol corto, cambiar de pantalla = Do grave, abrir paneles = arpegio Do-Mi-Sol,
- * escribir conserva su chasquido de tecla.
+ * Sonidos de sistema del launcher, estilo futurista ciberpunk, sintetizados al abrir (no hay archivos de audio):
+ * tocar = blip digital, carrusel = clic de datos, cambiar de pantalla = barrido de filtro,
+ * abrir paneles = trino de datos que sube con eco. Escribir conserva su chasquido de tecla.
  */
 object Sfx {
     private const val RATE = 44100
@@ -29,12 +29,6 @@ object Sfx {
     const val SWIPE = 3
     const val OPEN = 4
 
-    // Frecuencias de las notas (Hz)
-    private const val C4 = 261.63
-    private const val C5 = 523.25
-    private const val E5 = 659.26
-    private const val G5 = 783.99
-
     fun init(ctx: Context) {
         if (pool != null) return
         val p = SoundPool.Builder()
@@ -44,14 +38,14 @@ object Sfx {
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
             ).build()
         fun load(name: String, pcm: FloatArray): Int {
-            val f = File(ctx.cacheDir, "piano_$name.wav")
+            val f = File(ctx.cacheDir, "cyber_$name.wav")
             return runCatching { writeWav(f, pcm); p.load(f.path, 1) }.getOrDefault(0)
         }
-        ids[TICK] = load("tick", piano(G5, .35, soft = .6))
-        ids[TAP] = load("tap", piano(C5, .7))
-        ids[SWIPE] = load("swipe", piano(C4, .9, soft = .7))
-        ids[OPEN] = load("open", chord(listOf(C5, E5, G5), .07, 1.1))
+        ids[TICK] = load("tick", tick())
+        ids[TAP] = load("tap", tap())
         ids[KEY] = load("key", key())
+        ids[SWIPE] = load("swipe", swipe())
+        ids[OPEN] = load("open", open())
         pool = p
     }
 
@@ -69,10 +63,17 @@ object Sfx {
         if (id != 0) pool?.play(id, volume, volume, 1, 0, 1f)
     }
 
-    // --- Síntesis de piano: armónicos con leve desafinación (como cuerdas reales), cada uno se apaga
-    // más rápido cuanto más agudo, y un golpecito de martillo al inicio ---
+    // --- Síntesis ciberpunk: ondas cuadradas suavizadas, FM, reducción de bits y barridos de filtro ---
 
     private fun buf(seconds: Double) = FloatArray((RATE * seconds).toInt())
+
+    /** Onda cuadrada con bordes suaves (menos áspera que una cuadrada pura). */
+    private fun sq(ph: Double) = kotlin.math.tanh(sin(ph) * 4) * .8
+
+    /** Reduce la resolución como un chip digital viejo. */
+    private fun crush(v: Double, levels: Double = 24.0) = kotlin.math.round(v * levels) / levels
+
+    private fun fadeIn(t: Double, ms: Double) = minOf(1.0, t / (ms / 1000))
 
     /** Tecla de escribir: chasquido corto y seco (se conserva). */
     private fun key() = buf(.02).also { b ->
@@ -82,36 +83,68 @@ object Sfx {
         }
     }
 
-    private fun pianoSample(f: Double, t: Double, len: Double, soft: Double): Double {
-        if (t < 0) return 0.0
-        val attack = minOf(1.0, t / .003)
-        var v = 0.0
-        val amps = doubleArrayOf(1.0, .55, .28, .16, .09, .05, .03)
-        for (h in amps.indices) {
-            val n = h + 1
-            val fn = f * n * kotlin.math.sqrt(1 + .0004 * n * n)
-            val decay = exp(-t * (2.2 + n * 1.6) * (1.6 / len))
-            v += amps[h] * sin(2 * PI * fn * t) * decay
+    /** Carrusel: clic de datos muy corto y agudo. */
+    private fun tick() = buf(.035).also { b ->
+        var ph = 0.0
+        for (i in b.indices) {
+            val t = i.toDouble() / RATE
+            ph += 2 * PI * (2600 - 900 * t / .035) / RATE
+            b[i] = (crush(sq(ph) * exp(-t * 110) * fadeIn(t, 1.0), 12.0) * .32).toFloat()
         }
-        // Dos cuerdas por nota, un poquito desafinadas: da el "brillo" del piano
-        v += .35 * sin(2 * PI * f * 1.0015 * t) * exp(-t * 3.0 * (1.6 / len))
-        val hammer = (Random.nextDouble() - .5) * exp(-t * 900) * .25
-        // Al final se apaga suave para que no corte
-        val tail = minOf(1.0, (len - t) / .06).coerceAtLeast(0.0)
-        return (v * soft * .32 + hammer * soft) * attack * tail
     }
 
-    private fun piano(f: Double, len: Double, soft: Double = 1.0) = buf(len).also { b ->
-        for (i in b.indices) b[i] = pianoSample(f, i.toDouble() / RATE, len, soft).toFloat()
+    /** Toque: blip FM que baja rápido, con un brillo metálico. */
+    private fun tap() = buf(.09).also { b ->
+        var ph = 0.0
+        var mod = 0.0
+        for (i in b.indices) {
+            val t = i.toDouble() / RATE
+            val f = 1400 * exp(-t * 18) + 700
+            mod += 2 * PI * f * 2.01 / RATE
+            ph += 2 * PI * f / RATE + sin(mod) * 1.4 * exp(-t * 40) * 2 * PI * f / RATE
+            val env = fadeIn(t, 1.5) * exp(-t * 38)
+            b[i] = (crush(sin(ph) * .7 + sq(ph * .5) * .25, 20.0) * env * .55).toFloat()
+        }
     }
 
-    /** Arpegio: las notas entran una tras otra y siguen sonando juntas. */
-    private fun chord(notes: List<Double>, gap: Double, len: Double) = buf(len).also { b ->
+    /** Cambio de pantalla: ruido con filtro resonante que barre hacia arriba, más un zumbido de sierra. */
+    private fun swipe() = buf(.26).also { b ->
+        var low = 0.0
+        var band = 0.0
+        var ph = 0.0
+        for (i in b.indices) {
+            val t = i.toDouble() / RATE
+            val x = t / .26
+            val fc = 300 + 3200 * x * x
+            val fq = 2 * sin(PI * fc / RATE)
+            val n = Random.nextDouble() - .5
+            low += fq * band
+            band += fq * (n - low - .15 * band)
+            ph += 2 * PI * (90 + 260 * x) / RATE
+            val saw = ((ph / (2 * PI)) % 1.0) * 2 - 1
+            val env = sin(PI * x).let { it * it }
+            b[i] = ((band * 1.6 + saw * .08) * env * .5).toFloat()
+        }
+    }
+
+    /** Abrir paneles: trino de datos de tres notas que sube, con eco digital. */
+    private fun open() = buf(.42).also { b ->
+        val notes = doubleArrayOf(880.0, 1318.5, 1760.0)
+        val dry = DoubleArray(b.size)
         for (i in b.indices) {
             val t = i.toDouble() / RATE
             var v = 0.0
-            notes.forEachIndexed { k, f -> v += pianoSample(f, t - k * gap, len - k * gap, .4) }
-            b[i] = v.toFloat()
+            notes.forEachIndexed { k, f ->
+                val tk = t - k * .045
+                if (tk >= 0) v += sq(2 * PI * f * tk) * fadeIn(tk, 1.5) * exp(-tk * 30) * .3
+            }
+            dry[i] = crush(v, 16.0)
+        }
+        val d = (RATE * .09).toInt()
+        for (i in b.indices) {
+            val e1 = if (i >= d) dry[i - d] * .35 else 0.0
+            val e2 = if (i >= 2 * d) dry[i - 2 * d] * .14 else 0.0
+            b[i] = ((dry[i] + e1 + e2) * .7).toFloat()
         }
     }
 
