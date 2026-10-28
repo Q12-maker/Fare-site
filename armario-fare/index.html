@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="description" content="Tu ropa al día: qué tienes, qué conjuntos salen, cuántas veces te la has puesto y qué toca lavar.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Faresite">
+<meta property="og:title" content="Armario Fare">
+<meta property="og:description" content="Tu ropa al día: conjuntos, puestas y lavado.">
+<meta property="og:url" content="https://q12-maker.github.io/Fare-site/armario-fare/">
+<meta property="og:image" content="https://q12-maker.github.io/Fare-site/armario-fare/icon-512.png">
+<meta name="theme-color" content="#050a06">
+<title>Armario Fare</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Armario Fare. Paleta 70/20/10: ambiente en fondos, principal en texto y piezas clave, secundario en acentos. Todo color sale de --amb/--pri/--sec o del color de cada prenda (aura). */
+:root{
+  --amb:#050a06; --pri:#4be36a; --sec:#1f6b2a;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Manrope","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --cut:14px; --ease:cubic-bezier(.2,.8,.2,1); --boing:cubic-bezier(.3,1.6,.5,1);
+  --onpri:var(--amb);
+  --muted:color-mix(in srgb,var(--pri) 58%,var(--amb));
+  --line:color-mix(in srgb,var(--pri) 14%,var(--amb));
+  --solid:color-mix(in srgb,var(--pri) 6%,var(--amb));
+  --glass:color-mix(in srgb,var(--amb) 34%,transparent);
+  --edge:color-mix(in srgb,var(--pri) 26%,transparent);
+  --slot:color-mix(in srgb,#000 82%,var(--amb));
+  --warn:color-mix(in srgb,var(--pri) 30%,#e5484d);
+  padding-top:env(safe-area-inset-top,0px);box-sizing:border-box;color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+@property --rx{syntax:'<angle>';inherits:false;initial-value:0deg}
+@property --ry{syntax:'<angle>';inherits:false;initial-value:0deg}
+@property --gx{syntax:'<percentage>';inherits:true;initial-value:50%}
+@property --gy{syntax:'<percentage>';inherits:true;initial-value:50%}
+html,body{height:100%;margin:0}
+html{overflow:hidden}
+body{background:var(--amb);color:var(--pri);font-family:var(--body);font-size:15px;overscroll-behavior:none;-webkit-tap-highlight-color:transparent;transition:background-color .5s}
+[hidden]{display:none!important}
+button,input,select{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer;padding:0}
+:focus-visible{outline:2px solid var(--pri);outline-offset:2px}
+*{scrollbar-width:none}*::-webkit-scrollbar{display:none}
+h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
+.mono{font-family:var(--mono)}
+
+.app{height:100%;display:flex;flex-direction:column;position:relative;isolation:isolate}
+.ambient{position:absolute;inset:-20%;z-index:-2;pointer-events:none;opacity:.5;filter:blur(70px)}
+.ambient::before,.ambient::after{content:"";position:absolute;width:55%;aspect-ratio:1;border-radius:50%}
+.ambient::before{left:6%;top:10%;background:color-mix(in srgb,var(--sec) 55%,transparent)}
+.ambient::after{right:4%;bottom:16%;background:color-mix(in srgb,var(--pri) 12%,transparent)}
+/* Logo Faresite discreto como marca de agua */
+.wm{position:absolute;right:-60px;bottom:90px;width:260px;opacity:.045;z-index:-1;pointer-events:none}
+
+/* 1. Vidrio claro (piezas recortadas: el 30% que destaca) */
+.cutg{position:relative;background:var(--glass);backdrop-filter:blur(8px) saturate(1.1);-webkit-backdrop-filter:blur(8px) saturate(1.1);border:1px solid var(--edge);
+  clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut))}
+.cutg::before,.cutg::after{content:"";position:absolute;width:var(--cut);height:var(--cut);pointer-events:none;z-index:4;
+  background:linear-gradient(to bottom right,transparent calc(50% - .7px),var(--edge) 50%,transparent calc(50% + .7px))}
+.cutg::before{left:-1px;top:-1px}.cutg::after{right:-1px;bottom:-1px}
+/* Vidrio redondeado (el 70% que se repite) */
+.rg{position:relative;background:var(--glass);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--edge);border-radius:18px}
+
+/* 1b. Liquid glass en piezas flotantes */
+.liquid{--lgt:color-mix(in srgb,#fff 50%,transparent);
+  background:linear-gradient(180deg,color-mix(in srgb,#fff 14%,transparent),transparent 45%),color-mix(in srgb,var(--amb) 30%,transparent);
+  border:1px solid color-mix(in srgb,#fff 20%,var(--edge));
+  backdrop-filter:blur(14px) saturate(1.8) brightness(1.06);-webkit-backdrop-filter:blur(14px) saturate(1.8) brightness(1.06);
+  box-shadow:inset 0 1px 0 var(--lgt),inset 0 -1px 1px color-mix(in srgb,#fff 16%,transparent),inset 10px 10px 22px -16px var(--lgt),inset -10px -10px 22px -18px color-mix(in srgb,var(--pri) 30%,transparent);
+  transition:scale .35s var(--boing)}
+.lg-refract .liquid{backdrop-filter:url(#lg) blur(2px) saturate(1.8) brightness(1.06)}
+.liquid>.lsh{position:absolute;inset:0;pointer-events:none;border-radius:inherit;z-index:2;mix-blend-mode:screen;
+  background:radial-gradient(120% 70% at 20% -10%,rgba(255,255,255,.32),transparent 50%),radial-gradient(80% 60% at 110% 120%,rgba(255,255,255,.16),transparent 60%)}
+.liquid.press:active{scale:1.03 .96}
+
+/* 8. Tilt 3D con glare */
+.tl{transform:perspective(var(--pp,700px)) rotateX(var(--rx)) rotateY(var(--ry));transition:--rx .25s ease-out,--ry .25s ease-out}
+.tl.act{transition:none}
+.gl{position:absolute;inset:0;pointer-events:none;z-index:5;mix-blend-mode:soft-light;opacity:0;transition:opacity .25s;border-radius:inherit;
+  background:radial-gradient(circle at var(--gx) var(--gy),rgba(255,255,255,.85),rgba(255,255,255,0) 58%)}
+.act>.gl{opacity:1}
+
+/* Barra de arriba */
+header.top{position:absolute;z-index:8;top:10px;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));
+  display:flex;align-items:center;gap:10px;padding:8px 8px 8px 10px;border-radius:24px}
+header.top>*{position:relative;z-index:3}
+.brand{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.brand img{width:38px;height:38px;flex:none;object-fit:contain;padding:3px;background:color-mix(in srgb,var(--pri) 8%,var(--amb));
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.brand h1{font-size:1.3rem;font-weight:700;line-height:1.05}
+.brand small{display:block;font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.ibtn{width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:14px;background:var(--solid);border:1px solid var(--line)}
+.ibtn svg{width:21px;height:21px}
+.ibtn.on{background:var(--pri);color:var(--onpri)}
+
+/* Vistas con crossfade */
+main{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+  padding:84px max(16px,env(safe-area-inset-right,0px)) calc(120px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));
+  opacity:0;visibility:hidden;transform:translateY(8px);transition:opacity .35s var(--ease),transform .35s var(--ease),visibility 0s .35s}
+.view.on{opacity:1;visibility:visible;transform:none;transition:opacity .35s var(--ease),transform .35s var(--ease)}
+.wrap{max-width:640px;margin:0 auto}
+.label{display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:24px 2px 10px;font-weight:700}
+.label em{font-style:normal;font-family:var(--mono);letter-spacing:0;text-transform:none}
+.sub{color:var(--muted);font-size:.86rem;line-height:1.5;margin:4px 2px 0}
+
+/* 14. Glassy dashboard */
+.dash{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tile{padding:14px;min-width:0;overflow:hidden}
+.tile .k{font-size:.64rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.tile .v{font-family:var(--mono);font-size:1.9rem;font-weight:700;line-height:1.1;margin-top:4px;font-variant-numeric:tabular-nums}
+.tile .v small{font-size:.8rem;color:var(--muted);font-weight:400}
+.tile .s{font-size:.78rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile.main{grid-column:1/-1;display:grid;grid-template-columns:112px minmax(0,1fr);gap:16px;align-items:center;--cut:16px;
+  background:radial-gradient(100% 120% at 0% 0%,color-mix(in srgb,var(--pri) 12%,transparent),transparent 70%),var(--glass)}
+.ring{width:112px;height:112px;position:relative}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:12;transition:stroke-dasharray .9s var(--ease),stroke-dashoffset .9s var(--ease)}
+.ring .bg{stroke:var(--line)}
+.ring b{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-family:var(--mono);font-size:1.5rem;line-height:1}
+.ring b small{display:block;font-size:.58rem;letter-spacing:.12em;color:var(--muted);font-family:var(--body);margin-top:3px}
+.legend{display:grid;gap:8px}
+.legend button{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;padding:6px 8px;border-radius:12px}
+.legend button:active{background:var(--solid)}
+.legend i{width:12px;height:12px;border-radius:4px;transform:rotate(45deg)}
+.legend span{font-weight:700;font-size:.9rem}
+.legend b{font-family:var(--mono);font-size:1.05rem}
+.bars{display:flex;align-items:flex-end;gap:5px;height:42px;margin-top:10px}
+.bars i{flex:1;background:color-mix(in srgb,var(--pri) 70%,transparent);border-radius:4px 4px 2px 2px;min-height:3px;height:0;transition:height .8s var(--ease)}
+.bars i.z{background:var(--line)}
+.bars i.t{background:var(--pri);box-shadow:0 0 12px -2px var(--pri)}
+.days{display:flex;gap:5px;margin-top:4px}.days span{flex:1;text-align:center;font-family:var(--mono);font-size:.58rem;color:var(--muted)}
+.meter{height:6px;border-radius:6px;background:var(--line);margin-top:10px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;border-radius:6px;background:var(--c,var(--pri));transition:width .8s var(--ease)}
+.tile.aura{background:radial-gradient(120% 100% at 100% 0%,color-mix(in srgb,var(--c) 32%,transparent),transparent 70%),var(--glass);border-color:color-mix(in srgb,var(--c) 45%,var(--edge))}
+
+/* Prendas: dibujo con el color de la prenda o su foto */
+.pic{position:relative;display:grid;place-items:center;border-radius:14px;aspect-ratio:1;overflow:hidden;
+  background:radial-gradient(80% 80% at 50% 40%,color-mix(in srgb,var(--c) 34%,transparent),transparent 72%),color-mix(in srgb,var(--pri) 5%,var(--amb))}
+.pic svg{width:78%;height:78%;filter:drop-shadow(0 6px 10px color-mix(in srgb,var(--c) 45%,transparent))}
+.pic svg .m{fill:var(--c);stroke:var(--cs);stroke-width:1.6;stroke-linejoin:round}
+.pic svg .x{fill:none;stroke:var(--cs);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.pic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+/* 11. Aura: cada pieza se tiñe con el color de su contenido */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (min-width:560px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.card{position:relative;--pp:520px;display:flex;flex-direction:column;gap:6px;padding:7px 7px 9px;text-align:left;border-radius:18px;min-width:0;
+  background:radial-gradient(130% 80% at 50% 0%,color-mix(in srgb,var(--c) 30%,transparent),transparent 78%),var(--glass);
+  border:1px solid color-mix(in srgb,var(--c) 40%,var(--edge));box-shadow:0 10px 28px -18px var(--c);
+  transition:scale .3s var(--boing),--rx .25s,--ry .25s,opacity .3s}
+.card:hover{scale:1.04}
+.card b{font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
+.card .meta{display:flex;justify-content:space-between;align-items:center;gap:4px;padding:0 2px;font-size:.7rem;color:var(--muted)}
+.card .meta span{font-family:var(--mono)}
+.card .meta .st{font-family:var(--body);white-space:nowrap;overflow:hidden;min-width:0;font-size:.6rem}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.st i{width:8px;height:8px;border-radius:2px;transform:rotate(45deg);background:var(--sc)}
+.s-limpia{--sc:var(--pri)}.s-usada{--sc:color-mix(in srgb,var(--pri) 45%,var(--sec))}.s-lavar{--sc:var(--warn)}
+.card.s-lavar .pic{opacity:.55}
+.card.s-lavar::after{content:"";position:absolute;right:8px;top:8px;width:10px;height:10px;border-radius:3px;transform:rotate(45deg);background:var(--warn);box-shadow:0 0 10px var(--warn)}
+
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -16px 12px;padding:2px 16px}
+.chip{flex:none;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;background:var(--solid);border:1px solid var(--line);font-size:.82rem;font-weight:700;color:var(--muted);transition:background .2s,color .2s}
+.chip b{font-family:var(--mono);font-weight:400}
+.chip[aria-pressed="true"]{background:var(--pri);color:var(--onpri);border-color:var(--pri)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 18px;font-weight:700;border-radius:14px;background:var(--solid);border:1px solid var(--line);transition:scale .3s var(--boing)}
+.btn:active{scale:.96}
+.btn svg{width:18px;height:18px}
+.btn.pri{background:var(--pri);color:var(--onpri);border-color:var(--pri);clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px)}
+.btn.warn{color:var(--warn)}
+.btn.wide{width:100%}
+.btn:disabled{opacity:.4}
+.row2{display:flex;gap:8px;flex-wrap:wrap}.row2>.btn{flex:1 1 auto}
+
+/* Conjunto sugerido: ventana destacada con sway, tilt y aura de hasta 3 colores */
+.heroWrap{position:relative;perspective:900px;margin-top:4px}
+.halo{position:absolute;inset:8% 6%;z-index:-1;filter:blur(34px);opacity:.75;border-radius:40px;
+  background:radial-gradient(circle at 20% 25%,var(--a1),transparent 60%),radial-gradient(circle at 80% 50%,var(--a2),transparent 60%),radial-gradient(circle at 35% 85%,var(--a3),transparent 60%)}
+.hero{--cut:22px;--pp:900px;padding:16px;display:grid;grid-template-columns:132px minmax(0,1fr);gap:16px;align-items:center;
+  background:radial-gradient(90% 70% at 15% 0%,color-mix(in srgb,var(--a1) 26%,transparent),transparent 70%),radial-gradient(90% 70% at 100% 100%,color-mix(in srgb,var(--a2) 22%,transparent),transparent 70%),var(--glass)}
+.hero.sway:not(.act){animation:sway 8s ease-in-out infinite}
+.hero.sway:not(.act) .gl{opacity:.75}
+@keyframes sway{0%,100%{--rx:6deg;--ry:-9deg;--gx:20%;--gy:15%}25%{--rx:-4deg;--ry:-4deg;--gx:35%;--gy:80%}50%{--rx:-6deg;--ry:9deg;--gx:85%;--gy:85%}75%{--rx:5deg;--ry:5deg;--gx:75%;--gy:20%}}
+.stack{display:grid;gap:6px}
+.stack .pic{border-radius:14px}
+.hero .stack{grid-template-columns:1fr 1fr;grid-template-rows:auto auto}
+.hero .stack .pic:first-child{grid-column:1/-1;width:72%;justify-self:center}
+.hero h2{font-size:1.4rem;line-height:1.15}
+.hero ul{list-style:none;margin:8px 0 12px;padding:0;display:grid;gap:4px;font-size:.86rem}
+.hero li{display:flex;gap:8px;align-items:center;min-width:0}
+.hero li i{width:9px;height:9px;flex:none;border-radius:3px;transform:rotate(45deg);background:var(--c);box-shadow:0 0 8px var(--c)}
+.hero li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hero li small{margin-left:auto;font-family:var(--mono);color:var(--muted);font-size:.72rem;flex:none}
+.hero .row2 .btn{padding:10px 12px;font-size:.86rem}
+.emptyHero{padding:20px;--cut:18px;line-height:1.55;color:var(--muted)}
+.emptyHero b{color:var(--pri)}
+
+/* 6. Carrusel de vidrio en abanico */
+.carousel{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:18px calc(50% - 70px) 22px;margin:0 -16px;perspective:800px}
+.combo{flex:0 0 140px;scroll-snap-align:center;padding:9px;border-radius:20px;text-align:left;
+  transform:rotateY(var(--cy,0deg)) scale(var(--s,1));filter:blur(var(--bl,0px));opacity:var(--op,1);transition:transform .12s linear;
+  background:radial-gradient(circle at 15% 10%,color-mix(in srgb,var(--a1) 34%,transparent),transparent 60%),radial-gradient(circle at 90% 55%,color-mix(in srgb,var(--a2) 28%,transparent),transparent 60%),radial-gradient(circle at 30% 100%,color-mix(in srgb,var(--a3) 28%,transparent),transparent 60%),var(--glass);
+  box-shadow:0 16px 34px -20px var(--a1),0 0 30px -14px var(--a2)}
+.combo .stack{grid-template-columns:1fr 1fr}
+.combo .stack .pic:first-child{grid-column:1/-1;width:66%;justify-self:center}
+.combo .n{font-family:var(--mono);font-size:.66rem;color:var(--muted);margin-top:7px}
+.combo b{display:block;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Filas (listas) */
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.rowi{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 10px 8px 8px;border-radius:16px;
+  background:linear-gradient(90deg,color-mix(in srgb,var(--c) 22%,transparent),color-mix(in srgb,var(--c) 5%,transparent) 70%,transparent),var(--glass);
+  border:1px solid color-mix(in srgb,var(--c) 30%,var(--line));transition:opacity .3s,transform .3s var(--ease)}
+.rowi .pic{width:48px;border-radius:12px}
+.rowi .t{min-width:0;text-align:left}
+.rowi .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowi .t span{display:block;font-size:.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rowi .act2{display:flex;gap:6px}
+.sbtn{padding:8px 11px;border-radius:12px;font-size:.76rem;font-weight:700;background:var(--solid);border:1px solid var(--line);white-space:nowrap}
+.sbtn.pri{background:var(--pri);color:var(--onpri);border-color:var(--pri)}
+.minis{display:flex;width:48px;height:48px;position:relative}
+.minis .pic{position:absolute;width:30px;border-radius:9px;border:1px solid var(--line)}
+.minis .pic:nth-child(1){left:0;top:0}.minis .pic:nth-child(2){right:0;top:9px}.minis .pic:nth-child(3){left:9px;bottom:0}
+.log .rowi{grid-template-columns:48px minmax(0,1fr) auto}
+.x{width:34px;height:34px;display:grid;place-items:center;border-radius:10px;color:var(--muted)}
+.x svg{width:16px;height:16px}
+.none{padding:18px;border-radius:18px;border:1px dashed var(--line);color:var(--muted);line-height:1.5;font-size:.9rem}
+
+/* 7. Navbar de liquid glass con 2. magnificación tipo dock */
+nav.navbar{position:fixed;left:50%;translate:-50% 0;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:9;display:flex;gap:2px;padding:8px;border-radius:26px;max-width:calc(100% - 20px)}
+nav.navbar button{position:relative;z-index:3;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 12px;min-width:62px;color:var(--muted);font-size:.66rem;font-weight:700;letter-spacing:.04em;
+  transform-origin:center bottom;scale:var(--m,1);transition:scale .15s ease-out,color .2s}
+nav.navbar button svg{width:23px;height:23px}
+nav.navbar button[aria-current="page"]{color:var(--pri)}
+nav.navbar button[aria-current="page"]::after{content:"";width:6px;height:6px;background:var(--pri);transform:rotate(45deg);box-shadow:0 0 8px var(--pri)}
+nav.navbar button .bd{position:absolute;top:0;right:8px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--warn);color:#fff;font-family:var(--mono);font-size:.62rem;display:grid;place-items:center}
+
+/* Hojas (3. blur detrás) */
+.scrim{position:fixed;inset:0;z-index:15;background:color-mix(in srgb,#000 40%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);opacity:0;transition:opacity .3s}
+.scrim.on{opacity:1}
+.sheet{position:fixed;left:max(10px,env(safe-area-inset-left,0px));right:max(10px,env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:16;
+  max-width:560px;margin-inline:auto;max-height:84vh;overflow:auto;padding:18px 16px 16px;--cut:22px;
+  clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut));
+  transform:translateY(30px);opacity:0;transition:transform .4s var(--boing),opacity .25s}
+.sheet.on{transform:none;opacity:1}
+.sheet>.in{position:relative;z-index:3}
+.sh-hero{display:grid;grid-template-columns:110px minmax(0,1fr);gap:14px;align-items:center;margin-bottom:12px}
+.sh-hero .pic{border-radius:18px}
+.sh-hero h3{font-size:1.45rem;line-height:1.1}
+.sh-hero .cat{color:var(--muted);font-size:.85rem;margin:4px 0 8px}
+.sh-title{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sh-title h3{flex:1;font-size:1.3rem}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 12px}
+.stats div{padding:10px 12px;border-radius:14px;background:var(--solid);border:1px solid var(--line)}
+.stats small{display:block;font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.stats b{font-family:var(--mono);font-size:1.25rem}
+.stats b small{display:inline;letter-spacing:0;text-transform:none;font-weight:400;font-size:.75rem}
+.field{display:grid;gap:6px;font-size:.78rem;color:var(--muted);font-weight:700;margin-top:12px}
+.inp{width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--solid);outline:none;font-size:1rem;color:var(--pri)}
+.inp:focus{border-color:var(--pri)}
+.catgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.catgrid button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 7px;border-radius:14px;border:1px solid var(--line);background:var(--solid);font-size:.66rem;font-weight:700;color:var(--muted)}
+.catgrid button .pic{width:40px;background:none}
+.catgrid button[aria-pressed="true"]{border-color:var(--pri);color:var(--pri);box-shadow:0 0 16px -6px var(--pri)}
+.colrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.colrow input[type=color]{width:52px;height:44px;border:1px solid var(--line);border-radius:12px;background:none;padding:2px}
+.sw{width:30px;height:30px;border-radius:9px;border:2px solid var(--line);background:var(--c)}
+.sw[aria-pressed="true"]{border-color:var(--pri);box-shadow:0 0 10px var(--c)}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper button{width:44px;height:44px;border-radius:14px;background:var(--solid);border:1px solid var(--line);font-size:1.3rem;font-weight:700}
+.stepper b{font-family:var(--mono);font-size:1.4rem;min-width:2ch;text-align:center}
+.stepper span{font-size:.8rem;font-weight:400;color:var(--muted);flex:1}
+.pickrow{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:4px 16px 6px}
+.pk{flex:0 0 78px;display:flex;flex-direction:column;gap:4px;padding:5px;border-radius:14px;border:1px solid var(--line);background:var(--solid);font-size:.68rem;font-weight:700;text-align:center;color:var(--muted);transition:scale .3s var(--boing)}
+.pk span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk[aria-pressed="true"]{border-color:var(--c,var(--pri));color:var(--pri);box-shadow:0 0 18px -6px var(--c,var(--pri));background:color-mix(in srgb,var(--c,var(--pri)) 16%,var(--solid));scale:1.04}
+.pk.dirty{opacity:.5}
+.pk.nonepk{justify-content:center;min-height:90px}
+.note{font-size:.8rem;color:var(--muted);line-height:1.5;margin:10px 2px 0}
+.warnbox{padding:10px 12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--warn) 50%,transparent);color:var(--warn);font-size:.84rem;margin:8px 0;line-height:1.4}
+
+/* Paletas */
+.bar7{display:flex;height:58px;border-radius:16px;overflow:hidden;border:1px solid var(--line)}
+.bar7 div{display:flex;align-items:flex-end;padding:6px 8px;font-family:var(--mono);font-size:.68rem}
+.cpick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.cpick label{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:16px;background:var(--solid);border:1px solid var(--line);font-size:.76rem;font-weight:700}
+.cpick label em{font-style:normal;font-weight:400;color:var(--muted);font-family:var(--mono)}
+.cpick input{width:100%;height:38px;border:0;border-radius:10px;background:none;padding:0}
+.plist .rowi{grid-template-columns:minmax(0,1fr) auto;background:var(--solid);border-color:var(--line);padding:12px 10px 12px 14px}
+.plist .rowi.cur{border-color:var(--pri);box-shadow:0 0 18px -8px var(--pri)}
+.plist .t b small{font-weight:400;color:var(--pri);font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;margin-left:8px}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:16px;background:var(--solid);border:1px solid var(--line);font-weight:700;width:100%;text-align:left}
+.toggle i{width:44px;height:26px;border-radius:13px;background:var(--line);position:relative;flex:none;transition:background .2s}
+.toggle i::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:var(--pri);transition:transform .3s var(--boing)}
+.toggle[aria-pressed="true"] i{background:var(--sec)}
+.toggle[aria-pressed="true"] i::after{transform:translateX(18px)}
+
+/* 9. Impresora: recibo de vidrio que sale de una ranura */
+.printer{position:fixed;top:calc(12px + env(safe-area-inset-top,0px));left:50%;translate:-50% 0;width:min(310px,calc(100% - 32px));z-index:30;cursor:pointer}
+.slot{height:24px;background:var(--slot);position:relative;z-index:2;border:1px solid color-mix(in srgb,#fff 10%,transparent);
+  clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);box-shadow:0 10px 30px -10px #000}
+.slot::after{content:"";position:absolute;left:14px;right:14px;top:50%;height:3px;margin-top:-1px;background:#000;box-shadow:0 1px 0 rgba(255,255,255,.14)}
+.paperwrap{overflow:hidden;margin:-12px 14px 0;padding-bottom:14px}
+.ticket{position:relative;color:var(--pri);font-family:var(--mono);font-size:.74rem;line-height:1.55;padding:22px 16px 16px;transform:translateY(-105%);
+  background:linear-gradient(160deg,color-mix(in srgb,#fff 14%,transparent),transparent 40%),color-mix(in srgb,var(--amb) 42%,transparent);
+  backdrop-filter:blur(14px) saturate(1.8);-webkit-backdrop-filter:blur(14px) saturate(1.8);
+  border:1px solid color-mix(in srgb,#fff 22%,var(--edge));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.4),inset 10px 10px 22px -16px rgba(255,255,255,.4);
+  clip-path:polygon(16px 0,100% 0,100% calc(100% - 16px),calc(100% - 16px) 100%,0 100%,0 16px);text-shadow:0 1px 2px color-mix(in srgb,var(--amb) 70%,transparent)}
+.lg-refract .ticket{backdrop-filter:url(#lg) blur(3px) saturate(1.8)}
+.ticket h4{margin:0;text-align:center;font-size:.8rem;letter-spacing:.18em}
+.ticket .c{text-align:center;color:var(--muted)}
+.ticket hr{border:0;border-top:1px dashed var(--pri);opacity:.45;margin:8px 0}
+.ticket .ln{display:flex;justify-content:space-between;gap:10px}
+.ticket .ln span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ticket .bc{height:34px;margin-top:10px;background:repeating-linear-gradient(90deg,var(--pri) 0 2px,transparent 2px 3px,var(--pri) 3px 4px,transparent 4px 7px,var(--pri) 7px 10px,transparent 10px 12px);opacity:.85}
+.printer.go .ticket{animation:print 1.15s steps(10,end) forwards}
+.printer.out .paperwrap{animation:tear .35s ease-in forwards}
+@keyframes print{from{transform:translateY(-105%)}to{transform:translateY(0)}}
+@keyframes tear{to{transform:translateY(30px) rotate(3deg);opacity:0}}
+
+.toast{position:fixed;left:50%;translate:-50% 0;bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:31;padding:11px 18px;border-radius:999px;font-weight:700;font-size:.86rem;opacity:0;transition:opacity .3s,transform .4s var(--boing);transform:translateY(12px);pointer-events:none;max-width:calc(100% - 32px);text-align:center}
+.toast.on{opacity:1;transform:none}
+.toast span{position:relative;z-index:3}
+
+::view-transition-old(hero),::view-transition-new(hero){animation-duration:.42s;animation-timing-function:cubic-bezier(.2,.8,.2,1);height:100%}
+
+@media (prefers-reduced-motion:reduce){
+  .hero.sway:not(.act){animation:none}
+  .tl{transform:none!important}
+  .card:hover,.pk[aria-pressed="true"]{scale:1}
+  nav.navbar button{scale:1!important}
+  .combo{transform:none!important;filter:none!important}
+  .view{transform:none}
+  .printer.go .ticket{animation-duration:.01s}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="lg" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.018" numOctaves="2" seed="4" result="n"/><feGaussianBlur in="n" stdDeviation="2.5" result="nb"/><feDisplacementMap in="SourceGraphic" in2="nb" scale="30" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
+<div class="app" id="app">
+  <div class="ambient"></div>
+  <img class="wm" src="logo.svg" alt="">
+  <header class="top liquid press">
+    <span class="lsh"></span>
+    <div class="brand"><img src="logo.svg" alt="Logo Faresite"><div><h1>Armario Fare</h1><small>Tu ropa, al día</small></div></div>
+    <button class="ibtn" id="addTop" aria-label="Agregar prenda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="ibtn" id="goAj" aria-label="Ajustes y paletas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.9-.7-1.3-.7-2.2 0-.9.8-1.6 1.7-1.6H17a4 4 0 0 0 4-4c0-4.6-4-8.6-9-8.6z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7.2" r="1.2"/><circle cx="15" cy="7.6" r="1.2"/></svg></button>
+  </header>
+  <main>
+    <section class="view" id="v-hoy"></section>
+    <section class="view" id="v-ropa"></section>
+    <section class="view" id="v-conj"></section>
+    <section class="view" id="v-lav"></section>
+    <section class="view" id="v-aj"></section>
+  </main>
+  <nav class="navbar liquid" id="nav">
+    <span class="lsh"></span>
+    <button data-v="hoy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h7V4H3zM14 20h7v-9h-7zM14 4h7v4h-7zM3 17h7v3H3z"/></svg>Hoy</button>
+    <button data-v="ropa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6a2 2 0 1 1 2 2c-1 0-2 .7-2 1.7V11l9 6.3c.9.6.5 1.7-.5 1.7H3.5c-1 0-1.4-1.1-.5-1.7L12 11"/></svg>Ropa</button>
+    <button data-v="conj"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 5v4l2 1v10h12V10l2-1V5l-4-2c-.5 1.6-2 2.6-4 2.6S8.5 4.6 8 3z"/></svg>Conjuntos</button>
+    <button data-v="lav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2.5" width="16" height="19" rx="2.5"/><circle cx="12" cy="13" r="5"/><path d="M8 6h.01M11 6h.01M9.5 14c1.5-1.2 3.5 1.2 5 0"/></svg>Lavado</button>
+  </nav>
+</div>
+<div class="printer" id="printer" hidden><div class="slot"></div><div class="paperwrap"><div class="ticket" id="ticket"></div></div></div>
+<div class="toast liquid" id="toast"><span class="lsh"></span><span id="toastT"></span></div>
+
+<script>
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today=()=>ymd(new Date());
+
+/* ---------- Tipos de prenda: dónde va en el conjunto y cada cuántas puestas se lava (0 = no se lava) ---------- */
+const CATS={
+  camiseta:{n:'Camiseta',slot:'arriba',lim:1,d:'M21 9 28 7c1 4 7 4 8 0l7 2 12 10-6 8-5-4v32H20V23l-5 4-6-8z',x:'M28 7c1 4 7 4 8 0'},
+  camisa:{n:'Camisa',slot:'arriba',lim:2,d:'M23 8 32 13 41 8l8 4 8 37-7 2-5-24v31H19V28l-5 24-7-2 8-38z',x:'M23 8l5 9 4-4 4 4 5-9M32 13v45M30 26h.1M30 36h.1M30 46h.1'},
+  chaqueta:{n:'Chaqueta',slot:'capa',lim:6,d:'M22 7 32 11 42 7l9 5 7 39-7 2-6-24v30H19V29l-6 24-7-2 7-39z',x:'M32 11v48M22 7l4 10 6-6 6 6 4-10M24 40h5M35 40h5'},
+  pantalon:{n:'Pantalón',slot:'abajo',lim:4,d:'M18 6h28l4 54H37L32 24l-5 36H14z',x:'M18 12h28M32 12v12M24 12c0 5-3 7-6 7M40 12c0 5 3 7 6 7'},
+  pantaloneta:{n:'Pantaloneta',slot:'abajo',lim:2,d:'M15 12h34l6 34H36l-4-17-4 17H9z',x:'M15 18h34M32 18v11'},
+  boxer:{n:'Bóxer',slot:'interior',lim:1,d:'M13 18h38v8l-2 20H38l-6-10-6 10H15l-2-20z',x:'M13 25h38M32 25v11'},
+  medias:{n:'Medias',slot:'medias',lim:1,d:'M26 6h12v32l12 8c6 4 1 13-5 11L27 49c-4-2-4-5-1-8z',x:'M26 12h12M40 50c2-3 5-3 7-1'},
+  zapatos:{n:'Zapatos',slot:'pies',lim:0,d:'M6 44c0-10 2-15 9-15l9 2c5-6 10-6 13-3l7 7c8 1 14 4 14 10v5H6z',x:'M6 46h52M25 31l3 6M30 29l3 6'},
+  chanclas:{n:'Chanclas',slot:'pies',lim:0,d:'M25 6c9-1 14 5 15 14 1 12-1 25-4 33-2 6-12 6-14 0-3-9-4-21-3-33 1-8 2-13 6-14z',x:'M21 25l9-9 10 9'},
+  gorra:{n:'Gorra',slot:'accesorio',lim:0,d:'M9 40c1-15 10-24 23-24s22 9 22 24z',x:'M54 40h7c0 4-4 6-10 6M32 16v24'},
+  otro:{n:'Otro',slot:'otro',lim:2,d:'M32 6 54 19v26L32 58 10 45V19z',x:''}
+};
+const SLOTS=[['arriba','Arriba',1],['abajo','Abajo',1],['pies','Pies',1],['capa','Encima',0],['interior','Ropa interior',0],['medias','Medias',0]];
+const EST={limpia:'Limpia',usada:'Usada',lavar:'Por lavar'};
+const STD=[{name:'Fare',amb:'#050a06',pri:'#4be36a',sec:'#1f6b2a'},{name:'Oscuro',amb:'#000000',pri:'#ffffff',sec:'#8c8c8c'},{name:'Claro',amb:'#ffffff',pri:'#000000',sec:'#8c8c8c'}];
+const SWATCH=['#f2f2f2','#1d1d1f','#8a8a8a','#34507a','#1f3b5c','#3b6fb6','#b23a3a','#3f7a4a','#c8b58e','#6b4a2f','#e0b13a','#c7609b'];
+
+/* ---------- Guardado en el teléfono (IndexedDB, con respaldo en localStorage) ---------- */
+const DB=(()=>{let p;const open=()=>p||(p=new Promise((res,rej)=>{const r=indexedDB.open('armario-fare',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}));
+  return{async get(k){try{const d=await open();return await new Promise((res,rej)=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)})}catch(e){try{return JSON.parse(localStorage.getItem('af-'+k))}catch(_){return null}}},
+  async set(k,v){try{const d=await open();await new Promise((res,rej)=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=res;t.onerror=()=>rej(t.error)})}catch(e){try{localStorage.setItem('af-'+k,JSON.stringify(v))}catch(_){toast('No se pudo guardar: el teléfono no tiene espacio')}}}}})();
+let S,saveT;
+function save(){clearTimeout(saveT);saveT=setTimeout(()=>DB.set('state',S),120)}
+
+function item(name,cat,color){return{id:uid(),name,cat,color,photo:null,lim:CATS[cat].lim,total:0,since:0,dirty:false,washes:0,last:null,lastWash:null}}
+/* Ropa de Juan al 27-oct-2026; los colores son de ejemplo y se cambian en cada prenda */
+function seed(){return{v:1,pal:'Fare',pals:[],sound:true,log:[],outfits:[],items:[
+  item('Camiseta','camiseta','#1d1d1f'),
+  item('Camisa blanca','camisa','#f2f2f2'),item('Camisa azul','camisa','#3b6fb6'),item('Camisa de cuadros','camisa','#b23a3a'),
+  item('Pantalón jean','pantalon','#34507a'),item('Pantalón negro','pantalon','#2a2a2c'),item('Pantalón beige','pantalon','#c8b58e'),
+  item('Pantaloneta gris','pantaloneta','#8a8a8a'),item('Pantaloneta azul','pantaloneta','#1f3b5c'),item('Pantaloneta verde','pantaloneta','#3f7a4a'),
+  item('Bóxer','boxer','#4a4a4e'),item('Medias','medias','#e8e8e8'),
+  item('Zapatos','zapatos','#6b4a2f'),item('Chanclas','chanclas','#2d2d30')]}}
+
+/* ---------- Reglas ---------- */
+function est(p){if(p.dirty)return'lavar';if(p.lim>0&&p.since>=p.lim)return'lavar';if(p.lim>0&&p.since>0)return'usada';return'limpia'}
+const byId=id=>S.items.find(p=>p.id===id);
+const slotOf=p=>(CATS[p.cat]||CATS.otro).slot;
+const avail=slot=>S.items.filter(p=>slotOf(p)===slot&&est(p)!=='lavar');
+function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return[n>>16&255,n>>8&255,n&255]}
+function lum(h){const[r,g,b]=hex2rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4});return .2126*r+.7152*g+.0722*b}
+const cs=h=>lum(h)>.35?'rgba(0,0,0,.5)':'rgba(255,255,255,.55)';
+function combos(){const A=avail('arriba'),B=avail('abajo'),C=avail('pies'),r=[];
+  for(const a of A)for(const b of B)for(const c of C)r.push([a,b,c]);
+  const sc=x=>x.reduce((s,p)=>s+p.since*3+p.total*.15,0)+(x[1].cat==='pantaloneta'&&x[2].cat==='zapatos'?1:0);
+  r.sort((x,y)=>sc(x)-sc(y));return{list:r,A:A.length,B:B.length,C:C.length}}
+function pickFirst(slot){const l=avail(slot).sort((a,b)=>a.since-b.since||a.total-b.total);return l[0]||null}
+function ago(d){if(!d)return'nunca';const n=Math.round((new Date(today())-new Date(d))/864e5);return n<=0?'hoy':n===1?'ayer':'hace '+n+' días'}
+function fdate(d){return new Date(d+'T12:00').toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'})}
+
+/* ---------- Dibujos ---------- */
+function pic(p,extra=''){const c=p.color||'#888';
+  if(p.photo)return`<div class="pic" style="--c:${c}" ${extra}><img src="${p.photo}" alt=""></div>`;
+  const k=CATS[p.cat]||CATS.otro;
+  return`<div class="pic" style="--c:${c};--cs:${cs(c)}" ${extra}><svg viewBox="0 0 64 64" aria-hidden="true"><path class="m" d="${k.d}"/>${k.x?`<path class="x" d="${k.x}"/>`:''}</svg></div>`}
+function auraVars(items){const c=items.filter(Boolean).map(p=>p.color);while(c.length<3)c.push(c[0]||'#4be36a');return`--a1:${c[0]};--a2:${c[1]};--a3:${c[2]}`}
+const IC={
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  shirt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 3 4 5v4l2 1v10h12V10l2-1V5l-4-2c-.5 1.6-2 2.6-4 2.6S8.5 4.6 8 3z"/></svg>',
+  wash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="2.5" width="16" height="19" rx="2.5"/><circle cx="12" cy="13" r="5"/></svg>',
+  dice:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12l-3-3M20 16H8l3 3"/></svg>',
+  cam:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>'
+};
+
+/* ---------- Navegación con crossfade ---------- */
+let view='hoy',filt='todas',sugIdx=0;
+function go(v){view=v;$$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+  $$('#nav button').forEach(b=>{if(b.dataset.v===v)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  $('#goAj').classList.toggle('on',v==='aj');render()}
+$$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+$('#goAj').onclick=()=>go(view==='aj'?'hoy':'aj');
+$('#addTop').onclick=()=>editItem(null);
+
+function render(){const f={hoy:rHoy,ropa:rRopa,conj:rConj,lav:rLav,aj:rAj}[view];f&&f();
+  const n=S.items.filter(p=>est(p)==='lavar').length,b=$('#nav [data-v="lav"]');let bd=$('.bd',b);
+  if(n){if(!bd){bd=document.createElement('span');bd.className='bd';b.append(bd)}bd.textContent=n}else bd&&bd.remove();
+  requestAnimationFrame(afterRender)}
+function afterRender(){
+  $$('.v.cnt').forEach(el=>countUp(el));
+  $$('[data-h]').forEach(el=>el.style.height=el.dataset.h);
+  $$('[data-w]').forEach(el=>el.style.width=el.dataset.w);
+  $$('.ring [data-dash]').forEach(el=>{el.style.strokeDasharray=el.dataset.dash;el.style.strokeDashoffset=el.dataset.off});
+  $$('.tl:not([data-tb])').forEach(el=>{el.dataset.tb=1;bindTilt(el,+el.dataset.tilt||10)});
+  fan();}
+const shown={};
+function countUp(el){const to=+el.dataset.to,key=el.dataset.key,from=shown[key]??0;shown[key]=to;
+  if(RM||from===to){el.firstChild.nodeValue=to;return}const t0=performance.now(),d=700;
+  (function f(t){const k=Math.min(1,(t-t0)/d),e=1-(1-k)**3;el.firstChild.nodeValue=Math.round(from+(to-from)*e);if(k<1)requestAnimationFrame(f)})(t0)}
+const num=(key,v,small='')=>`<div class="v cnt" data-key="${key}" data-to="${v}">${shown[key]??0}${small?` <small>${small}</small>`:''}</div>`;
+
+/* ---------- HOY: tablero de vidrio + conjunto sugerido + carrusel ---------- */
+function rHoy(){const it=S.items,cnt={limpia:0,usada:0,lavar:0};it.forEach(p=>cnt[est(p)]++);
+  const tot=it.length||1,C=2*Math.PI*46,cb=combos(),puestas=it.reduce((s,p)=>s+p.total,0);
+  const segs=[['limpia','var(--pri)'],['usada','color-mix(in srgb,var(--pri) 45%,var(--sec))'],['lavar','var(--warn)']];let acc=0;
+  const ring=segs.map(([k,col])=>{const len=cnt[k]/tot*C,o=-acc;acc+=len;return`<circle r="46" cx="56" cy="56" stroke="${col}" style="stroke-dasharray:0 ${C}" data-dash="${Math.max(0,len-(cnt[k]?2:0))} ${C}" data-off="${o}"/>`}).join('');
+  // puestas de los últimos 7 días
+  const days=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(ymd(d))}
+  const perDay=days.map(d=>S.log.filter(l=>l.d===d).reduce((s,l)=>s+l.items.length,0)),mx=Math.max(1,...perDay);
+  const top=[...it].sort((a,b)=>b.total-a.total)[0];
+  const sug=cb.list.length?cb.list[sugIdx%cb.list.length]:null;
+  const lack=[['arriba',cb.A],['abajo',cb.B],['pies',cb.C]].filter(x=>!x[1]).map(x=>x[0]);
+  $('#v-hoy').innerHTML=`<div class="wrap">
+  <div class="label" style="margin-top:6px">Tablero<em>${fdate(today())}</em></div>
+  <div class="dash">
+    <div class="tile main cutg tl" data-tilt="6"><span class="gl"></span>
+      <div class="ring"><svg viewBox="0 0 112 112"><circle class="bg" r="46" cx="56" cy="56"/>${ring}</svg><b><span class="v cnt" data-key="items" data-to="${it.length}" style="font-size:inherit;margin:0;line-height:1">${shown.items??0}</span><small>PRENDAS</small></b></div>
+      <div class="legend">${segs.map(([k,col])=>`<button data-go-lav="${k}"><i style="background:${col};box-shadow:0 0 8px ${col}"></i><span>${EST[k]}</span><b>${cnt[k]}</b></button>`).join('')}</div>
+    </div>
+    <div class="tile rg"><div class="k">Puestas · 7 días</div>${num('p7',perDay.reduce((a,b)=>a+b,0))}
+      <div class="bars">${perDay.map((v,i)=>`<i class="${v?'':'z'} ${i===6?'t':''}" data-h="${v?Math.max(10,v/mx*100):8}%"></i>`).join('')}</div>
+      <div class="days">${days.map(d=>`<span>${'DLMMJVS'[new Date(d+'T12:00').getDay()]}</span>`).join('')}</div></div>
+    <div class="tile rg"><div class="k">Conjuntos posibles</div>${num('cb',cb.list.length)}
+      <div class="s mono">${cb.A} × ${cb.B} × ${cb.C}</div><div class="s">arriba × abajo × pies</div></div>
+    <div class="tile rg aura" style="--c:${top?top.color:'var(--pri)'}"><div class="k">Más usada</div>${num('top',top?top.total:0,top&&top.total===1?'puesta':'puestas')}
+      <div class="s">${top&&top.total?esc(top.name):'Aún nada'}</div><div class="meter"><i style="--c:${top?top.color:'var(--pri)'}" data-w="${top&&puestas?Math.round(top.total/puestas*100):0}%"></i></div></div>
+    <div class="tile rg"><div class="k">Puestas totales</div>${num('pt',puestas)}<div class="s">${S.log.length} ${S.log.length===1?'puesta registrada':'puestas registradas'}</div></div>
+  </div>
+  <div class="label">Conjunto sugerido para hoy<em>${cb.list.length?((sugIdx%cb.list.length)+1)+' de '+cb.list.length:''}</em></div>
+  ${sug?`<div class="heroWrap" style="${auraVars(sug)}"><div class="halo"></div>
+    <div class="hero cutg tl sway" data-tilt="14" style="${auraVars(sug)}"><span class="gl"></span>
+      <div class="stack">${sug.map(p=>pic(p)).join('')}</div>
+      <div><h2>${sugIdx%cb.list.length===0?'El menos usado':'Otra idea'}</h2>
+        <ul>${sug.map(p=>`<li style="--c:${p.color}"><i></i><span>${esc(p.name)}</span><small>${p.total}×</small></li>`).join('')}</ul>
+        <div class="row2"><button class="btn pri" id="wearSug">${IC.check}Me lo pongo</button><button class="btn" id="nextSug" aria-label="Otra idea">${IC.dice}</button></div>
+      </div></div></div>`
+  :`<div class="emptyHero cutg">No sale ningún conjunto limpio. Falta ropa limpia de <b>${lack.join(', ')||'arriba, abajo o pies'}</b>. Ve a <b>Lavado</b> y marca lo que ya lavaste.</div>`}
+  ${cb.list.length>1?`<div class="label">Todos los conjuntos posibles<em>${cb.list.length}</em></div>
+  <div class="carousel" id="car">${cb.list.slice(0,40).map((x,i)=>`<button class="combo" data-cb="${i}" style="${auraVars(x)}"><div class="stack">${x.map(p=>pic(p)).join('')}</div><div class="n">#${i+1}</div><b>${esc(x[0].name)}</b><b style="color:var(--muted);font-weight:400">${esc(x[1].name)}</b></button>`).join('')}</div>`:''}
+  <div class="label">Últimas puestas</div>
+  ${S.log.length?`<ul class="list log">${S.log.slice(0,8).map(l=>{const ps=l.items.map(byId).filter(Boolean);const o=l.o&&S.outfits.find(o=>o.id===l.o);
+    return`<li class="rowi" style="--c:${ps[0]?ps[0].color:'#888'}"><div class="minis">${ps.slice(0,3).map(p=>pic(p)).join('')}</div><div class="t"><b>${o?esc(o.name):fdate(l.d)}</b><span>${o?fdate(l.d)+' · ':''}${ps.map(p=>esc(p.name)).join(', ')}</span></div><button class="x" data-undo="${l.id}" aria-label="Deshacer esta puesta">${IC.x}</button></li>`}).join('')}</ul>`
+  :`<div class="none">Cuando te pongas un conjunto, toca <b>Me lo pongo</b> y aquí queda la cuenta de puestas.</div>`}
+  </div>`;
+  const v=$('#v-hoy');
+  $$('[data-go-lav]',v).forEach(b=>b.onclick=()=>{filt=b.dataset.goLav;go('ropa')});
+  if(sug){$('#wearSug').onclick=e=>comboSheet(sug,e.currentTarget.closest('.hero'));$('#nextSug').onclick=()=>{sugIdx++;rHoy();requestAnimationFrame(afterRender)}}
+  $$('[data-cb]',v).forEach(b=>b.onclick=()=>comboSheet(cb.list[+b.dataset.cb],b));
+  $$('[data-undo]',v).forEach(b=>b.onclick=()=>undo(b.dataset.undo));
+}
+function fan(){const car=$('#car');if(!car)return;const upd=()=>{const r=car.getBoundingClientRect(),mid=r.left+r.width/2;
+  $$('.combo',car).forEach(c=>{const b=c.getBoundingClientRect(),o=(b.left+b.width/2-mid)/(b.width+12),a=Math.min(Math.abs(o),2.2);
+    c.style.setProperty('--cy',Math.max(-40,Math.min(40,-o*24))+'deg');c.style.setProperty('--s',1.08-a*.12);c.style.setProperty('--bl',(Math.max(0,a-.5)*1.4).toFixed(2)+'px');c.style.setProperty('--op',1-a*.18)})};
+  if(!car.dataset.f){car.dataset.f=1;car.addEventListener('scroll',()=>requestAnimationFrame(upd),{passive:true})}upd()}
+
+/* ---------- ROPA ---------- */
+function rRopa(){const it=S.items,cnt={todas:it.length,limpia:0,usada:0,lavar:0};it.forEach(p=>cnt[est(p)]++);
+  const order=Object.keys(CATS),list=it.filter(p=>filt==='todas'||est(p)===filt).sort((a,b)=>order.indexOf(a.cat)-order.indexOf(b.cat));
+  $('#v-ropa').innerHTML=`<div class="wrap"><div class="label" style="margin-top:6px">Mi ropa<em>${it.length} prendas</em></div>
+  <div class="chips">${['todas','limpia','usada','lavar'].map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filt===k}">${k==='todas'?'Todas':EST[k]} <b>${cnt[k]}</b></button>`).join('')}</div>
+  ${list.length?`<div class="grid">${list.map(p=>{const e=est(p);return`<button class="card tl s-${e}" data-tilt="12" data-id="${p.id}" style="--c:${p.color}"><span class="gl"></span>${pic(p,`data-pic="${p.id}"`)}<b>${esc(p.name)}</b>
+    <div class="meta"><span class="st s-${e}"><i></i>${EST[e]}</span><span>${p.total}×</span></div></button>`}).join('')}</div>`
+  :`<div class="none">No hay prendas en «${EST[filt]||'Todas'}».</div>`}
+  <button class="btn wide" id="addRopa" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar prenda</button>
+  <p class="note">«2×» es la cantidad de veces que te la has puesto. Cada prenda pasa sola a «Por lavar» cuando llega a su número de puestas.</p></div>`;
+  $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;rRopa();afterRender()});
+  $$('#v-ropa [data-id]').forEach(b=>b.onclick=()=>itemSheet(byId(b.dataset.id),$('.pic',b)));
+  $('#addRopa').onclick=()=>editItem(null);
+}
+
+/* ---------- CONJUNTOS ---------- */
+function rConj(){const cb=combos();
+  $('#v-conj').innerHTML=`<div class="wrap"><div class="label" style="margin-top:6px">Mis conjuntos<em>${S.outfits.length}</em></div>
+  ${S.outfits.length?`<ul class="list">${S.outfits.map(o=>{const ps=o.items.map(byId).filter(Boolean),bad=ps.filter(p=>est(p)==='lavar');
+    return`<li><button class="rowi" style="--c:${ps[0]?ps[0].color:'#888'};width:100%" data-o="${o.id}"><div class="minis">${ps.slice(0,3).map(p=>pic(p)).join('')}</div>
+    <div class="t"><b>${esc(o.name)}</b><span>${bad.length?'Falta lavar: '+bad.map(p=>esc(p.name)).join(', '):'Listo para ponértelo'}</span></div>
+    <span class="st ${bad.length?'s-lavar':'s-limpia'}"><i></i><span class="mono">${o.worn||0}×</span></span></button></li>`}).join('')}</ul>`
+  :`<div class="none">Todavía no has guardado conjuntos. Arma uno con las prendas que te gusta combinar.</div>`}
+  <button class="btn pri wide" id="newO" style="margin-top:14px">${IC.shirt}Armar conjunto</button>
+  <div class="label">Con lo limpio salen<em>${cb.list.length}</em></div>
+  <div class="dash">${[['arriba','Arriba',cb.A],['abajo','Abajo',cb.B],['pies','Pies',cb.C]].map(([k,n,v])=>{const all=S.items.filter(p=>slotOf(p)===k).length;
+    return`<div class="tile rg"><div class="k">${n}</div>${num('s'+k,v,'de '+all)}<div class="meter"><i data-w="${all?v/all*100:0}%"></i></div></div>`}).join('')}
+    <div class="tile rg"><div class="k">Combinaciones</div>${num('cb2',cb.list.length)}<div class="s mono">${cb.A} × ${cb.B} × ${cb.C}</div></div></div>
+  <p class="note">Las combinaciones posibles están en <b>Hoy</b>, en el carrusel. Ahí puedes guardarlas como conjunto.</p></div>`;
+  $$('[data-o]').forEach(b=>b.onclick=()=>outfitSheet(S.outfits.find(o=>o.id===b.dataset.o)));
+  $('#newO').onclick=()=>builder(null);
+}
+
+/* ---------- LAVADO ---------- */
+function rLav(){const g={lavar:[],usada:[],limpia:[]};S.items.forEach(p=>g[est(p)].push(p));
+  const row=(p,btns)=>`<li class="rowi" style="--c:${p.color}">${pic(p)}<div class="t"><b>${esc(p.name)}</b><span>${p.lim?`${p.since}/${p.lim} puestas`:'No se lava'} · ${p.total}× en total</span></div><div class="act2">${btns}</div></li>`;
+  $('#v-lav').innerHTML=`<div class="wrap">
+  <div class="dash" style="margin-top:6px">
+    <div class="tile rg aura" style="--c:var(--warn)"><div class="k">Por lavar</div>${num('l1',g.lavar.length)}<div class="meter"><i style="--c:var(--warn)" data-w="${g.lavar.length/(S.items.length||1)*100}%"></i></div></div>
+    <div class="tile rg aura" style="--c:var(--pri)"><div class="k">Limpia</div>${num('l2',g.limpia.length)}<div class="meter"><i data-w="${g.limpia.length/(S.items.length||1)*100}%"></i></div></div>
+  </div>
+  <div class="label">Por lavar<em>${g.lavar.length}</em></div>
+  ${g.lavar.length?`<ul class="list">${g.lavar.map(p=>row(p,`<button class="sbtn pri" data-wash="${p.id}">Lavada</button>`)).join('')}</ul>
+    <button class="btn pri wide" id="washAll" style="margin-top:12px">${IC.wash}Ya lavé todo (${g.lavar.length})</button>`:`<div class="none">Nada por lavar. 🙌</div>`}
+  <div class="label">Usada (aguanta otra puesta)<em>${g.usada.length}</em></div>
+  ${g.usada.length?`<ul class="list">${g.usada.map(p=>row(p,`<button class="sbtn" data-dirty="${p.id}">A lavar</button><button class="sbtn" data-wash="${p.id}">Lavada</button>`)).join('')}</ul>`:`<div class="none">Ninguna.</div>`}
+  <div class="label">Lavada y limpia<em>${g.limpia.length}</em></div>
+  ${g.limpia.length?`<ul class="list">${g.limpia.map(p=>row(p,`<button class="sbtn" data-dirty="${p.id}">A lavar</button>`)).join('')}</ul>`:`<div class="none">Ninguna.</div>`}
+  </div>`;
+  $$('[data-wash]').forEach(b=>b.onclick=()=>wash([b.dataset.wash]));
+  $$('[data-dirty]').forEach(b=>b.onclick=()=>{const p=byId(b.dataset.dirty);p.dirty=true;save();render();toast(p.name+' → por lavar')});
+  const wa=$('#washAll');if(wa)wa.onclick=()=>wash(g.lavar.map(p=>p.id));
+}
+
+/* ---------- AJUSTES: paletas, sonido, respaldo ---------- */
+let draft=null;
+function rAj(){const cur=curPal();draft=draft||{...cur};
+  const all=[...STD.map(p=>({...p,std:1})),...S.pals];
+  $('#v-aj').innerHTML=`<div class="wrap"><div class="label" style="margin-top:6px">Paleta 70 / 20 / 10<em>${esc(cur.name)}</em></div>
+  <div class="bar7"><div style="flex:7;background:${draft.amb};color:${draft.pri}">70</div><div style="flex:2;background:${draft.pri};color:${draft.amb}">20</div><div style="flex:1;background:${draft.sec};color:${draft.amb}">10</div></div>
+  <div class="cpick">${[['amb','Ambiente 70'],['pri','Principal 20'],['sec','Secundario 10']].map(([k,n])=>`<label>${n}<input type="color" data-c="${k}" value="${draft[k]}"><em>${draft[k].toUpperCase()}</em></label>`).join('')}</div>
+  <div class="row2" style="margin-top:10px"><input class="inp" id="palName" placeholder="Nombre de la paleta" maxlength="24" style="flex:1 1 160px;width:auto"><button class="btn pri" id="palSave">Guardar</button></div>
+  <div class="label">Paletas guardadas</div>
+  <ul class="list plist">${all.map(p=>`<li class="rowi ${p.name===cur.name?'cur':''}" data-pn="${esc(p.name)}"><button class="t" data-use="${esc(p.name)}"><b>${esc(p.name)}${p.name===cur.name?'<small>En uso</small>':''}</b></button>
+    <div class="act2">${p.std?'':`<button class="sbtn" data-ren="${esc(p.name)}">Renombrar</button><button class="sbtn" data-delp="${esc(p.name)}">Borrar</button>`}</div></li>`).join('')}</ul>
+  <div class="label">Más</div>
+  <button class="toggle" id="snd" aria-pressed="${S.sound}">Sonido de la impresora<i></i></button>
+  <div class="row2" style="margin-top:10px"><button class="btn" id="exp">Descargar copia</button><button class="btn" id="imp">Cargar copia</button></div>
+  <button class="btn warn wide" id="reset" style="margin-top:10px">Volver a la ropa de ejemplo</button>
+  <p class="note">Todo se guarda en este teléfono. Descarga una copia de vez en cuando para no perder tu ropa si borras los datos del navegador.</p>
+  <input type="file" id="impF" accept="application/json,.json" hidden></div>`;
+  $$('[data-c]').forEach(i=>i.oninput=()=>{draft[i.dataset.c]=i.value;applyPal(draft);const em=i.nextElementSibling;em.textContent=i.value.toUpperCase();
+    const b=$$('.bar7 div');b[0].style.cssText=`flex:7;background:${draft.amb};color:${draft.pri}`;b[1].style.cssText=`flex:2;background:${draft.pri};color:${draft.amb}`;b[2].style.cssText=`flex:1;background:${draft.sec};color:${draft.amb}`});
+  $('#palSave').onclick=()=>{const n=$('#palName').value.trim();if(!n)return toast('Ponle un nombre a la paleta');
+    if(STD.some(p=>p.name.toLowerCase()===n.toLowerCase()))return toast('Ese nombre es de una paleta estándar');
+    const p={name:n,amb:draft.amb,pri:draft.pri,sec:draft.sec},i=S.pals.findIndex(x=>x.name===n);if(i>=0)S.pals[i]=p;else S.pals.push(p);
+    S.pal=n;save();draft=null;rAj();ticket(i>=0?'PALETA ACTUALIZADA':'PALETA GUARDADA',[['Nombre',n]],[['70 AMBIENTE',p.amb.toUpperCase()],['20 PRINCIPAL',p.pri.toUpperCase()],['10 SECUNDARIO',p.sec.toUpperCase()]])};
+  $$('[data-use]').forEach(b=>b.onclick=()=>{S.pal=b.dataset.use;draft=null;applyPal(curPal());save();rAj()});
+  $$('[data-delp]').forEach(b=>b.onclick=()=>{if(b.dataset.sure){S.pals=S.pals.filter(p=>p.name!==b.dataset.delp);if(S.pal===b.dataset.delp)S.pal='Fare';draft=null;applyPal(curPal());save();rAj()}else{b.dataset.sure=1;b.textContent='¿Seguro?'}});
+  $$('[data-ren]').forEach(b=>b.onclick=()=>{const li=b.closest('li'),old=b.dataset.ren;li.innerHTML=`<input class="inp" value="${esc(old)}" maxlength="24" style="padding:8px 12px"><div class="act2"><button class="sbtn pri">Listo</button></div>`;
+    const inp=$('input',li);inp.focus();inp.select();const ok=()=>{const n=inp.value.trim();if(n&&n!==old&&![...STD,...S.pals].some(p=>p.name===n)){S.pals.find(p=>p.name===old).name=n;if(S.pal===old)S.pal=n;save()}draft=null;rAj()};
+    $('button',li).onclick=ok;inp.onkeydown=e=>{if(e.key==='Enter')ok()}});
+  $('#snd').onclick=()=>{S.sound=!S.sound;save();rAj()};
+  $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='armario-fare-'+today()+'.json';a.click()};
+  $('#imp').onclick=()=>$('#impF').click();
+  $('#impF').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.items))throw 0;S=d;save();applyPal(curPal());draft=null;go('hoy');toast('Copia cargada')}catch(_){toast('Ese archivo no es una copia de Armario Fare')}};
+  $('#reset').onclick=e=>{const b=e.currentTarget;if(!b.dataset.sure){b.dataset.sure=1;b.textContent='¿Seguro? Se borra tu ropa actual';return}
+    const keep={pal:S.pal,pals:S.pals,sound:S.sound};S={...seed(),...keep};save();go('hoy')};
+}
+function curPal(){return[...STD,...S.pals].find(p=>p.name===S.pal)||STD[0]}
+function applyPal(p){const r=document.documentElement.style;r.setProperty('--amb',p.amb);r.setProperty('--pri',p.pri);r.setProperty('--sec',p.sec);
+  document.documentElement.style.colorScheme=lum(p.amb)>.4?'light':'dark';$('meta[name=theme-color]').content=p.amb}
+
+/* ---------- Hojas con 5. shared element (View Transitions) ---------- */
+let sheetEl=null,scrimEl=null,heroSrc=null;
+function vt(fn){if(document.startViewTransition&&!RM)return document.startViewTransition(fn);fn();return null}
+function openSheet(html,src){
+  closeNow();const sc=document.createElement('div'),sh=document.createElement('div');sc.className='scrim on';sc.onclick=closeSheet;
+  sh.className='sheet liquid on';sh.setAttribute('role','dialog');sh.innerHTML='<span class="lsh"></span><div class="in">'+html+'</div>';
+  sheetEl=sh;scrimEl=sc;heroSrc=src||null;const h=$('[data-hero]',sh);
+  if(src&&h&&document.startViewTransition&&!RM){src.style.viewTransitionName='hero';
+    const t=document.startViewTransition(()=>{src.style.viewTransitionName='';h.style.viewTransitionName='hero';document.body.append(sc,sh)});
+    t.finished.finally(()=>{h.style.viewTransitionName=''})}
+  else{document.body.append(sc,sh);if(!RM){sh.classList.remove('on');sc.classList.remove('on');requestAnimationFrame(()=>requestAnimationFrame(()=>{sh.classList.add('on');sc.classList.add('on')}))}}
+  bindTilt(sh,4);return sh}
+function closeNow(){sheetEl&&sheetEl.remove();scrimEl&&scrimEl.remove();sheetEl=scrimEl=null}
+function closeSheet(){if(!sheetEl)return;const h=$('[data-hero]',sheetEl),src=heroSrc&&document.contains(heroSrc)?heroSrc:null;
+  if(h&&src&&document.startViewTransition&&!RM){h.style.viewTransitionName='hero';const t=document.startViewTransition(()=>{closeNow();src.style.viewTransitionName='hero'});t.finished.finally(()=>src.style.viewTransitionName='')}
+  else{const s=sheetEl,c=scrimEl;sheetEl=scrimEl=null;s.classList.remove('on');c.classList.remove('on');setTimeout(()=>{s.remove();c.remove()},300)}}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
+
+function itemSheet(p,src){const e=est(p),k=CATS[p.cat]||CATS.otro;
+  const s=openSheet(`<div class="sh-hero">${pic(p,'data-hero')}<div><h3>${esc(p.name)}</h3><div class="cat">${k.n}</div><span class="st s-${e}"><i></i>${EST[e]}</span></div></div>
+  <div class="stats"><div><small>Puestas totales</small><b>${p.total}</b></div>
+  <div><small>Desde la lavada</small><b>${p.since}${p.lim?` <small>de ${p.lim}</small>`:''}</b></div>
+  <div><small>Última vez</small><b style="font-size:1rem">${ago(p.last)}</b></div><div><small>Lavadas</small><b>${p.washes}</b></div></div>
+  ${p.lim?`<div class="meter" style="margin:0 0 12px"><i style="--c:${e==='lavar'?'var(--warn)':p.color};width:${Math.min(100,p.since/p.lim*100)}%"></i></div>`:''}
+  <div class="row2"><button class="btn pri" id="sWear">${IC.check}Me la puse hoy</button>
+  ${e==='lavar'?`<button class="btn" id="sWash">${IC.wash}Ya está lavada</button>`:`<button class="btn" id="sDirty">${IC.wash}Mandar a lavar</button>`}</div>
+  <div class="row2" style="margin-top:8px"><button class="btn" id="sEdit">Editar</button><button class="btn warn" id="sDel">Borrar</button></div>`,src);
+  $('#sWear',s).onclick=()=>{closeSheet();wear([p.id])};
+  const w=$('#sWash',s);if(w)w.onclick=()=>{closeSheet();wash([p.id])};
+  const d=$('#sDirty',s);if(d)d.onclick=()=>{p.dirty=true;save();closeSheet();render();toast(p.name+' → por lavar')};
+  $('#sEdit',s).onclick=()=>editItem(p);
+  $('#sDel',s).onclick=ev=>{const b=ev.currentTarget;if(!b.dataset.sure){b.dataset.sure=1;b.textContent='¿Borrar de verdad?';return}
+    S.items=S.items.filter(x=>x.id!==p.id);S.outfits.forEach(o=>o.items=o.items.filter(i=>i!==p.id));S.outfits=S.outfits.filter(o=>o.items.length);save();closeSheet();render();toast('Prenda borrada')};
+}
+
+function editItem(p){const isNew=!p;const d=p?{...p}:{name:'',cat:'camiseta',color:'#3b6fb6',photo:null,lim:1};
+  const s=openSheet(`<div class="sh-title"><h3>${isNew?'Nueva prenda':'Editar prenda'}</h3><button class="x" id="eX" aria-label="Cerrar">${IC.x}</button></div>
+  <div class="sh-hero" style="grid-template-columns:96px minmax(0,1fr)"><div id="ePic"></div>
+   <div class="row2" style="flex-direction:column"><button class="btn" id="ePh">${IC.cam}Foto</button><button class="btn" id="eNoPh" ${d.photo?'':'hidden'}>Quitar foto</button></div></div>
+  <input type="file" id="eF" accept="image/*" capture="environment" hidden>
+  <label class="field">Nombre<input class="inp" id="eN" maxlength="40" placeholder="Ej.: Camisa azul" value="${esc(d.name)}"></label>
+  <div class="field">Tipo<div class="catgrid">${Object.entries(CATS).map(([k,c])=>`<button data-cat="${k}" aria-pressed="${d.cat===k}">${pic({cat:k,color:d.color})}${c.n}</button>`).join('')}</div></div>
+  <div class="field">Color<div class="colrow">${SWATCH.map(c=>`<button class="sw" data-sw="${c}" style="--c:${c}" aria-pressed="${d.color===c}" aria-label="${c}"></button>`).join('')}<input type="color" id="eC" value="${d.color}"></div></div>
+  <div class="field">Se lava cada<div class="stepper"><button id="eM" aria-label="Menos">−</button><b id="eL">${d.lim}</b><button id="eP" aria-label="Más">+</button><span id="eLt"></span></div></div>
+  <button class="btn pri wide" id="eSave" style="margin-top:16px">${IC.check}${isNew?'Agregar':'Guardar'}</button>`);
+  const upd=()=>{$('#ePic',s).innerHTML=pic(d);$('#eL',s).textContent=d.lim;$('#eLt',s).textContent=d.lim?(d.lim===1?'puesta (cada vez que la uses)':'puestas'):'nunca (zapatos, chanclas)';
+    $$('[data-sw]',s).forEach(b=>b.setAttribute('aria-pressed',b.dataset.sw===d.color));$('#eC',s).value=d.color;$('#eNoPh',s).hidden=!d.photo;
+    $$('[data-cat] .pic',s).forEach(el=>el.style.setProperty('--c',d.color))};
+  upd();
+  $('#eX',s).onclick=closeSheet;
+  $$('[data-cat]',s).forEach(b=>b.onclick=()=>{d.cat=b.dataset.cat;d.lim=CATS[d.cat].lim;$$('[data-cat]',s).forEach(x=>x.setAttribute('aria-pressed',x===b));upd()});
+  $$('[data-sw]',s).forEach(b=>b.onclick=()=>{d.color=b.dataset.sw;upd()});
+  $('#eC',s).oninput=e=>{d.color=e.target.value;upd()};
+  $('#eM',s).onclick=()=>{d.lim=Math.max(0,d.lim-1);upd()};$('#eP',s).onclick=()=>{d.lim=Math.min(30,d.lim+1);upd()};
+  $('#ePh',s).onclick=()=>$('#eF',s).click();
+  $('#eNoPh',s).onclick=()=>{d.photo=null;upd()};
+  $('#eF',s).onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const r=await photo(f);d.photo=r.url;d.color=r.color;upd()}catch(_){toast('No se pudo abrir la foto')}};
+  $('#eSave',s).onclick=()=>{d.name=$('#eN',s).value.trim()||CATS[d.cat].n;
+    if(isNew){const n={...item(d.name,d.cat,d.color),photo:d.photo,lim:d.lim};S.items.push(n)}else Object.assign(p,{name:d.name,cat:d.cat,color:d.color,photo:d.photo,lim:d.lim});
+    save();closeSheet();render();ticket(isNew?'PRENDA AGREGADA':'PRENDA ACTUALIZADA',[['Prenda',d.name],['Tipo',CATS[d.cat].n]],[['Se lava cada',d.lim?d.lim+' puesta'+(d.lim>1?'s':''):'nunca'],['Color',d.color.toUpperCase()]])};
+}
+/* Foto: recorte cuadrado de 360 px y color predominante para el aura */
+function photo(f){return new Promise((res,rej)=>{const img=new Image(),u=URL.createObjectURL(f);img.onload=()=>{const s=Math.min(img.width,img.height),c=document.createElement('canvas');c.width=c.height=360;
+  const x=c.getContext('2d');x.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,360,360);
+  const t=document.createElement('canvas');t.width=t.height=24;const tx=t.getContext('2d');tx.drawImage(c,90,90,180,180,0,0,24,24);const dt=tx.getImageData(0,0,24,24).data,bk={};
+  for(let i=0;i<dt.length;i+=4){const k=(dt[i]>>5)+','+(dt[i+1]>>5)+','+(dt[i+2]>>5);(bk[k]=bk[k]||[0,0,0,0]);bk[k][0]+=dt[i];bk[k][1]+=dt[i+1];bk[k][2]+=dt[i+2];bk[k][3]++}
+  const b=Object.values(bk).sort((a,b)=>b[3]-a[3])[0],h='#'+[0,1,2].map(j=>Math.round(b[j]/b[3]).toString(16).padStart(2,'0')).join('');
+  URL.revokeObjectURL(u);res({url:c.toDataURL('image/jpeg',.8),color:h})};img.onerror=rej;img.src=u})}
+
+function comboSheet(x,src){const extra={interior:pickFirst('interior'),medias:pickFirst('medias')},sel={interior:extra.interior?.id||null,medias:extra.medias?.id||null};
+  const s=openSheet(`<div class="sh-title"><h3>Conjunto</h3><button class="x" id="cX" aria-label="Cerrar">${IC.x}</button></div>
+  <div class="stack" data-hero style="grid-template-columns:repeat(3,minmax(0,1fr));${auraVars(x)}">${x.map(p=>pic(p)).join('')}</div>
+  <ul class="list" style="margin-top:10px">${x.map(p=>`<li class="rowi" style="--c:${p.color};grid-template-columns:minmax(0,1fr) auto"><div class="t"><b>${esc(p.name)}</b><span>${CATS[p.cat].n} · ${p.total}× · ${EST[est(p)]}</span></div></li>`).join('')}</ul>
+  ${['interior','medias'].map(sl=>{const l=S.items.filter(p=>slotOf(p)===sl);if(!l.length)return'';return`<div class="field">${sl==='interior'?'Ropa interior':'Medias'}</div><div class="pickrow">
+    <button class="pk nonepk" data-sl="${sl}" data-pk="" aria-pressed="${!sel[sl]}">Ninguna</button>${l.map(p=>`<button class="pk ${est(p)==='lavar'?'dirty':''}" style="--c:${p.color}" data-sl="${sl}" data-pk="${p.id}" aria-pressed="${sel[sl]===p.id}">${pic(p)}<span>${esc(p.name)}</span></button>`).join('')}</div>
+    ${l.every(p=>est(p)==='lavar')?`<div class="warnbox">${sl==='interior'?'Tu ropa interior':'Tus medias'} está${l.length>1?'n':''} por lavar.</div>`:''}`}).join('')}
+  <div class="row2" style="margin-top:14px"><button class="btn pri" id="cWear">${IC.check}Me lo pongo hoy</button><button class="btn" id="cSave">Guardar conjunto</button></div>`,src);
+  $('#cX',s).onclick=closeSheet;
+  $$('[data-pk]',s).forEach(b=>b.onclick=()=>{sel[b.dataset.sl]=b.dataset.pk||null;$$(`[data-sl="${b.dataset.sl}"]`,s).forEach(y=>y.setAttribute('aria-pressed',y===b))});
+  const ids=()=>[...x.map(p=>p.id),sel.interior,sel.medias].filter(Boolean);
+  $('#cWear',s).onclick=()=>{closeSheet();wear(ids())};
+  $('#cSave',s).onclick=()=>builder({id:null,name:'',items:ids(),worn:0});
+}
+function outfitSheet(o){const ps=o.items.map(byId).filter(Boolean),bad=ps.filter(p=>est(p)==='lavar');
+  const s=openSheet(`<div class="sh-title"><h3>${esc(o.name)}</h3><button class="x" id="oX" aria-label="Cerrar">${IC.x}</button></div>
+  <div class="stack" style="grid-template-columns:repeat(${Math.min(4,ps.length)},minmax(0,1fr))">${ps.map(p=>pic(p)).join('')}</div>
+  <div class="stats"><div><small>Puesto</small><b>${o.worn||0} <small>veces</small></b></div><div><small>Prendas</small><b>${ps.length}</b></div></div>
+  ${bad.length?`<div class="warnbox">Falta lavar: ${bad.map(p=>esc(p.name)).join(', ')}.</div>`:''}
+  <div class="row2"><button class="btn pri" id="oWear">${IC.check}${bad.length?'Ponérmelo igual':'Me lo pongo hoy'}</button><button class="btn" id="oEdit">Editar</button><button class="btn warn" id="oDel">Borrar</button></div>`);
+  $('#oX',s).onclick=closeSheet;
+  $('#oWear',s).onclick=()=>{closeSheet();wear(o.items.filter(byId),o.id)};
+  $('#oEdit',s).onclick=()=>builder(o);
+  $('#oDel',s).onclick=ev=>{const b=ev.currentTarget;if(!b.dataset.sure){b.dataset.sure=1;b.textContent='¿Seguro?';return}S.outfits=S.outfits.filter(x=>x.id!==o.id);save();closeSheet();render()};
+}
+function builder(o){const isNew=!o||!o.id,d={name:o?.name||'',items:[...(o?.items||[])]};
+  const s=openSheet(`<div class="sh-title"><h3>${isNew?'Armar conjunto':'Editar conjunto'}</h3><button class="x" id="bX" aria-label="Cerrar">${IC.x}</button></div>
+  <label class="field">Nombre<input class="inp" id="bN" maxlength="30" placeholder="Ej.: Para clase" value="${esc(d.name)}"></label>
+  ${SLOTS.map(([sl,n])=>{const l=S.items.filter(p=>slotOf(p)===sl);if(!l.length)return'';const cur=l.find(p=>d.items.includes(p.id));
+    return`<div class="field">${n}</div><div class="pickrow"><button class="pk nonepk" data-sl="${sl}" data-pk="" aria-pressed="${!cur}">Ninguno</button>${l.map(p=>`<button class="pk ${est(p)==='lavar'?'dirty':''}" style="--c:${p.color}" data-sl="${sl}" data-pk="${p.id}" aria-pressed="${cur===p}">${pic(p)}<span>${esc(p.name)}</span></button>`).join('')}</div>`}).join('')}
+  <button class="btn pri wide" id="bSave" style="margin-top:16px">${IC.check}Guardar conjunto</button>`);
+  $('#bX',s).onclick=closeSheet;
+  $$('[data-pk]',s).forEach(b=>b.onclick=()=>{const sl=b.dataset.sl;d.items=d.items.filter(id=>{const p=byId(id);return p&&slotOf(p)!==sl});if(b.dataset.pk)d.items.push(b.dataset.pk);
+    $$(`[data-sl="${sl}"]`,s).forEach(y=>y.setAttribute('aria-pressed',y===b))});
+  $('#bSave',s).onclick=()=>{if(!d.items.length)return toast('Elige al menos una prenda');
+    const ps=d.items.map(byId).filter(Boolean),name=$('#bN',s).value.trim()||ps.map(p=>p.name).slice(0,2).join(' + ');
+    if(isNew)S.outfits.push({id:uid(),name,items:d.items,worn:0});else{const t=S.outfits.find(x=>x.id===o.id);t.name=name;t.items=d.items}
+    save();closeSheet();if(view!=='conj')go('conj');else render();
+    ticket(isNew?'CONJUNTO GUARDADO':'CONJUNTO ACTUALIZADO',[['Nombre',name]],ps.map(p=>[p.name,CATS[p.cat].n]))};
+}
+
+/* ---------- Acciones ---------- */
+function wear(ids,oid){const d=today(),done=[];ids.forEach(id=>{const p=byId(id);if(!p)return;p.total++;p.since++;p.last=d;done.push(p)});
+  if(!done.length)return;S.log.unshift({id:uid(),d,items:done.map(p=>p.id),o:oid||null});S.log=S.log.slice(0,400);
+  if(oid){const o=S.outfits.find(x=>x.id===oid);if(o)o.worn=(o.worn||0)+1}
+  sugIdx=0;save();render();
+  const goes=done.filter(p=>est(p)==='lavar');
+  ticket('PUESTA REGISTRADA',[['Fecha',fdate(d)],['Prendas',done.length]],done.map(p=>[p.name,'#'+p.total]),goes.length?'A LAVAR: '+goes.map(p=>p.name).join(', '):'')}
+function wash(ids){const d=today(),done=ids.map(byId).filter(Boolean);done.forEach(p=>{p.since=0;p.dirty=false;p.washes++;p.lastWash=d});
+  save();render();ticket('LAVADA REGISTRADA',[['Fecha',fdate(d)],['Prendas',done.length]],done.map(p=>[p.name,'LIMPIA']))}
+function undo(lid){const l=S.log.find(x=>x.id===lid);if(!l)return;S.log=S.log.filter(x=>x!==l);
+  l.items.forEach(id=>{const p=byId(id);if(!p)return;p.total=Math.max(0,p.total-1);p.since=Math.max(0,p.since-1);const ll=S.log.find(x=>x.items.includes(id));p.last=ll?ll.d:null});
+  if(l.o){const o=S.outfits.find(x=>x.id===l.o);if(o)o.worn=Math.max(0,(o.worn||0)-1)}save();render();toast('Puesta deshecha')}
+
+/* ---------- 9. Recibo de impresora ---------- */
+let tkT=null;
+function ticket(title,head,lines,foot=''){const pr=$('#printer'),tk=$('#ticket'),now=new Date();
+  tk.innerHTML=`<h4>${esc(title)}</h4><div class="c">ARMARIO FARE · ${now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</div><hr>
+  ${head.map(([a,b])=>`<div class="ln"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('')}<hr>
+  ${lines.map(([a,b])=>`<div class="ln"><span>${esc(a)}</span><span>${esc(b)}</span></div>`).join('')}
+  ${foot?`<hr><div>${esc(foot)}</div>`:''}<hr><div class="c">FARESITE</div><div class="bc"></div>`;
+  clearTimeout(tkT);pr.hidden=false;pr.classList.remove('go','out');void pr.offsetWidth;pr.classList.add('go');hum();
+  tkT=setTimeout(hideTicket,5200)}
+function hideTicket(){const pr=$('#printer');if(pr.hidden)return;pr.classList.add('out');setTimeout(()=>{pr.hidden=true;pr.classList.remove('go','out')},360)}
+$('#printer').onclick=()=>{clearTimeout(tkT);hideTicket()};
+/* Zumbido continuo y suave de motor eléctrico, generado una vez y guardado como WAV */
+let humUrl=null;
+async function makeHum(){const sr=44100,T=1.2,c=new OfflineAudioContext(1,Math.ceil(sr*1.25),sr),len=Math.ceil(sr*1.25),buf=c.createBuffer(1,len,sr),d=buf.getChannelData(0);let ph=0,lp=0,lp2=0;
+  for(let k=0;k<len;k++){const t=k/sr;if(t>T)break;const env=Math.min(1,t/.14)*Math.min(1,(T-t)/.3)**1.5,f=420+150*(1-Math.exp(-t/.12))-40*Math.max(0,(t-(T-.3))/.3)+3*Math.sin(2*Math.PI*5*t);
+    ph+=2*Math.PI*f/sr;const tone=Math.sin(ph)+.38*Math.sin(2*ph+.4)+.16*Math.sin(3*ph+1.1)+.06*Math.sin(5*ph);lp+=.18*((Math.random()*2-1)-lp);lp2+=.18*(lp-lp2);d[k]=env*(.55*tone+.9*lp2)}
+  const s=c.createBufferSource();s.buffer=buf;const hp=c.createBiquadFilter();hp.type='highpass';hp.frequency.value=320;const lo=c.createBiquadFilter();lo.type='lowpass';lo.frequency.value=4200;
+  s.connect(hp).connect(lo).connect(c.destination);s.start();const out=await c.startRendering(),x=out.getChannelData(0);let pk=0;for(const v of x)pk=Math.max(pk,Math.abs(v));
+  const n=x.length,ab=new ArrayBuffer(44+n*2),v=new DataView(ab),w=(o,t)=>{for(let i=0;i<t.length;i++)v.setUint8(o+i,t.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++)v.setInt16(44+i*2,Math.max(-1,Math.min(1,x[i]/(pk||1)*.9))*32767,true);humUrl=URL.createObjectURL(new Blob([ab],{type:'audio/wav'}))}
+async function hum(){if(!S.sound)return;try{if(!humUrl)await makeHum();const a=new Audio(humUrl);a.volume=.35;a.play().catch(()=>{})}catch(_){}}
+
+let toT=null;function toast(t){$('#toastT').textContent=t;const el=$('#toast');el.classList.add('on');clearTimeout(toT);toT=setTimeout(()=>el.classList.remove('on'),2200)}
+
+/* ---------- 8. Tilt con glare y 2. magnificación del dock ---------- */
+function bindTilt(el,max=10){if(RM||!el)return;let r=null;
+  const mv=e=>{r=r||el.getBoundingClientRect();const x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;if(x<0||x>1||y<0||y>1)return;
+    el.style.setProperty('--ry',((x-.5)*2*max)+'deg');el.style.setProperty('--rx',(-(y-.5)*2*max)+'deg');el.style.setProperty('--gx',x*100+'%');el.style.setProperty('--gy',y*100+'%');el.classList.add('act')};
+  const end=()=>{r=null;el.classList.remove('act');el.style.setProperty('--rx','0deg');el.style.setProperty('--ry','0deg')};
+  el.classList.add('tl');el.addEventListener('pointermove',mv);el.addEventListener('pointerdown',e=>{r=null;mv(e)});['pointerleave','pointerup','pointercancel'].forEach(t=>el.addEventListener(t,end))}
+const nav=$('#nav');
+if(!RM){nav.addEventListener('pointermove',e=>{$$('button',nav).forEach(b=>{const r=b.getBoundingClientRect(),dd=Math.abs(e.clientX-(r.left+r.width/2));b.style.setProperty('--m',(1+Math.max(0,.24-dd/400)).toFixed(3))})});
+  ['pointerleave','pointerup','pointercancel'].forEach(t=>nav.addEventListener(t,()=>$$('button',nav).forEach(b=>b.style.setProperty('--m',1))))}
+
+/* Refracción real del liquid glass solo donde el navegador la soporta (Chrome) */
+if(/Chrome\//.test(navigator.userAgent)&&!/Edg\//.test(navigator.userAgent))document.documentElement.classList.add('lg-refract');
+
+/* ---------- Arranque ---------- */
+(async()=>{S=await DB.get('state');if(!S||!Array.isArray(S.items)){S=seed();save()}
+  S.pals=S.pals||[];S.log=S.log||[];S.outfits=S.outfits||[];if(S.sound===undefined)S.sound=true;
+  applyPal(curPal());go('hoy');
+  try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+/* Se actualiza sola: cuando hay versión nueva, recarga al volver a la app */
+if('serviceWorker' in navigator){let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!had){had=true;return}
+  if(document.hidden)location.reload();else document.addEventListener('visibilitychange',()=>{if(document.hidden)location.reload()},{once:true})})}
+</script>
+</body>
+</html>
