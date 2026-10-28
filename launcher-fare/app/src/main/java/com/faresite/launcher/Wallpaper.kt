@@ -93,7 +93,7 @@ object ScrollBus {
 /**
  * Fondo de la pantalla principal.
  * base: "red" (red animada), "simple", "imagen" o "video". baseScroll: el video avanza con el scroll en vez de repetirse.
- * layer: capa transparente que aparece encima mientras haces scroll: "no", "hex" (hexágonos Fare) o "video".
+ * layer: capa transparente que aparece encima mientras haces scroll: "no", "hex" (rombos Fare; se conserva el nombre guardado) o "video".
  */
 data class BgConfig(
     val base: String,
@@ -295,32 +295,31 @@ private fun crop(tv: TextureView, vw: Int, vh: Int) {
     tv.setTransform(Matrix().apply { setScale(vw * s / w, vh * s / h, w / 2, h / 2) })
 }
 
-/** Capa predeterminada al hacer scroll: panal de hexágonos Fare que se desliza y brilla con el scroll. */
+/** Capa predeterminada al hacer scroll: red de rombos Fare que se desliza y brilla con el scroll. */
 @Composable
 private fun HexLayer(modifier: Modifier) {
     val pal = LocalPal.current
     Canvas(modifier) {
         val v = ScrollBus.value
-        val r = 46.dp.toPx()
-        val hw = sqrt(3f) * r
-        val shiftX = (v * hw * 1.4f) % hw
-        val shiftY = (v * r * .9f) % (r * 3f)
+        // Rombos un poco más altos que anchos, como los del logo
+        val hw = 30.dp.toPx()
+        val hh = 40.dp.toPx()
+        val shiftX = (v * hw * 2.8f) % (hw * 2f)
+        val shiftY = (v * hh * .9f) % (hh * 2f)
         val glowX = size.width * (.5f + .5f * sin(v * .9f))
         val path = Path()
-        var row = -2
-        while (row * r * 1.5f < size.height + r * 3) {
-            val y = row * r * 1.5f + shiftY
+        var row = -3
+        while (row * hh < size.height + hh * 3) {
+            val y = row * hh + shiftY
             val odd = row % 2 != 0
             var col = -2
-            while (col * hw < size.width + hw * 2) {
-                val cx = col * hw + (if (odd) hw / 2 else 0f) + shiftX
+            while (col * hw * 2f < size.width + hw * 4) {
+                val cx = col * hw * 2f + (if (odd) hw else 0f) + shiftX
                 path.reset()
-                for (k in 0..5) {
-                    val ang = Math.toRadians((60.0 * k) - 30.0)
-                    val px = cx + r * .92f * cos(ang).toFloat()
-                    val py = y + r * .92f * sin(ang).toFloat()
-                    if (k == 0) path.moveTo(px, py) else path.lineTo(px, py)
-                }
+                path.moveTo(cx, y - hh * .86f)
+                path.lineTo(cx + hw * .86f, y)
+                path.lineTo(cx, y + hh * .86f)
+                path.lineTo(cx - hw * .86f, y)
                 path.close()
                 val dist = abs(cx - glowX) / size.width
                 val alpha = (.42f - dist * .55f).coerceIn(.06f, .42f)
@@ -387,7 +386,7 @@ fun BackgroundSettings(cfg: BgConfig, onChange: (BgConfig) -> Unit) {
         }
         T("Capa al hacer scroll", 14.sp, Modifier.padding(top = 12.dp, bottom = 6.dp), color = pal.pri.copy(alpha = .7f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Hexágonos", cfg.layer == "hex") { onChange(cfg.copy(layer = "hex")) }
+            Chip("Rombos", cfg.layer == "hex") { onChange(cfg.copy(layer = "hex")) }
             Chip("Video…", cfg.layer == "video") { pickLayer.launch(arrayOf("video/*")) }
             Chip("Ninguna", cfg.layer == "no") { onChange(cfg.copy(layer = "no")) }
         }
