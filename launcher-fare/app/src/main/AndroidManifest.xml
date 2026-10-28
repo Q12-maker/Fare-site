@@ -40,6 +40,18 @@
             </intent-filter>
         </activity>
 
+        <!-- Acepta atajos que otras apps fijan en el inicio (p. ej. apps web instaladas desde Chrome) -->
+        <activity
+            android:name=".PinShortcutActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".InstallReceiver"
             android:exported="false" />

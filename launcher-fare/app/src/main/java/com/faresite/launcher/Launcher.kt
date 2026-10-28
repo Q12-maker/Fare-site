@@ -467,7 +467,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                         print("BLOQUE PEQUEÑO", if (slot >= 0) "Bloque ${slot + 1}:" else "Quitada:", app.label)
                     },
                     onInfo = { openAppInfo(ctx, app); menuApp = null },
-                    onUninstall = { uninstallApp(ctx, app); menuApp = null },
+                    onUninstall = { uninstallApp(ctx, app); if (Pins.isPin(app)) apps = apps.filter { it.key != app.key }; menuApp = null },
                 )
             }
 

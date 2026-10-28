@@ -47,6 +47,7 @@ fun loadApps(ctx: Context): List<AppEntry> {
                 runCatching { iconColors(bmp) }.getOrDefault(emptyList())
             )
         }
+        .plus(runCatching { Pins.load(ctx) }.getOrDefault(emptyList()))
         .distinctBy { it.key }
         .sortedBy { it.label.lowercase() }
 }
@@ -118,6 +119,7 @@ fun folderColors(apps: List<AppEntry>): List<Color> = dominantHues(
 )
 
 fun launchApp(ctx: Context, app: AppEntry) {
+    if (Pins.isPin(app)) return Pins.launch(ctx, app)
     val i = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         .setComponent(ComponentName(app.pkg, app.activity))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -134,6 +136,7 @@ fun openAppInfo(ctx: Context, app: AppEntry) {
 }
 
 fun uninstallApp(ctx: Context, app: AppEntry) {
+    if (Pins.isPin(app)) return Pins.remove(ctx, app)
     @Suppress("DEPRECATION")
     runCatching {
         ctx.startActivity(
