@@ -47,6 +47,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.layout.Column
@@ -692,6 +693,24 @@ fun Home(
                         T(weather?.let { weatherText(it.code) } ?: "Clima", 12.sp, color = pal.pri.copy(alpha = .7f))
                     }
                 }
+                // Ajustes del launcher, en la pantalla principal
+                RoundButton(onClick = { Sfx.play(Sfx.OPEN, .4f); onSettings() }, size = 46.dp) {
+                    Canvas(Modifier.size(22.dp)) {
+                        val c = Offset(size.width / 2, size.height / 2)
+                        val r = size.width * .3f
+                        for (k in 0 until 8) {
+                            val ang = Math.PI * 2 * k / 8
+                            drawLine(
+                                pal.pri,
+                                Offset(c.x + (r * cos(ang)).toFloat(), c.y + (r * sin(ang)).toFloat()),
+                                Offset(c.x + (size.width * .48f * cos(ang)).toFloat(), c.y + (size.width * .48f * sin(ang)).toFloat()),
+                                size.width * .14f
+                            )
+                        }
+                        drawCircle(pal.pri, r, c, style = Stroke(size.width * .12f))
+                        drawCircle(pal.pri, r * .35f, c)
+                    }
+                }
             }
         }
         @Composable
@@ -1240,54 +1259,8 @@ fun Drawer(
             }
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(horizontal = 16.dp)) {
-            T(if (folders) "Carpetas" else "Todas las apps", 24.sp, Modifier.padding(top = 12.dp), weight = FontWeight.SemiBold)
-            // Barra de búsqueda
-            Row(
-                Modifier.padding(top = 10.dp).fillMaxWidth().height(54.dp).glass(pal, cutShape(16.dp), strong = true).padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Canvas(Modifier.size(18.dp)) {
-                    val r = size.width * .36f
-                    drawCircle(pal.pri, r, Offset(r + 1, r + 1), style = Stroke(size.width * .12f))
-                    drawLine(pal.pri, Offset(r * 1.75f, r * 1.75f), Offset(size.width, size.height), size.width * .12f)
-                }
-                Spacer(Modifier.width(12.dp))
-                Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                    if (query.isEmpty()) T("Buscar apps o carpetas", 16.sp, color = pal.pri.copy(alpha = .5f))
-                    BasicTextField(
-                        query, onQuery, Modifier.fillMaxWidth(), singleLine = true,
-                        textStyle = TextStyle(color = pal.pri, fontSize = 16.sp),
-                        cursorBrush = SolidColor(pal.pri),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                        keyboardActions = KeyboardActions(onGo = {
-                            when (val first = items.firstOrNull()) {
-                                is AppItem -> onOpen(first.app)
-                                is FolderItem -> onOpenGroup(first.group)
-                                else -> {}
-                            }
-                        })
-                    )
-                }
-                if (query.isNotEmpty()) {
-                    T("✕", 16.sp, Modifier.clickable { onQuery("") }.padding(8.dp))
-                }
-            }
-
-            // Opciones: bloques / líneas, columnas, ajustes
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Chip("Bloques", mode == "bloques") { onMode("bloques") }
-                Chip("Líneas", mode == "lineas") { onMode("lineas") }
-                if (mode == "bloques") {
-                    Spacer(Modifier.width(4.dp))
-                    for (c in 2..4) Chip("$c", cols == c) { onCols(c) }
-                }
-                Spacer(Modifier.weight(1f))
-                Chip("Ajustes", false, onSettings)
-            }
+            // Solo bloques o líneas: el buscador y el cambio de vista flotan abajo a la izquierda
+            Spacer(Modifier.height(12.dp))
 
             if (items.isEmpty() && folders && q.isEmpty()) {
                 T(
@@ -1299,7 +1272,7 @@ fun Drawer(
                     GridCells.Fixed(cols),
                     Modifier.fillMaxSize().onGloballyPositioned { listRect = it.boundsInRoot() },
                     state = gridState,
-                    contentPadding = PaddingValues(top = 4.dp, bottom = 90.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 160.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -1331,7 +1304,7 @@ fun Drawer(
                 LazyColumn(
                     Modifier.fillMaxSize().onGloballyPositioned { listRect = it.boundsInRoot() },
                     state = listState,
-                    contentPadding = PaddingValues(top = 4.dp, bottom = 90.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 160.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(items, key = { it.key }) { item ->
@@ -1360,6 +1333,69 @@ fun Drawer(
             }
         }
 
+        // Buscador redondo con lupa y, debajo, el botón que cambia entre bloques y líneas
+        var searching by remember { mutableStateOf(false) }
+        val searchFocus = remember { FocusRequester() }
+        LaunchedEffect(searching) { if (searching) runCatching { searchFocus.requestFocus() } }
+        val showSearch = searching || query.isNotEmpty()
+        Column(
+            Modifier.align(Alignment.BottomStart).navigationBarsPadding().imePadding().padding(start = 18.dp, bottom = 18.dp, end = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (showSearch) {
+                Row(
+                    Modifier.fillMaxWidth().height(54.dp).glass(pal, cutShape(16.dp), strong = true).padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) T("Buscar apps o carpetas", 16.sp, color = pal.pri.copy(alpha = .5f))
+                        BasicTextField(
+                            query, onQuery, Modifier.fillMaxWidth().focusRequester(searchFocus), singleLine = true,
+                            textStyle = TextStyle(color = pal.pri, fontSize = 16.sp),
+                            cursorBrush = SolidColor(pal.pri),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+                            keyboardActions = KeyboardActions(onGo = {
+                                when (val first = items.firstOrNull()) {
+                                    is AppItem -> onOpen(first.app)
+                                    is FolderItem -> onOpenGroup(first.group)
+                                    else -> {}
+                                }
+                            })
+                        )
+                    }
+                    T("✕", 16.sp, Modifier.clickable { onQuery(""); searching = false }.padding(8.dp))
+                }
+            }
+            RoundButton(onClick = { Sfx.play(Sfx.TAP, .4f); if (showSearch) { onQuery(""); searching = false } else searching = true }) {
+                Canvas(Modifier.size(22.dp)) {
+                    val r = size.width * .36f
+                    drawCircle(pal.pri, r, Offset(r + 1, r + 1), style = Stroke(size.width * .12f))
+                    drawLine(pal.pri, Offset(r * 1.75f, r * 1.75f), Offset(size.width, size.height), size.width * .12f)
+                }
+            }
+            // Toque: bloques <-> líneas. Mantener oprimido en bloques: cambia el número de columnas (2, 3, 4)
+            RoundButton(
+                onClick = { Sfx.play(Sfx.TAP, .4f); onMode(if (mode == "bloques") "lineas" else "bloques") },
+                onLong = { if (mode == "bloques") { Sfx.play(Sfx.TICK, .5f); onCols(if (cols >= 4) 2 else cols + 1) } },
+            ) {
+                Canvas(Modifier.size(22.dp)) {
+                    val sw = size.width * .1f
+                    if (mode == "bloques") {
+                        val c = size.width / 2
+                        val g = size.width * .08f
+                        for (i in 0..1) for (j in 0..1) drawRect(
+                            pal.pri, Offset(i * (c + g), j * (c + g)), androidx.compose.ui.geometry.Size(c - g, c - g), style = Stroke(sw)
+                        )
+                    } else {
+                        for (k in 0..2) {
+                            val y = size.height * (.18f + k * .32f)
+                            drawLine(pal.pri, Offset(0f, y), Offset(size.width, y), sw * 1.4f)
+                        }
+                    }
+                }
+            }
+        }
+
         // La app que se está arrastrando sigue al dedo
         val icon = dragIcon
         if (dragKey != null && icon != null) {
@@ -1377,6 +1413,17 @@ fun Drawer(
             ) { AppIcon(icon, 44.dp) }
         }
     }
+}
+
+/** Botón redondo de vidrio (buscador, vista, ajustes). */
+@Composable
+fun RoundButton(onClick: () -> Unit, onLong: (() -> Unit)? = null, size: Dp = 56.dp, content: @Composable () -> Unit) {
+    val pal = LocalPal.current
+    Box(
+        Modifier.size(size).glass(pal, CircleShape, strong = true)
+            .pointerInput(onLong) { detectTapGestures(onTap = { onClick() }, onLongPress = onLong?.let { l -> { _ -> l() } }) },
+        contentAlignment = Alignment.Center
+    ) { content() }
 }
 
 /** Ícono de carpeta: hasta 4 apps en miniatura. */
