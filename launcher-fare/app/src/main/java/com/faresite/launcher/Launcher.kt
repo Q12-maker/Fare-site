@@ -128,6 +128,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.shadow
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -175,6 +176,8 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
 
     var mode by remember { mutableStateOf(prefs.str("mode", "bloques")) }
     var cols by remember { mutableIntStateOf(prefs.int("cols", 3)) }
+    // Una sola vez (v40): Todas las apps pasa a líneas, como pidió Juan; luego se cambia con el botón
+    if (!prefs.on("v40lineas", false)) { mode = "lineas"; prefs.putStr("mode", "lineas"); prefs.putOn("v40lineas", true) }
     // La pantalla de Carpetas tiene su propia vista (bloques o líneas), aparte de Todas las apps
     var fmode by remember { mutableStateOf(prefs.str("fmode", mode)) }
     var fcols by remember { mutableIntStateOf(prefs.int("fcols", cols)) }
@@ -1333,14 +1336,15 @@ fun Drawer(
             }
         }
 
-        // Buscador redondo con lupa y, debajo, el botón que cambia entre bloques y líneas
+        // Buscador redondo con lupa y, debajo, el botón que cambia entre bloques y líneas (abajo a la derecha, por encima de la lista)
         var searching by remember { mutableStateOf(false) }
         val searchFocus = remember { FocusRequester() }
         LaunchedEffect(searching) { if (searching) runCatching { searchFocus.requestFocus() } }
         val showSearch = searching || query.isNotEmpty()
         Column(
-            Modifier.align(Alignment.BottomStart).navigationBarsPadding().imePadding().padding(start = 18.dp, bottom = 18.dp, end = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.align(Alignment.BottomEnd).zIndex(20f).navigationBarsPadding().imePadding().padding(start = 18.dp, bottom = 18.dp, end = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.End
         ) {
             if (showSearch) {
                 Row(
@@ -1420,7 +1424,8 @@ fun Drawer(
 fun RoundButton(onClick: () -> Unit, onLong: (() -> Unit)? = null, size: Dp = 56.dp, content: @Composable () -> Unit) {
     val pal = LocalPal.current
     Box(
-        Modifier.size(size).glass(pal, CircleShape, strong = true)
+        Modifier.size(size).shadow(10.dp, CircleShape).background(pal.amb.copy(alpha = .9f), CircleShape)
+            .glass(pal, CircleShape, strong = true)
             .pointerInput(onLong) { detectTapGestures(onTap = { onClick() }, onLongPress = onLong?.let { l -> { _ -> l() } }) },
         contentAlignment = Alignment.Center
     ) { content() }
