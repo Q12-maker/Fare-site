@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -349,7 +350,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
             }
         ) {
             Wallpaper(bg, onHome = pager.currentPage == HOME && pager.currentPageOffsetFraction == 0f)
-            HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
+            HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1, userScrollEnabled = !CarouselGate.busy) { page ->
               // Cada pantalla recorta lo suyo: nada del carrusel se cuela en el cajón
               Box(Modifier.fillMaxSize().clipToBounds()) {
                 if (page == FOLDERS || page == ALL) {
@@ -773,7 +774,9 @@ fun Home(
             val small = .48f
             val carH = 440.dp
             val gap = 14.dp
-            val touch: (Boolean) -> Unit = { h -> focused = true; holding = h; tick++ }
+            // De lado solo mueve el carrusel; mientras está grande, tocarlo mantiene el tamaño
+            val touch: (Boolean) -> Unit = { h -> if (focused) { holding = h; tick++ } }
+            LaunchedEffect(focused) { CarouselGate.focused = focused }
             BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
                 val boxH = maxHeight
                 Column(Modifier.fillMaxSize().blur((22 * f).dp)) {
@@ -814,6 +817,7 @@ fun Home(
                         },
                     ctl = ctl,
                     onInteract = touch,
+                    onVertical = { up -> focused = up; holding = false; tick++ },
                 )
             }
         }
@@ -826,6 +830,13 @@ fun AppIcon(icon: ImageBitmap, size: Dp) {
 }
 
 /* ---------- Carrusel en abanico: paneles de vidrio inclinados con tilt 3D, glare y sway ---------- */
+
+/** Mientras se toca el carrusel (o está agrandado), el cajón no se abre al deslizar de lado. */
+object CarouselGate {
+    var busy by mutableStateOf(false)
+    var focused = false
+        set(v) { field = v; busy = v }
+}
 
 /** Posición del carrusel, compartida para que otras zonas también lo puedan deslizar. */
 class CarouselCtl {
@@ -860,6 +871,8 @@ fun Carousel(
     modifier: Modifier = Modifier.fillMaxWidth().height(440.dp),
     ctl: CarouselCtl = remember { CarouselCtl() },
     onInteract: (holding: Boolean) -> Unit = {},
+    /** Deslizar sobre el carrusel hacia arriba (true) o hacia abajo (false). */
+    onVertical: ((up: Boolean) -> Unit)? = null,
 ) {
     val pal = LocalPal.current
     if (items.isEmpty()) {
@@ -907,6 +920,27 @@ fun Carousel(
                 ) { ch, dx ->
                     ch.consume()
                     ctl.drag(scope, dx)
+                }
+            }.pointerInput(onVertical != null) {
+                if (onVertical == null) return@pointerInput
+                // Deslizar hacia arriba agranda el carrusel; hacia abajo lo vuelve pequeño
+                var total = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { total = 0f },
+                    onDragEnd = {
+                        val lim = 36.dp.toPx()
+                        if (total < -lim) onVertical(true) else if (total > lim) onVertical(false)
+                    },
+                ) { ch, dy -> ch.consume(); total += dy }
+            }.pointerInput(Unit) {
+                // Mientras el dedo está en el carrusel, deslizar no cambia de pantalla
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    CarouselGate.busy = true
+                    do {
+                        val ev = awaitPointerEvent(PointerEventPass.Initial)
+                    } while (ev.changes.any { it.pressed })
+                    CarouselGate.busy = CarouselGate.focused
                 }
             },
             contentAlignment = Alignment.Center
