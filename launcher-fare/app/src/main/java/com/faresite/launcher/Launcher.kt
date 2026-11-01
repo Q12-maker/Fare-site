@@ -548,12 +548,13 @@ object FixedText {
 val LocalOwnColors = compositionLocalOf { false }
 
 /**
- * Color de la letra de un bloque: el contraste (complementario) del color de su ícono,
- * vivo y claro para que se lea sobre el vidrio teñido; si no tiene color, el de la paleta.
+ * Color de la letra de un bloque: solo blanco o negro, según lo claro u oscuro que se ve el bloque
+ * (su vidrio teñido con el color del ícono sobre el fondo de la paleta).
  */
-fun ownLetter(c: Color?, fallback: Color): Color {
-    c ?: return fallback
-    val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) }
+fun ownLetter(c: Color?, pal: Palette): Color {
+    val seen = androidx.compose.ui.graphics.lerp(pal.amb, c ?: pal.pri, if (c != null) .45f else .1f)
+    return if (seen.luminance() > .45f) Color.Black else Color.White
+}
     return Color.hsv((hsv[0] + 180f) % 360f, hsv[1].coerceIn(.45f, .8f), 1f)
 }
 
@@ -1087,7 +1088,7 @@ fun Carousel(
                                 AppIcon(app.icon, cardW * .42f)
                                 Spacer(Modifier.height(16.dp))
                                 CompositionLocalProvider(LocalOwnColors provides true) {
-                                    T(app.label, 18.sp, Modifier.padding(horizontal = 22.dp), color = ownLetter(app.color, pal.pri), weight = FontWeight.SemiBold, align = TextAlign.Center)
+                                    T(app.label, 18.sp, Modifier.padding(horizontal = 22.dp), color = ownLetter(app.color, pal), weight = FontWeight.SemiBold, align = TextAlign.Center)
                                 }
                             }
                         }
@@ -1384,7 +1385,7 @@ fun Drawer(
                                     }
                                     Spacer(Modifier.height(8.dp))
                                     CompositionLocalProvider(LocalOwnColors provides true) {
-                                        T(item.label, if (cols == 4) 11.sp else 13.sp, Modifier.padding(horizontal = 6.dp), color = ownLetter(itemTint(item), pal.pri), align = TextAlign.Center)
+                                        T(item.label, if (cols == 4) 11.sp else 13.sp, Modifier.padding(horizontal = 6.dp), color = ownLetter(itemTint(item), pal), align = TextAlign.Center)
                                     }
                                 }
                             }
@@ -1416,7 +1417,7 @@ fun Drawer(
                                     }
                                     Spacer(Modifier.width(14.dp))
                                     CompositionLocalProvider(LocalOwnColors provides true) {
-                                        T(item.label, 16.sp, color = ownLetter(itemTint(item), pal.pri))
+                                        T(item.label, 16.sp, color = ownLetter(itemTint(item), pal))
                                     }
                                 }
                             }
