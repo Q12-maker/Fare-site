@@ -46,6 +46,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.CircleShape
@@ -1430,6 +1432,21 @@ fun Drawer(
         val searchFocus = remember { FocusRequester() }
         LaunchedEffect(searching) { if (searching) runCatching { searchFocus.requestFocus() } }
         val showSearch = searching || query.isNotEmpty()
+        // Al terminar de buscar (se cierra el teclado, se abre algo o se cambia de pantalla) la barra desaparece;
+        // se vuelve a abrir con la lupa
+        fun closeSearch() { searching = false; onQuery("") }
+        val imeOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+        val hadIme = remember { booleanArrayOf(false) }
+        LaunchedEffect(imeOpen) {
+            if (imeOpen) hadIme[0] = true
+            else if (hadIme[0]) { hadIme[0] = false; delay(150); closeSearch() }
+        }
+        val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+        DisposableEffect(lifecycle) {
+            val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) closeSearch() }
+            lifecycle.addObserver(obs)
+            onDispose { lifecycle.removeObserver(obs); closeSearch() }
+        }
         Column(
             Modifier.align(Alignment.BottomEnd).zIndex(20f).navigationBarsPadding().imePadding().padding(start = 18.dp, bottom = 18.dp, end = 18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
