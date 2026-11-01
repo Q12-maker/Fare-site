@@ -544,10 +544,17 @@ object FixedText {
     }
 }
 
+/** Dentro del carrusel, bloques y líneas las letras usan los colores de su propio bloque, no el color fijo. */
+val LocalOwnColors = compositionLocalOf { false }
+
+/** Color de la letra de un bloque: el color de su ícono, aclarado para que se lea; si no tiene, el de la paleta. */
+fun ownLetter(c: Color?, fallback: Color): Color = c?.let { androidx.compose.ui.graphics.lerp(it, Color.White, .35f) } ?: fallback
+
 /** Color de letra: el fijo (si está activo) en lugar del color principal de la paleta, conservando la transparencia. */
 @Composable
 fun letra(c: Color): Color {
     val f = FixedText.color ?: return c
+    if (LocalOwnColors.current) return c
     return if (c.copy(alpha = 1f) == LocalPal.current.pri.copy(alpha = 1f)) f.copy(alpha = c.alpha) else c
 }
 
@@ -1072,7 +1079,9 @@ fun Carousel(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 AppIcon(app.icon, cardW * .42f)
                                 Spacer(Modifier.height(16.dp))
-                                T(app.label, 18.sp, Modifier.padding(horizontal = 22.dp), weight = FontWeight.SemiBold, align = TextAlign.Center)
+                                CompositionLocalProvider(LocalOwnColors provides true) {
+                                    T(app.label, 18.sp, Modifier.padding(horizontal = 22.dp), color = ownLetter(app.color, pal.pri), weight = FontWeight.SemiBold, align = TextAlign.Center)
+                                }
                             }
                         }
                     }
@@ -1367,7 +1376,9 @@ fun Drawer(
                                         is FolderItem -> FolderIcons(item.apps, iconSize)
                                     }
                                     Spacer(Modifier.height(8.dp))
-                                    T(item.label, if (cols == 4) 11.sp else 13.sp, Modifier.padding(horizontal = 6.dp), align = TextAlign.Center)
+                                    CompositionLocalProvider(LocalOwnColors provides true) {
+                                        T(item.label, if (cols == 4) 11.sp else 13.sp, Modifier.padding(horizontal = 6.dp), color = ownLetter(itemTint(item), pal.pri), align = TextAlign.Center)
+                                    }
                                 }
                             }
                         }
@@ -1397,7 +1408,9 @@ fun Drawer(
                                         is FolderItem -> FolderIcons(item.apps, 38.dp)
                                     }
                                     Spacer(Modifier.width(14.dp))
-                                    T(item.label, 16.sp)
+                                    CompositionLocalProvider(LocalOwnColors provides true) {
+                                        T(item.label, 16.sp, color = ownLetter(itemTint(item), pal.pri))
+                                    }
                                 }
                             }
                         }
