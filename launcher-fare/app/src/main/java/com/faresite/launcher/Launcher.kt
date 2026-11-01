@@ -555,8 +555,6 @@ fun ownLetter(c: Color?, pal: Palette): Color {
     val seen = androidx.compose.ui.graphics.lerp(pal.amb, c ?: pal.pri, if (c != null) .45f else .1f)
     return if (seen.luminance() > .45f) Color.Black else Color.White
 }
-    return Color.hsv((hsv[0] + 180f) % 360f, hsv[1].coerceIn(.45f, .8f), 1f)
-}
 
 /** Color de letra: el fijo (si está activo) en lugar del color principal de la paleta, conservando la transparencia. */
 @Composable
