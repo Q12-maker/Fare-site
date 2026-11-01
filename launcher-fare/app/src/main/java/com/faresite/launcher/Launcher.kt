@@ -547,8 +547,15 @@ object FixedText {
 /** Dentro del carrusel, bloques y líneas las letras usan los colores de su propio bloque, no el color fijo. */
 val LocalOwnColors = compositionLocalOf { false }
 
-/** Color de la letra de un bloque: el color de su ícono, aclarado para que se lea; si no tiene, el de la paleta. */
-fun ownLetter(c: Color?, fallback: Color): Color = c?.let { androidx.compose.ui.graphics.lerp(it, Color.White, .35f) } ?: fallback
+/**
+ * Color de la letra de un bloque: el contraste (complementario) del color de su ícono,
+ * vivo y claro para que se lea sobre el vidrio teñido; si no tiene color, el de la paleta.
+ */
+fun ownLetter(c: Color?, fallback: Color): Color {
+    c ?: return fallback
+    val hsv = FloatArray(3).also { android.graphics.Color.colorToHSV(c.toArgb(), it) }
+    return Color.hsv((hsv[0] + 180f) % 360f, hsv[1].coerceIn(.45f, .8f), 1f)
+}
 
 /** Color de letra: el fijo (si está activo) en lugar del color principal de la paleta, conservando la transparencia. */
 @Composable
