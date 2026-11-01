@@ -50,6 +50,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -793,7 +794,7 @@ fun Home(
             LaunchedEffect(focused) { CarouselGate.focused = focused }
             BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
                 val boxH = maxHeight
-                Column(Modifier.fillMaxSize().blur((22 * f).dp)) {
+                Column(Modifier.fillMaxSize().then(if (f > 0.01f) Modifier.blur((22 * f).dp, BlurredEdgeTreatment.Unbounded) else Modifier)) {
                     WeatherRow()
                     Spacer(Modifier.weight(.6f))
                     Clock()
