@@ -725,9 +725,14 @@ fun Home(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     // Halo oscuro detrás para que la hora se lea sobre cualquier fondo
+                    // Óvalo que se desvanece hasta transparente antes de su borde: sin líneas rectas de luz
                     Box(
-                        Modifier.requiredSize(340.dp, 210.dp)
-                            .background(Brush.radialGradient(listOf(pal.amb.copy(alpha = .9f), pal.amb.copy(alpha = .5f), Color.Transparent)))
+                        Modifier.requiredSize(240.dp, 240.dp)
+                            .graphicsLayer { scaleX = 1.75f; scaleY = 1.05f }
+                            .background(Brush.radialGradient(
+                                0f to pal.amb.copy(alpha = .85f), .45f to pal.amb.copy(alpha = .5f),
+                                .8f to pal.amb.copy(alpha = .12f), 1f to Color.Transparent
+                            ), CircleShape)
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         BasicText(
