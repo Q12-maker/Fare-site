@@ -413,7 +413,7 @@ private fun FramesDialog(current: Int, onSave: (Int) -> Unit, onDismiss: () -> U
                 BasicTextField(
                     text, { t -> if (t.length <= 3 && t.all { it.isDigit() }) { Sfx.typed(text, t); text = t } },
                     Modifier.fillMaxWidth().focusRequester(focus), singleLine = true,
-                    textStyle = TextStyle(color = pal.pri, fontSize = 34.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = FontFamily.Monospace),
+                    textStyle = TextStyle(color = letra(pal.pri), fontSize = 34.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontFamily = FontFamily.Monospace),
                     cursorBrush = SolidColor(pal.pri),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = { n?.let(onSave) }),

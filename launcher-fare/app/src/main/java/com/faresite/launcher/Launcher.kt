@@ -169,7 +169,7 @@ object Finger {
 @Composable
 fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     val ctx = LocalContext.current
-    val prefs = remember { Prefs(ctx) }
+    val prefs = remember { Prefs(ctx).also { FixedText.load(ctx) } }
     val scope = rememberCoroutineScope()
 
     var apps by remember { mutableStateOf<List<AppEntry>>(emptyList()) }
@@ -530,6 +530,27 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
 
 /* ---------- Texto ---------- */
 
+/** "Color fijo de letra" (Ajustes): si está activo, las letras usan ese color sin importar la paleta. */
+object FixedText {
+    var color by mutableStateOf<Color?>(null)
+    fun load(ctx: android.content.Context) {
+        val p = Prefs(ctx)
+        color = if (p.on("letra_fija", false)) parseHex(p.str("letra_color", "#FFFFFF")) ?: Color.White else null
+    }
+    fun save(ctx: android.content.Context, on: Boolean, c: Color) {
+        val p = Prefs(ctx)
+        p.putOn("letra_fija", on); p.putStr("letra_color", c.hex())
+        color = if (on) c else null
+    }
+}
+
+/** Color de letra: el fijo (si está activo) en lugar del color principal de la paleta, conservando la transparencia. */
+@Composable
+fun letra(c: Color): Color {
+    val f = FixedText.color ?: return c
+    return if (c.copy(alpha = 1f) == LocalPal.current.pri.copy(alpha = 1f)) f.copy(alpha = c.alpha) else c
+}
+
 @Composable
 fun T(
     text: String,
@@ -544,7 +565,7 @@ fun T(
     BasicText(
         text, modifier,
         style = TextStyle(
-            color = color, fontSize = size, fontWeight = weight, textAlign = align,
+            color = letra(color), fontSize = size, fontWeight = weight, textAlign = align,
             fontFamily = if (mono) FontFamily.Monospace else FontFamily.SansSerif, letterSpacing = if (size > 40.sp) (-1).sp else 0.sp
         ),
         maxLines = lines, overflow = TextOverflow.Ellipsis
@@ -748,7 +769,7 @@ fun Home(
                         BasicText(
                             hour,
                             style = TextStyle(
-                                color = pal.pri,
+                                color = letra(pal.pri),
                                 fontSize = 104.sp, fontWeight = FontWeight.Black, letterSpacing = (-4).sp,
                                 shadow = Shadow(pal.pri, Offset.Zero, 64f),
                             )
@@ -1404,7 +1425,7 @@ fun Drawer(
                         if (query.isEmpty()) T("Buscar apps o carpetas", 16.sp, color = pal.pri.copy(alpha = .5f))
                         BasicTextField(
                             query, onQuery, Modifier.fillMaxWidth().focusRequester(searchFocus), singleLine = true,
-                            textStyle = TextStyle(color = pal.pri, fontSize = 16.sp),
+                            textStyle = TextStyle(color = letra(pal.pri), fontSize = 16.sp),
                             cursorBrush = SolidColor(pal.pri),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                             keyboardActions = KeyboardActions(onGo = {
@@ -1545,7 +1566,7 @@ fun FolderSheet(
                         if (find.isEmpty()) T("Buscar apps", 15.sp, color = pal.pri.copy(alpha = .5f))
                         BasicTextField(
                             find, { Sfx.typed(find, it); find = it }, Modifier.fillMaxWidth(), singleLine = true,
-                            textStyle = TextStyle(color = pal.pri, fontSize = 15.sp),
+                            textStyle = TextStyle(color = letra(pal.pri), fontSize = 15.sp),
                             cursorBrush = SolidColor(pal.pri)
                         )
                     }
@@ -1599,7 +1620,7 @@ fun FolderSheet(
                     if (name.isEmpty()) T(group.name, 18.sp, color = pal.pri.copy(alpha = .4f))
                     BasicTextField(
                         name, { if (it.length <= 28) { Sfx.typed(name, it); name = it } }, Modifier.fillMaxWidth().focusRequester(focus), singleLine = true,
-                        textStyle = TextStyle(color = pal.pri, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+                        textStyle = TextStyle(color = letra(pal.pri), fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
                         cursorBrush = SolidColor(pal.pri)
                     )
                 }
@@ -1618,7 +1639,7 @@ fun FolderSheet(
                     if (name.isEmpty()) T("Nombre de la carpeta", 18.sp, color = pal.pri.copy(alpha = .5f))
                     BasicTextField(
                         name, { if (it.length <= 28) { Sfx.typed(name, it); name = it; onRename(it) } }, Modifier.fillMaxWidth(), singleLine = true,
-                        textStyle = TextStyle(color = pal.pri, fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+                        textStyle = TextStyle(color = letra(pal.pri), fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
                         cursorBrush = SolidColor(pal.pri)
                     )
                 }
@@ -1812,7 +1833,7 @@ fun SettingsPanel(
                 if (name.isEmpty()) T("Nombre de la paleta", 15.sp, color = pal.pri.copy(alpha = .5f))
                 BasicTextField(
                     name, { if (it.length <= 28) { Sfx.typed(name, it); name = it } }, Modifier.fillMaxWidth(), singleLine = true,
-                    textStyle = TextStyle(color = pal.pri, fontSize = 15.sp),
+                    textStyle = TextStyle(color = letra(pal.pri), fontSize = 15.sp),
                     cursorBrush = SolidColor(pal.pri)
                 )
             }
@@ -1832,10 +1853,34 @@ fun SettingsPanel(
                 Chip("Sí", sounds) { onSounds(true) }
                 Chip("No", !sounds) { onSounds(false) }
             }
+            FixedTextSection()
             OtherAppsSection()
             MenuItem("Buscar actualización", onCheckUpdate)
             T("Launcher Fare · versión $version", 12.sp, Modifier.padding(top = 4.dp), color = pal.pri.copy(alpha = .5f), mono = true)
         }
+    }
+}
+
+/** Ajuste "Color fijo de letra": activarlo y escoger el color (por ejemplo, siempre blancas). */
+@Composable
+private fun FixedTextSection() {
+    val ctx = LocalContext.current
+    val prefs = remember { Prefs(ctx) }
+    var on by remember { mutableStateOf(FixedText.color != null) }
+    var c by remember { mutableStateOf(FixedText.color ?: parseHex(prefs.str("letra_color", "#FFFFFF")) ?: Color.White) }
+    var gen by remember { mutableIntStateOf(0) }
+    Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        T("Color fijo de letra", 16.sp, Modifier.weight(1f))
+        Chip("Sí", on) { on = true; FixedText.save(ctx, true, c) }
+        Chip("No", !on) { on = false; FixedText.save(ctx, false, c) }
+    }
+    if (on) {
+        Row(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Blanco" to Color.White, "Negro" to Color.Black).forEach { (n, col) ->
+                Chip(n, c == col) { c = col; gen++; FixedText.save(ctx, true, col) }
+            }
+        }
+        key(gen) { ColorPicker(c) { c = it; FixedText.save(ctx, true, it) } }
     }
 }
 

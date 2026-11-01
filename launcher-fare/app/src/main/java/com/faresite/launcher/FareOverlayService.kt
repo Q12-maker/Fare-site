@@ -82,6 +82,7 @@ class FareOverlayService : AccessibilityService() {
     }
 
     override fun onServiceConnected() {
+        FixedText.load(this)
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         prefs = Prefs(this)
         Sfx.init(this)
