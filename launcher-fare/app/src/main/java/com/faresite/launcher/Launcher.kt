@@ -152,6 +152,13 @@ private const val HOME = 0
 private const val FOLDERS = 1
 private const val ALL = 2
 
+// Las pantallas dan la vuelta: inicio → carpetas → apps → inicio, y al revés inicio → apps → carpetas → inicio
+private const val LOOP_PAGES = 3000
+private const val LOOP_START = 1500
+private fun section(page: Int) = Math.floorMod(page - LOOP_START, 3)
+/** Página de inicio más cercana a [page]. */
+private fun nearestHome(page: Int) = when (section(page)) { FOLDERS -> page - 1; ALL -> page + 1; else -> page }
+
 /** Dónde está el dedo en toda la pantalla (sirve para seguir arrastrando una app que sale de una carpeta). */
 object Finger {
     var pos by mutableStateOf(Offset.Zero)
@@ -204,7 +211,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     val version = remember { runCatching { Updater.currentVersion(ctx) }.getOrDefault(0) }
 
     var carry by remember { mutableStateOf<AppEntry?>(null) }
-    val pager = rememberPagerState(initialPage = HOME) { 3 }
+    val pager = rememberPagerState(initialPage = LOOP_START) { LOOP_PAGES }
     val focus = LocalFocusManager.current
     val tick by resumed.collectAsState()
     val home by homePressed.collectAsState()
@@ -295,15 +302,16 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
     }
     LaunchedEffect(home) {
         menuApp = null; settings = false; openGroup = null; notifOpen = false; controlOpen = false; preview = null; query = ""; focus.clearFocus()
-        pager.animateScrollToPage(HOME)
+        pager.animateScrollToPage(nearestHome(pager.currentPage))
+        pager.scrollToPage(LOOP_START)
     }
     LaunchedEffect(Unit) {
         var last = pager.currentPage + pager.currentPageOffsetFraction
         snapshotFlow { pager.currentPage + pager.currentPageOffsetFraction }.collect { last = it }
     }
-    LaunchedEffect(pager.currentPage) { if (pager.currentPage == HOME) { query = ""; focus.clearFocus() } }
+    LaunchedEffect(pager.currentPage) { if (section(pager.currentPage) == HOME) { query = ""; focus.clearFocus() } }
     LaunchedEffect(Unit) {
-        snapshotFlow { pager.currentPage }.drop(1).collect { Sfx.play(Sfx.SWIPE, .5f) }
+        snapshotFlow { section(pager.currentPage) }.distinctUntilChanged().drop(1).collect { Sfx.play(Sfx.SWIPE, .5f) }
     }
     // Notificaciones nuevas salen impresas como recibo
     LaunchedEffect(Unit) {
@@ -320,7 +328,7 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
             menuApp != null -> menuApp = null
             openGroup != null -> openGroup = null
             settings -> { settings = false; preview = null }
-            pager.currentPage != HOME -> scope.launch { pager.animateScrollToPage(HOME) }
+            section(pager.currentPage) != HOME -> scope.launch { pager.animateScrollToPage(nearestHome(pager.currentPage)) }
         }
     }
 
@@ -349,8 +357,9 @@ fun LauncherApp(homePressed: StateFlow<Int>, resumed: StateFlow<Int>) {
                 }
             }
         ) {
-            Wallpaper(bg, onHome = pager.currentPage == HOME && pager.currentPageOffsetFraction == 0f)
-            HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1, userScrollEnabled = !CarouselGate.busy) { page ->
+            Wallpaper(bg, onHome = section(pager.currentPage) == HOME && pager.currentPageOffsetFraction == 0f)
+            HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1, userScrollEnabled = !CarouselGate.busy) { raw ->
+              val page = section(raw)
               // Cada pantalla recorta lo suyo: nada del carrusel se cuela en el cajón
               Box(Modifier.fillMaxSize().clipToBounds()) {
                 if (page == FOLDERS || page == ALL) {
