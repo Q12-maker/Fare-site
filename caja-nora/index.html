@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Una caja para doña Nora</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Montserrat:wght@400;500;600&display=swap">
+<style>
+/* Layout: una sola escena centrada; la caja de terciopelo se abre y la carta sube y ocupa la pantalla */
+:root{
+  --velvet:#3a0f1f; --velvet-deep:#1c0710; --night:#120509;
+  --gold:#c9a45c; --gold-soft:#e6cf9a;
+  --paper:#f7f1e6; --ink:#2a1a14; --ink-soft:#6b5649;
+  --display:"Playfair Display","Georgia","Times New Roman",serif;
+  --body:"Montserrat","Segoe UI",Arial,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{
+  margin:0;background:radial-gradient(ellipse at 50% 35%, #4a1427 0%, var(--night) 70%);
+  background-color:var(--night);color:var(--paper);font-family:var(--body);
+  overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.stage{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;text-align:center}
+.eyebrow{font-size:12px;letter-spacing:.32em;text-transform:uppercase;color:var(--gold-soft);opacity:.85}
+.hint{font-family:var(--display);font-style:italic;font-size:20px;color:var(--gold-soft);transition:opacity .5s}
+
+/* Caja 3D */
+.box{position:relative;width:260px;height:310px;perspective:1100px;cursor:pointer;border:0;background:none;padding:0;
+  --W:170px;--D:150px;--Hb:78px;--Hl:60px}
+.box:focus-visible{outline:2px solid var(--gold);outline-offset:6px;border-radius:12px}
+.scene{position:absolute;left:50%;top:72%;width:0;height:0;transform-style:preserve-3d;
+  transform:rotateX(-22deg) rotateY(-30deg);transition:transform 1.6s cubic-bezier(.2,.8,.2,1);animation:float 4s ease-in-out infinite}
+@keyframes float{50%{translate:0 -6px}}
+.open .scene{transform:rotateX(-18deg) rotateY(-8deg)}
+.scene div{position:absolute;left:0;top:0;box-sizing:border-box;transform-style:preserve-3d}
+.f{backface-visibility:hidden}
+/* tamaños */
+.fw{width:var(--W);margin-left:calc(var(--W)/-2)} .fd{width:var(--D);margin-left:calc(var(--D)/-2)}
+.hb{height:var(--Hb);margin-top:calc(var(--Hb)/-2)} .hl{height:var(--Hl);margin-top:calc(var(--Hl)/-2)}
+.hd{height:var(--D);margin-top:calc(var(--D)/-2)}
+/* base */
+.b-front{transform:translateZ(calc(var(--D)/2));background:linear-gradient(180deg,#86203f,#4c0f22);border-top:3px solid var(--gold);border-radius:0 0 10px 10px}
+.b-back{transform:rotateY(180deg) translateZ(calc(var(--D)/2));background:#3c0b1a;border-top:3px solid var(--gold)}
+.b-left{transform:rotateY(-90deg) translateZ(calc(var(--W)/2));background:linear-gradient(180deg,#5a1229,#2e0814);border-top:3px solid var(--gold)}
+.b-right{transform:rotateY(90deg) translateZ(calc(var(--W)/2));background:linear-gradient(180deg,#a02a4c,#5e1429);border-top:3px solid var(--gold)}
+.b-bottom{transform:rotateX(-90deg) translateZ(calc(var(--Hb)/2));background:#16040a}
+.b-top{transform:rotateX(90deg) translateZ(calc(var(--Hb)/2));border:9px solid #2a0812;
+  background:linear-gradient(180deg,#6d1832 0%,#b03458 28%,#7a1b38 47%,#12030a 50%,#7a1b38 53%,#b03458 72%,#6d1832 100%);
+  box-shadow:inset 0 0 18px rgba(0,0,0,.7)}
+.floor{width:calc(var(--W) + 90px);height:calc(var(--D) + 90px);margin:calc((var(--D) + 90px)/-2) 0 0 calc((var(--W) + 90px)/-2);
+  transform:rotateX(90deg) translateZ(calc(var(--Hb)/-2 - 1px));background:radial-gradient(closest-side,rgba(0,0,0,.65),transparent)}
+/* tapa */
+.hinge{transform:translateY(calc(var(--Hb)/-2)) translateZ(calc(var(--D)/-2)) rotateX(0deg);transition:transform 1.3s .25s cubic-bezier(.3,1.25,.5,1)}
+.open .hinge{transform:translateY(calc(var(--Hb)/-2)) translateZ(calc(var(--D)/-2)) rotateX(110deg)}
+.lid{transform:translateY(calc(var(--Hl)/-2)) translateZ(calc(var(--D)/2))}
+.l-front{transform:translateZ(calc(var(--D)/2));background:linear-gradient(180deg,#a3284c,#6e1832);border-radius:14px 14px 0 0;border-bottom:3px solid var(--gold)}
+.l-back{transform:rotateY(180deg) translateZ(calc(var(--D)/2));background:#4a0e21;border-radius:14px 14px 0 0}
+.l-left{transform:rotateY(-90deg) translateZ(calc(var(--W)/2));background:linear-gradient(180deg,#6b1630,#3e0b1b);border-radius:14px 14px 0 0;border-bottom:3px solid var(--gold)}
+.l-right{transform:rotateY(90deg) translateZ(calc(var(--W)/2));background:linear-gradient(180deg,#c13a62,#80203e);border-radius:14px 14px 0 0;border-bottom:3px solid var(--gold)}
+.l-top{transform:rotateX(90deg) translateZ(calc(var(--Hl)/2));background:radial-gradient(ellipse at 35% 30%,#c8426a,#7a1b38 60%,#55112a);border-radius:18px}
+.l-inner{transform:rotateX(-90deg) translateZ(calc(var(--Hl)/2));border:9px solid #3a0a19;
+  background:linear-gradient(160deg,#fbf3e4,#e3d1b0 60%,#cdb68c)}
+/* anillo en la ranura */
+.ring3d{width:70px;height:86px;margin:calc(-86px + 16px - var(--Hb)/2) 0 0 -35px;opacity:0;transition:opacity .6s 1.1s}
+.open .ring3d{opacity:1}
+.band{position:absolute;left:10px;bottom:0;width:50px;height:50px;border-radius:50%;border:6px solid var(--gold);
+  box-shadow:0 0 18px rgba(230,207,154,.6),inset 0 0 6px rgba(0,0,0,.4)}
+.stone{position:absolute;left:24px;bottom:48px;width:22px;height:22px;background:linear-gradient(135deg,#fff,#cfe8ff 50%,#9ec5e8);
+  transform:rotate(45deg);box-shadow:0 0 22px #fff,0 0 40px rgba(255,255,255,.7);animation:glint 1.4s infinite alternate}
+@keyframes glint{to{box-shadow:0 0 8px #fff,0 0 16px rgba(255,255,255,.4)}}
+.open + .hint{opacity:0}
+
+/* Carta */
+.letter-wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  padding-block:max(20px,env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background:rgba(18,5,9,.6);opacity:0;pointer-events:none;transition:opacity .6s}
+.letter-wrap.show{opacity:1;pointer-events:auto}
+.letter{overflow-x:hidden;position:relative;width:min(440px,100%);max-height:100%;overflow:auto;background:linear-gradient(170deg,#141012,#050405);color:#fff;border:2px solid var(--gold);
+  border-radius:6px;padding:40px 32px 32px;box-shadow:0 40px 80px rgba(0,0,0,.55);
+  transform:translateY(40px) scale(.94);transition:transform .8s cubic-bezier(.2,.8,.2,1);text-align:left}
+.letter-wrap.show .letter{transform:none}
+.letter::before{content:"";position:absolute;inset:9px;border:1px solid var(--gold);opacity:.9;pointer-events:none;border-radius:3px}
+.to{font-family:var(--body);font-weight:600;font-size:13px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold)}
+h1{font-family:var(--display);font-weight:700;color:#fff;font-size:clamp(26px,7vw,34px);line-height:1.18;margin:14px 0 18px;text-wrap:balance}
+h1 em{color:var(--gold);font-style:italic}
+.letter p{font-size:16px;font-weight:500;line-height:1.6;margin:0 0 12px;color:#fff}
+.letter strong{color:var(--gold-soft)}
+.sign{font-family:var(--display);font-style:italic;font-weight:600;font-size:24px;margin-top:18px;color:var(--gold)}
+.sign small{display:block;font-family:var(--body);font-style:normal;font-weight:500;font-size:13px;color:#ddd;margin-top:2px;letter-spacing:.04em}
+
+.answers{position:relative;margin-top:26px;height:120px}
+.yes{position:absolute;left:0;top:0;width:68%;height:64px;border:0;border-radius:40px;cursor:pointer;
+  font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:.04em;color:#1a1208;
+  background:linear-gradient(180deg,var(--gold-soft),var(--gold));box-shadow:0 8px 20px rgba(138,90,31,.35)}
+.yes:focus-visible,.no:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.no{position:absolute;right:4%;top:18px;padding:6px 12px;border:1px solid #888;border-radius:20px;background:transparent;
+  font-family:var(--body);font-size:11px;color:#bbb;cursor:pointer;
+  max-width:100%;white-space:nowrap;transition:left .5s cubic-bezier(.2,.8,.2,1),top .5s cubic-bezier(.2,.8,.2,1),box-shadow .5s}
+.no.sliding{border-color:var(--gold);color:var(--gold-soft);box-shadow:0 0 14px 4px rgba(201,164,92,.55),0 0 34px 10px rgba(230,207,154,.25)}
+.no.ghost{pointer-events:none;border-color:var(--gold);color:var(--gold-soft);box-shadow:0 0 18px 6px rgba(201,164,92,.5);filter:blur(1px);animation:ghost .7s ease-out forwards}
+@keyframes ghost{to{opacity:0;filter:blur(6px);transform:scale(1.25)}}
+.no.pop{animation:pop .35s ease-out}
+@keyframes pop{40%{transform:scale(1.15)}}
+.no:disabled{opacity:.7}
+
+/* Final */
+.final{text-align:center}
+.final h1{text-align:center}
+.wa{display:inline-block;margin-top:14px;padding:14px 24px;border-radius:40px;background:linear-gradient(180deg,var(--gold-soft),var(--gold));color:#1a1208;font-weight:600;
+  text-decoration:none;font-size:15px;letter-spacing:.04em}
+.num{display:block;margin-top:10px;font-size:14px;color:#ddd;user-select:all;font-variant-numeric:tabular-nums}
+canvas{position:fixed;inset:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){*{transition-duration:.01s!important}}
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="eyebrow">Doña Nora</div>
+  <div class="hint" style="font-size:26px;color:var(--paper)">Tengo una pregunta muy importante…</div>
+  <button class="box" id="box" aria-label="Abrir la caja">
+    <div class="scene">
+      <div class="f floor"></div>
+      <div class="f b-bottom fw hd"></div>
+      <div class="f b-back fw hb"></div>
+      <div class="f b-left fd hb"></div>
+      <div class="f b-right fd hb"></div>
+      <div class="f b-front fw hb"></div>
+      <div class="f b-top fw hd"></div>
+      <div class="ring3d"><span class="band"></span><span class="stone"></span></div>
+      <div class="hinge"><div class="lid">
+        <div class="f l-inner fw hd"></div>
+        <div class="f l-back fw hl"></div>
+        <div class="f l-left fd hl"></div>
+        <div class="f l-right fd hl"></div>
+        <div class="f l-front fw hl"></div>
+        <div class="f l-top fw hd"></div>
+      </div></div>
+    </div>
+  </button>
+  <div class="hint" id="hint">Toque la caja</div>
+</div>
+
+<div class="letter-wrap" id="wrap" aria-live="polite">
+  <article class="letter" id="letter">
+    <div id="ask">
+      <div class="to">Doña Nora</div>
+      <h1>¿Quiere ser usted mi <em>jefa</em>?</h1>
+      <p><strong>Tranquila, no es un anillo: es una solicitud de trabajo.</strong></p>
+      <p>Crecí entre tijeras y máquinas porque mi mamá era peluquera. Aprendo rápido y quiero empezar desde abajo, como auxiliar, con un periodo de prueba y sin compromiso.</p>
+      <div class="sign">Juan<small>WhatsApp 315 951 5688</small></div>
+      <div class="answers" id="answers">
+        <button class="yes" id="yes">Sí, acepto</button>
+        <button class="no" id="no">No</button>
+      </div>
+    </div>
+    <div id="done-yes" class="final" hidden>
+      <div class="to">¡Dijo que sí!</div>
+      <h1>Desde hoy, su <em>aprendiz</em>.</h1>
+      <p>Planeo llegar puntual, mantener el orden y aprender, con clientes fáciles y con los difíciles, hasta que el periodo de prueba nos separe.</p>
+      <a class="wa" id="wa" href="https://wa.me/573159515688?text=Hola%20Juan%2C%20soy%20Nora.%20Te%20espero%20en%20la%20peluquer%C3%ADa." target="_blank" rel="noopener">Escribirle a Juan por WhatsApp</a>
+      <span class="num">315 951 5688</span>
+    </div>
+    <div id="done-no" class="final" hidden>
+      <div class="to">Gracias por su tiempo</div>
+      <h1>Me rompió el corazón… <em>profesional</em>.</h1>
+      <p>Si algún día necesita un auxiliar con ganas de aprender, aquí estaré.</p>
+      <span class="num">Juan · 315 951 5688</span>
+    </div>
+  </article>
+</div>
+<canvas id="fx"></canvas>
+
+<script>
+const box=document.getElementById('box'), wrap=document.getElementById('wrap');
+box.addEventListener('click',()=>{
+  if(box.classList.contains('open'))return;
+  box.classList.add('open');
+  setTimeout(()=>wrap.classList.add('show'),2600);
+});
+
+// El "No" se escapa 5 veces con estela dorada; luego cambia de texto en cada toque hasta el 10.
+const no=document.getElementById('no'), area=document.getElementById('answers');
+let escapes=0, taps=0; const MAX=5;
+const LINES={6:'¿Segura que… no?',7:'¿Puede pensarlo?',8:'Bueno… es su decisión',9:'¿Aún desea que… no?',10:'Entiendo, es su decisión'};
+function flee(){
+  if(escapes>=MAX)return false;
+  escapes++;
+  const a=area.getBoundingClientRect(), b=no.getBoundingClientRect();
+  // estela: copia que se queda y se desvanece
+  const g=no.cloneNode(true); g.removeAttribute('id'); g.className='no ghost'; g.setAttribute('aria-hidden','true');
+  g.style.left=(b.left-a.left)+'px'; g.style.top=(b.top-a.top)+'px'; g.style.right='auto';
+  area.appendChild(g); setTimeout(()=>g.remove(),700);
+  const w=a.width-b.width, h=a.height-b.height;
+  let x,y,tries=0;
+  do{ x=Math.random()*w; y=Math.random()*h; tries++; }
+  while(tries<30 && ((x<a.width*0.7 && y<70) || Math.hypot(x-(b.left-a.left),y-(b.top-a.top))<60));
+  no.classList.add('sliding');
+  no.style.right='auto'; no.style.left=x+'px'; no.style.top=y+'px';
+  setTimeout(()=>no.classList.remove('sliding'),550);
+  return true;
+}
+area.addEventListener('pointermove',e=>{
+  if(e.pointerType!=='mouse')return;
+  const b=no.getBoundingClientRect();
+  const dx=e.clientX-(b.left+b.width/2), dy=e.clientY-(b.top+b.height/2);
+  if(Math.hypot(dx,dy)<60 && flee()) taps=Math.max(taps,escapes);
+});
+no.addEventListener('pointerdown',e=>{ if(escapes<MAX){ e.preventDefault(); flee(); taps=escapes; no.dataset.skip='1'; } });
+no.addEventListener('click',e=>{
+  if(no.dataset.skip){ delete no.dataset.skip; return; }
+  if(escapes<MAX){ flee(); taps=escapes; return; }
+  taps++;
+  if(taps<6) taps=6;
+  no.style.left='0px'; no.style.top='80px';
+  if(LINES[taps]){ no.textContent=LINES[taps]; no.classList.remove('pop'); void no.offsetWidth; no.classList.add('pop'); }
+  if(taps>=10){ no.disabled=true; setTimeout(()=>show('done-no'),1400); }
+});
+
+document.getElementById('yes').addEventListener('click',()=>{ show('done-yes'); sparkle(); });
+function show(id){
+  document.getElementById('ask').hidden=true;
+  document.getElementById(id).hidden=false;
+  document.getElementById('letter').scrollTop=0;
+}
+
+// Destellos dorados al decir que sí
+function sparkle(){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const c=document.getElementById('fx'), x=c.getContext('2d');
+  const dpr=devicePixelRatio||1; c.width=innerWidth*dpr; c.height=innerHeight*dpr; x.scale(dpr,dpr);
+  const cols=['#e6cf9a','#c9a45c','#f7f1e6','#a8803f'];
+  const ps=Array.from({length:120},()=>({x:innerWidth/2,y:innerHeight*0.45,
+    vx:(Math.random()-.5)*9,vy:-Math.random()*10-3,r:Math.random()*3+1.5,c:cols[Math.random()*4|0],a:1}));
+  (function tick(){
+    x.clearRect(0,0,innerWidth,innerHeight); let alive=false;
+    for(const p of ps){ p.vy+=.22; p.x+=p.vx; p.y+=p.vy; p.a-=.008;
+      if(p.a>0){alive=true; x.globalAlpha=p.a; x.fillStyle=p.c; x.beginPath(); x.arc(p.x,p.y,p.r,0,7); x.fill();} }
+    if(alive) requestAnimationFrame(tick); else x.clearRect(0,0,innerWidth,innerHeight);
+  })();
+}
+</script>
+
+</body>
+</html>
