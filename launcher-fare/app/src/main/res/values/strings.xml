@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Launcher Fare</string>
+    <string name="acc_desc">Pone el panel de notificaciones, el centro de control, los recibos y los sonidos de Launcher Fare encima de todas las apps. No lee el contenido de las pantallas.</string>
+</resources>
