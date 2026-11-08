@@ -147,6 +147,10 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
 .act>.gl{opacity:1}
 
 /* Barra de arriba */
+/* Barra de arriba solo en Hoy (el menú) y Ajustes (Juan, 8-nov): en Ropa, Conjuntos y Lavado se esconde para no estorbar */
+.app.sinbarra header.top{opacity:0;translate:0 -130%;pointer-events:none}
+header.top{transition:opacity .35s var(--ease),translate .35s var(--ease)}
+#v-ropa,#v-conj,#v-lav{padding-top:calc(14px + env(safe-area-inset-top,0px))}
 header.top{position:absolute;z-index:8;top:10px;left:max(12px,env(safe-area-inset-left,0px));right:max(12px,env(safe-area-inset-right,0px));
   display:flex;align-items:center;gap:10px;padding:8px 8px 8px 10px;border-radius:24px}
 header.top>*{position:relative;z-index:3}
@@ -516,7 +520,7 @@ const IC={
 
 /* ---------- Navegación con crossfade ---------- */
 let view='hoy',filt='todas',sugIdx=0;
-function go(v){if(v!=='ropa'){quit=null;grp=null;const qb=document.getElementById('qbar');if(qb)qb.remove()}view=v;$$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+function go(v){$('#app').classList.toggle('sinbarra',v!=='hoy'&&v!=='aj');if(v!=='ropa'){quit=null;grp=null;const qb=document.getElementById('qbar');if(qb)qb.remove()}view=v;$$('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
   $$('#nav button').forEach(b=>{if(b.dataset.v===v)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   $('#goAj').classList.toggle('on',v==='aj');render()}
 $$('#nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
@@ -693,7 +697,7 @@ const MAN=[
  ['Hoy','Arriba: lo que te pusiste en los últimos días; no lo repitas todavía. Abajo: el conjunto sugerido (evita lo reciente). «Me lo pongo» registra la puesta; las flechas dan otra idea. En «Últimas puestas», la ✕ deshace una.'],
  ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
  ['Clases','En Ropa, la segunda fila: Casa, Presentable, Trabajo… Toca una para ver solo esa ropa. «+ / −» crea clases con tu nombre o las borra. En Seleccionar, «Clase» pone una clase a varias prendas: «Añadir» la suma; «Solo esta» cambia sus clases por esa. Cada prenda puede tener varias clases: se eligen al agregarla o editarla.'],
- ['Agregar ropa','El botón de cámara (arriba) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
+ ['Agregar ropa','El botón de cámara (arriba, en Hoy) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
  ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
  ['No repetir','Si vas a ponerte algo que usaste hace poco, sale «Ojo: repites». Los días se cambian en Ajustes → No repetir. Ropa interior, medias y calzado no cuentan.'],
  ['Conjuntos','«Armar conjunto» guarda combinaciones que te gustan. También puedes guardar uno desde el carrusel de Hoy.'],
