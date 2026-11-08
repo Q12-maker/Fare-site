@@ -636,7 +636,8 @@ function fan(){const car=$('#car');if(!car)return;const upd=()=>{const r=car.get
 
 /* ---------- ROPA ---------- */
 const FL={todas:'Todas',libre:'Puedo ponérmela',rep:'Hace poco',lavar:'Por lavar',mal:'Roto / cambiar',limpia:'Limpia',usada:'Usada'};
-const okP=p=>!rep(p)&&est(p)!=='lavar'&&!malo(p);
+/* Rota o para cambiar sí aparece en «Puedo ponérmela» (con su marca) (Juan, 8-nov) */
+const okP=p=>!rep(p)&&est(p)!=='lavar';
 let quit=null; /* Modo «Quitar prendas»: null o Set con los ids marcados */
 /* Ropa por tipos (Juan, 8-nov): primero un botón por cada tipo de prenda con cuántas hay y de qué colores;
    al tocarlo se abren solo esas prendas. «Quitar» muestra las prendas para marcarlas. */
@@ -727,7 +728,7 @@ const MAN=[
  ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
  ['Clases','En Ropa, la segunda fila: Casa, Presentable, Trabajo… Toca una para ver solo esa ropa. «+ / −» crea clases con tu nombre o las borra. En Seleccionar, «Clase» pone una clase a varias prendas: «Añadir» la suma; «Solo esta» cambia sus clases por esa. Cada prenda puede tener varias clases: se eligen al agregarla o editarla.'],
  ['Bloques o columna','En Ropa, el botón redondo junto a «Seleccionar» cambia los tipos entre bloques (3 por fila) y columna (uno por fila).'],
- ['Estado','Al tocar una prenda: Estado → Bien, Roto o Cambiar por otro. Las rotas o para cambiar salen marcadas, no aparecen en las sugerencias ni en «Puedo ponérmela», y tienen su filtro «Roto / cambiar».'],
+ ['Estado','Al tocar una prenda: Estado → Bien, Roto o Cambiar por otro. Las rotas o para cambiar salen marcadas, siguen apareciendo en Ropa, no salen en las sugerencias de Hoy y tienen su filtro «Roto / cambiar».'],
  ['Agregar ropa','El botón de cámara (arriba, en Hoy) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
  ['Cantidad','Si tienes varias prendas iguales (por ejemplo, 2 pantalones negros), agrégala una vez y sube «Cantidad». Se cuentan todas, y solo te avisa «Ojo: repites» cuando ya usaste todas en los últimos días. «Se lava cada» no es la cantidad: son las puestas antes de lavar.'],
  ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
