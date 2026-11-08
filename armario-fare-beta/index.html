@@ -86,6 +86,7 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
 .qbar .btn{flex:1 1 auto;padding:11px 12px;border-radius:999px;font-size:.86rem}
 .qbar .btn.qx{flex:0 0 46px;padding:0}.qbar .btn.qx svg{width:18px;height:18px}
 .qbar .btn.go{background:var(--warn);color:#fff;border-color:var(--warn)}
+.qn{font-family:var(--mono);color:var(--pri);font-weight:700}
 .tipos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .tipo{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;text-align:left;min-width:0}
 .tipo>*{position:relative;z-index:3}
@@ -483,7 +484,10 @@ function seed(){return{v:1,pal:'Fare',pals:[],sound:true,log:[],outfits:[],items
   item('Zapatos','zapatos','#6b4a2f'),item('Chanclas','chanclas','#2d2d30')]}}
 
 /* ---------- Reglas ---------- */
-function est(p){if(p.dirty)return'lavar';if(p.lim>0&&p.since>=p.lim)return'lavar';if(p.lim>0&&p.since>0)return'usada';return'limpia'}
+/* Cantidad (Juan, 8-nov): una prenda puede ser varias iguales (p. ej. 2 pantalones negros). Se cuentan todas. */
+const qty=p=>Math.max(1,p&&p.qty||1);
+const sumQ=l=>l.reduce((a,p)=>a+qty(p),0);
+function est(p){if(p.dirty)return'lavar';if(p.lim>0&&p.since>=p.lim*qty(p))return'lavar';if(p.lim>0&&p.since>0)return'usada';return'limpia'}
 const byId=id=>S.items.find(p=>p.id===id);
 const slotOf=p=>(CATS[p.cat]||CATS.otro).slot;
 const avail=slot=>S.items.filter(p=>slotOf(p)===slot&&est(p)!=='lavar');
@@ -497,7 +501,9 @@ function combos(){const A=avail('arriba'),B=avail('abajo'),C=avail('pies'),r=[];
 /* No repetir: cuenta para la ropa que se ve (arriba, abajo, encima, accesorios). Interior, medias y calzado no cuentan. */
 const NOREP=['arriba','abajo','capa','accesorio','otro'];
 function daysAgo(d){return d?Math.max(0,Math.round((new Date(today())-new Date(d))/864e5)):Infinity}
-const rep=p=>!!p&&NOREP.includes(slotOf(p))&&daysAgo(p.last)<(S.gap||3);
+/* Con varias iguales, solo cuenta como repetir cuando ya usaste todas en los últimos días */
+const usosRec=p=>new Set(S.log.filter(l=>l.items.includes(p.id)&&daysAgo(l.d)<(S.gap||3)).map(l=>l.d)).size;
+const rep=p=>!!p&&NOREP.includes(slotOf(p))&&daysAgo(p.last)<(S.gap||3)&&(qty(p)===1||usosRec(p)>=qty(p));
 const shortAgo=d=>{const n=daysAgo(d);return n===Infinity?'nueva':n===0?'hoy':n===1?'ayer':n+' d'};
 function pickFirst(slot){const l=avail(slot).sort((a,b)=>a.since-b.since||a.total-b.total);return l[0]||null}
 function ago(d){if(!d)return'nunca';const n=Math.round((new Date(today())-new Date(d))/864e5);return n<=0?'hoy':n===1?'ayer':'hace '+n+' días'}
@@ -548,8 +554,8 @@ function countUp(el){const to=+el.dataset.to,key=el.dataset.key,from=shown[key]?
 const num=(key,v,small='')=>`<div class="v cnt" data-key="${key}" data-to="${v}">${shown[key]??0}${small?` <small>${small}</small>`:''}</div>`;
 
 /* ---------- HOY: tablero de vidrio + conjunto sugerido + carrusel ---------- */
-function rHoy(){const it=S.items,cnt={limpia:0,usada:0,lavar:0};it.forEach(p=>cnt[est(p)]++);
-  const tot=it.length||1,C=2*Math.PI*46,cb=combos(),puestas=it.reduce((s,p)=>s+p.total,0);
+function rHoy(){const it=S.items,cnt={limpia:0,usada:0,lavar:0};it.forEach(p=>cnt[est(p)]+=qty(p));
+  const tot=sumQ(it)||1,C=2*Math.PI*46,cb=combos(),puestas=it.reduce((s,p)=>s+p.total,0);
   const segs=[['limpia','var(--pri)'],['usada','color-mix(in srgb,var(--pri) 45%,var(--sec))'],['lavar','var(--warn)']];let acc=0;
   const ring=segs.map(([k,col])=>{const len=cnt[k]/tot*C,o=-acc;acc+=len;return`<circle r="46" cx="56" cy="56" stroke="${col}" style="stroke-dasharray:0 ${C}" data-dash="${Math.max(0,len-(cnt[k]?2:0))} ${C}" data-off="${o}"/>`}).join('');
   // puestas de los últimos 7 días
@@ -566,7 +572,7 @@ function rHoy(){const it=S.items,cnt={limpia:0,usada:0,lavar:0};it.forEach(p=>cn
   <div class="label">Tablero<em>${fdate(today())}</em></div>
   <div class="dash">
     <div class="tile main cutg tl" data-tilt="6"><span class="gl"></span>
-      <div class="ring"><svg viewBox="0 0 112 112"><circle class="bg" r="46" cx="56" cy="56"/>${ring}</svg><b><span class="v cnt" data-key="items" data-to="${it.length}" style="font-size:inherit;margin:0;line-height:1">${shown.items??0}</span><small>PRENDAS</small></b></div>
+      <div class="ring"><svg viewBox="0 0 112 112"><circle class="bg" r="46" cx="56" cy="56"/>${ring}</svg><b><span class="v cnt" data-key="items" data-to="${sumQ(it)}" style="font-size:inherit;margin:0;line-height:1">${shown.items??0}</span><small>PRENDAS</small></b></div>
       <div class="legend">${segs.map(([k,col])=>`<button data-go-lav="${k}"><i style="background:${col};box-shadow:0 0 8px ${col}"></i><span>${EST[k]}</span><b>${cnt[k]}</b></button>`).join('')}</div>
     </div>
     <div class="tile rg"><div class="k">Puestas · 7 días</div>${num('p7',perDay.reduce((a,b)=>a+b,0))}
@@ -614,9 +620,9 @@ let quit=null; /* Modo «Quitar prendas»: null o Set con los ids marcados */
    al tocarlo se abren solo esas prendas. «Quitar» muestra las prendas para marcarlas. */
 let grp=null,qList=[],clsF=null; /* clsF: clase de ropa elegida (null = todas) */
 const inCls=p=>!clsF||(p.cls||[]).includes(clsF);
-function cardHTML(p){const e=est(p),r=rep(p),q=quit&&quit.has(p.id);return`<button class="card tl s-${e} ${r?'rep':''} ${q?'qsel':''}" data-tilt="12" data-id="${p.id}" style="--c:${p.color}"><span class="gl"></span>${quit?`<span class="qk">${IC.check}</span>`:r?`<span class="when">${ago(p.last)}</span>`:''}${pic(p,`data-pic="${p.id}"`)}<b>${esc(p.name)}</b>
+function cardHTML(p){const e=est(p),r=rep(p),q=quit&&quit.has(p.id);return`<button class="card tl s-${e} ${r?'rep':''} ${q?'qsel':''}" data-tilt="12" data-id="${p.id}" style="--c:${p.color}"><span class="gl"></span>${quit?`<span class="qk">${IC.check}</span>`:r?`<span class="when">${ago(p.last)}</span>`:''}${pic(p,`data-pic="${p.id}"`)}<b>${qty(p)>1?`<span class="qn">${qty(p)}×</span> `:''}${esc(p.name)}</b>
     <div class="meta"><span class="st s-${e}"><i></i>${EST[e]}</span><span>${NOREP.includes(slotOf(p))?shortAgo(p.last):p.total+'×'}</span></div></button>`}
-function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.items.filter(inCls),cnt={todas:it.length,libre:it.filter(okP).length,rep:it.filter(rep).length,lavar:it.filter(p=>est(p)==='lavar').length};
+function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.items.filter(inCls),cnt={todas:sumQ(it),libre:sumQ(it.filter(okP)),rep:sumQ(it.filter(rep)),lavar:sumQ(it.filter(p=>est(p)==='lavar'))};
   if(!(filt in cnt))filt=filt==='limpia'?'libre':'todas';
   if(grp&&!it.some(p=>p.cat===grp))grp=null;
   const order=Object.keys(CATS),fx={todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[filt];
@@ -626,16 +632,16 @@ function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.it
   const K=grp?CATS[grp]||CATS.otro:null,plural=n=>n===1?'prenda':'prendas';
   $('#v-ropa').innerHTML=`<div class="wrap">
   ${grp?`<button class="backp" id="gBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Toda mi ropa</button>`:''}
-  <div class="label" style="margin-top:6px">${quit?`Seleccionadas: ${quit.size}`:grp?esc(K.n):'Mi ropa'}${quit?'':`<span style="display:flex;gap:10px;align-items:center"><em>${grp?list.length:it.length} ${plural(grp?list.length:it.length)}</em><button class="quitp" id="qOn">Seleccionar</button></span>`}</div>
-  <div class="chips">${['todas','libre','rep','lavar'].map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filt===k}">${FL[k]} <b>${grp?it.filter(p=>p.cat===grp).filter({todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[k]).length:cnt[k]}</b></button>`).join('')}</div>
-  ${quit?'':`<div class="chips clases"><button class="chip addc" id="clsEd" aria-label="Crear o borrar clases">+ / −</button><button class="chip" data-cls="" aria-pressed="${!clsF}">Toda clase</button>${S.clases.map(c=>`<button class="chip" data-cls="${c.id}" aria-pressed="${clsF===c.id}">${esc(c.name)} <b>${S.items.filter(p=>(p.cls||[]).includes(c.id)).length}</b></button>`).join('')}</div>`}
+  <div class="label" style="margin-top:6px">${quit?`Seleccionadas: ${quit.size}`:grp?esc(K.n):'Mi ropa'}${quit?'':`<span style="display:flex;gap:10px;align-items:center"><em>${sumQ(grp?list:it)} ${plural(sumQ(grp?list:it))}</em><button class="quitp" id="qOn">Seleccionar</button></span>`}</div>
+  <div class="chips">${['todas','libre','rep','lavar'].map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filt===k}">${FL[k]} <b>${grp?sumQ(it.filter(p=>p.cat===grp).filter({todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[k])):cnt[k]}</b></button>`).join('')}</div>
+  ${quit?'':`<div class="chips clases"><button class="chip addc" id="clsEd" aria-label="Crear o borrar clases">+ / −</button><button class="chip" data-cls="" aria-pressed="${!clsF}">Toda clase</button>${S.clases.map(c=>`<button class="chip" data-cls="${c.id}" aria-pressed="${clsF===c.id}">${esc(c.name)} <b>${sumQ(S.items.filter(p=>(p.cls||[]).includes(c.id)))}</b></button>`).join('')}</div>`}
   ${!list.length?`<div class="none">Vacío.</div>`
   :showCards?`<div class="grid">${list.map(cardHTML).join('')}</div>`
-  :`<div class="tipos">${groups.map(g=>{const k=CATS[g.k]||CATS.otro,n=g.ps.length,r=g.ps.filter(rep).length,cols=g.ps.map(p=>p.color);
+  :`<div class="tipos">${groups.map(g=>{const k=CATS[g.k]||CATS.otro,n=sumQ(g.ps),r=sumQ(g.ps.filter(rep)),cols=g.ps.flatMap(p=>Array(qty(p)).fill(p.color)),nm=g.ps.flatMap(p=>Array(qty(p)).fill(p.name));
     return`<button class="tipo cutg tl" data-tilt="8" data-g="${g.k}" style="--c:${g.ps[0].color}"><span class="gl"></span>
       <span class="tn">${n}</span>${pic(g.ps[0])}
       <b>${esc(k.n)}</b><small>${n} ${plural(n)}${r?` · <i class="tr">${r} hace poco</i>`:''}</small>
-      <span class="dots">${cols.slice(0,8).map((c,x)=>`<i style="--c:${c}" title="${esc(g.ps[x].name)}"></i>`).join('')}${n>8?`<em>+${n-8}</em>`:''}</span></button>`}).join('')}</div>`}
+      <span class="dots">${cols.slice(0,8).map((c,x)=>`<i style="--c:${c}" title="${esc(nm[x])}"></i>`).join('')}${n>8?`<em>+${n-8}</em>`:''}</span></button>`}).join('')}</div>`}
   <button class="btn pri wide" id="addRopa" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar</button>
   </div>`;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;rRopa();afterRender()});
@@ -657,7 +663,7 @@ function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.it
 
 /* Clases de ropa (Juan, 8-nov): Casa, Presentable y Trabajo de inicio; se crean con nombre propio y se borran */
 function clasesSheet(after){const s=openSheet(`<div class="sh-title"><h3>Clases</h3><button class="x" id="kX" aria-label="Cerrar">${IC.x}</button></div>
-  <ul class="list">${S.clases.map(c=>`<li class="rowi" style="grid-template-columns:minmax(0,1fr) auto"><div class="t"><b>${esc(c.name)}</b><span>${(n=>n+(n===1?' prenda':' prendas'))(S.items.filter(p=>(p.cls||[]).includes(c.id)).length)}</span></div><div class="act2"><button class="sbtn" data-kdel="${c.id}">Borrar</button></div></li>`).join('')}</ul>
+  <ul class="list">${S.clases.map(c=>`<li class="rowi" style="grid-template-columns:minmax(0,1fr) auto"><div class="t"><b>${esc(c.name)}</b><span>${(n=>n+(n===1?' prenda':' prendas'))(sumQ(S.items.filter(p=>(p.cls||[]).includes(c.id))))}</span></div><div class="act2"><button class="sbtn" data-kdel="${c.id}">Borrar</button></div></li>`).join('')}</ul>
   <div class="row2" style="margin-top:12px"><input class="inp" id="kN" maxlength="20" placeholder="Nueva clase" style="flex:1 1 140px;width:auto"><button class="btn pri" id="kAdd">Crear</button></div>`);
   $('#kX',s).onclick=()=>{if(after){closeNow();after()}else closeSheet()};
   $$('[data-kdel]',s).forEach(b=>b.onclick=()=>{if(!b.dataset.sure){b.dataset.sure=1;b.textContent='¿Seguro?';return}const id=b.dataset.kdel;
@@ -698,6 +704,7 @@ const MAN=[
  ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
  ['Clases','En Ropa, la segunda fila: Casa, Presentable, Trabajo… Toca una para ver solo esa ropa. «+ / −» crea clases con tu nombre o las borra. En Seleccionar, «Clase» pone una clase a varias prendas: «Añadir» la suma; «Solo esta» cambia sus clases por esa. Cada prenda puede tener varias clases: se eligen al agregarla o editarla.'],
  ['Agregar ropa','El botón de cámara (arriba, en Hoy) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
+ ['Cantidad','Si tienes varias prendas iguales (por ejemplo, 2 pantalones negros), agrégala una vez y sube «Cantidad». Se cuentan todas, y solo te avisa «Ojo: repites» cuando ya usaste todas en los últimos días. «Se lava cada» no es la cantidad: son las puestas antes de lavar.'],
  ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
  ['No repetir','Si vas a ponerte algo que usaste hace poco, sale «Ojo: repites». Los días se cambian en Ajustes → No repetir. Ropa interior, medias y calzado no cuentan.'],
  ['Conjuntos','«Armar conjunto» guarda combinaciones que te gustan. También puedes guardar uno desde el carrusel de Hoy.'],
@@ -827,7 +834,7 @@ function itemSheet(p,src){const e=est(p),k=CATS[p.cat]||CATS.otro;
     S.items=S.items.filter(x=>x.id!==p.id);S.outfits.forEach(o=>o.items=o.items.filter(i=>i!==p.id));S.outfits=S.outfits.filter(o=>o.items.length);save();closeSheet();render();toast('Prenda borrada')};
 }
 
-function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?grp:'camiseta';const d=p?{...p}:{name:'',cat:c0,color:'#3b6fb6',photo:null,lim:CATS[c0].lim,cls:clsF?[clsF]:[],...(pre||{})};if(!d.cls)d.cls=[];else d.cls=[...d.cls];
+function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?grp:'camiseta';const d=p?{...p}:{name:'',cat:c0,color:'#3b6fb6',photo:null,lim:CATS[c0].lim,qty:1,cls:clsF?[clsF]:[],...(pre||{})};d.qty=qty(d);if(!d.cls)d.cls=[];else d.cls=[...d.cls];
   const s=openSheet(`<div class="sh-title"><h3>${isNew?'Nueva prenda':'Editar prenda'}</h3><button class="x" id="eX" aria-label="Cerrar">${IC.x}</button></div>
   <div class="sh-hero" style="grid-template-columns:96px minmax(0,1fr)"><div id="ePic"></div>
    <div class="row2" style="flex-direction:column"><button class="btn" id="ePh">${IC.cam}Foto</button><button class="btn" id="eNoPh" ${d.photo?'':'hidden'}>Quitar foto</button></div></div>
@@ -836,6 +843,7 @@ function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?g
   <div class="field">Tipo<div class="catgrid">${Object.entries(CATS).map(([k,c])=>`<button data-cat="${k}" aria-pressed="${d.cat===k}">${pic({cat:k,color:d.color})}${c.n}</button>`).join('')}</div></div>
   <div class="field">Color<div class="colrow">${SWATCH.map(c=>`<button class="sw" data-sw="${c}" style="--c:${c}" aria-pressed="${d.color===c}" aria-label="${c}"></button>`).join('')}<input type="color" id="eC" value="${d.color}"></div></div>
   ${S.clases.length?`<div class="field">Clase<div class="chips" style="margin:6px 0 0;padding:0;flex-wrap:wrap">${S.clases.map(c=>`<button class="chip" data-ecl="${c.id}" aria-pressed="${d.cls.includes(c.id)}">${esc(c.name)}</button>`).join('')}</div></div>`:''}
+  <div class="field">Cantidad (iguales)<div class="stepper"><button id="qM" aria-label="Menos">−</button><b id="qV">${d.qty}</b><button id="qP" aria-label="Más">+</button><span></span></div></div>
   <div class="field">Se lava cada<div class="stepper"><button id="eM" aria-label="Menos">−</button><b id="eL">${d.lim}</b><button id="eP" aria-label="Más">+</button><span id="eLt"></span></div></div>
   <button class="btn pri wide" id="eSave" style="margin-top:16px">${IC.check}${isNew?'Agregar':'Guardar'}</button>`);
   const upd=()=>{$('#ePic',s).innerHTML=pic(d);$('#eL',s).textContent=d.lim;$('#eLt',s).textContent=d.lim?(d.lim===1?'puesta (cada vez que la uses)':'puestas'):'nunca (zapatos, chanclas)';
@@ -847,12 +855,13 @@ function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?g
   $$('[data-cat]',s).forEach(b=>b.onclick=()=>{d.cat=b.dataset.cat;d.lim=CATS[d.cat].lim;$$('[data-cat]',s).forEach(x=>x.setAttribute('aria-pressed',x===b));upd()});
   $$('[data-sw]',s).forEach(b=>b.onclick=()=>{d.color=b.dataset.sw;upd()});
   $('#eC',s).oninput=e=>{d.color=e.target.value;upd()};
+  $('#qM',s).onclick=()=>{d.qty=Math.max(1,d.qty-1);$('#qV',s).textContent=d.qty};$('#qP',s).onclick=()=>{d.qty=Math.min(50,d.qty+1);$('#qV',s).textContent=d.qty};
   $('#eM',s).onclick=()=>{d.lim=Math.max(0,d.lim-1);upd()};$('#eP',s).onclick=()=>{d.lim=Math.min(30,d.lim+1);upd()};
   $('#ePh',s).onclick=()=>$('#eF',s).click();
   $('#eNoPh',s).onclick=()=>{d.photo=null;upd()};
   $('#eF',s).onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const r=await photo(f);d.photo=r.url;d.color=r.color;upd()}catch(_){toast('No se pudo abrir la foto')}};
   $('#eSave',s).onclick=()=>{d.name=$('#eN',s).value.trim()||CATS[d.cat].n;
-    if(isNew){const n={...item(d.name,d.cat,d.color),photo:d.photo,lim:d.lim,cls:d.cls};S.items.push(n)}else Object.assign(p,{name:d.name,cat:d.cat,color:d.color,photo:d.photo,lim:d.lim,cls:d.cls});
+    if(isNew){const n={...item(d.name,d.cat,d.color),photo:d.photo,lim:d.lim,cls:d.cls,qty:d.qty};S.items.push(n)}else Object.assign(p,{name:d.name,cat:d.cat,color:d.color,photo:d.photo,lim:d.lim,cls:d.cls,qty:d.qty});
     save();closeSheet();render();ticket(isNew?'PRENDA AGREGADA':'PRENDA ACTUALIZADA',[['Prenda',d.name],['Tipo',CATS[d.cat].n]],[['Se lava cada',d.lim?d.lim+' puesta'+(d.lim>1?'s':''):'nunca'],['Color',d.color.toUpperCase()]])};
 }
 /* Foto: recorte cuadrado de 360 px y color predominante para el aura */
