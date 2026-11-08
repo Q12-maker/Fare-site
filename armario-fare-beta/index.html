@@ -104,6 +104,8 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
 .man summary::after{content:"+";font-family:var(--mono);color:var(--muted)}
 .man details[open] summary::after{content:"−"}
 .man p{margin:0 2px 14px;color:var(--muted);font-size:.88rem;line-height:1.55}
+.chips.clases{margin-top:-4px}
+.chip.addc{color:var(--pri);border-style:dashed}
 .recent{display:flex;gap:10px;overflow-x:auto;margin:0 -16px;padding:4px 16px 6px}
 .recent button{flex:none;width:86px;display:flex;flex-direction:column;gap:5px;text-align:center;font-size:.72rem;min-width:0}
 .recent button b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -605,10 +607,11 @@ const okP=p=>!rep(p)&&est(p)!=='lavar';
 let quit=null; /* Modo «Quitar prendas»: null o Set con los ids marcados */
 /* Ropa por tipos (Juan, 8-nov): primero un botón por cada tipo de prenda con cuántas hay y de qué colores;
    al tocarlo se abren solo esas prendas. «Quitar» muestra las prendas para marcarlas. */
-let grp=null,qList=[];
+let grp=null,qList=[],clsF=null; /* clsF: clase de ropa elegida (null = todas) */
+const inCls=p=>!clsF||(p.cls||[]).includes(clsF);
 function cardHTML(p){const e=est(p),r=rep(p),q=quit&&quit.has(p.id);return`<button class="card tl s-${e} ${r?'rep':''} ${q?'qsel':''}" data-tilt="12" data-id="${p.id}" style="--c:${p.color}"><span class="gl"></span>${quit?`<span class="qk">${IC.check}</span>`:r?`<span class="when">${ago(p.last)}</span>`:''}${pic(p,`data-pic="${p.id}"`)}<b>${esc(p.name)}</b>
     <div class="meta"><span class="st s-${e}"><i></i>${EST[e]}</span><span>${NOREP.includes(slotOf(p))?shortAgo(p.last):p.total+'×'}</span></div></button>`}
-function rRopa(){const it=S.items,cnt={todas:it.length,libre:it.filter(okP).length,rep:it.filter(rep).length,lavar:it.filter(p=>est(p)==='lavar').length};
+function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.items.filter(inCls),cnt={todas:it.length,libre:it.filter(okP).length,rep:it.filter(rep).length,lavar:it.filter(p=>est(p)==='lavar').length};
   if(!(filt in cnt))filt=filt==='limpia'?'libre':'todas';
   if(grp&&!it.some(p=>p.cat===grp))grp=null;
   const order=Object.keys(CATS),fx={todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[filt];
@@ -620,6 +623,7 @@ function rRopa(){const it=S.items,cnt={todas:it.length,libre:it.filter(okP).leng
   ${grp?`<button class="backp" id="gBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Toda mi ropa</button>`:''}
   <div class="label" style="margin-top:6px">${quit?`Seleccionadas: ${quit.size}`:grp?esc(K.n):'Mi ropa'}${quit?'':`<span style="display:flex;gap:10px;align-items:center"><em>${grp?list.length:it.length} ${plural(grp?list.length:it.length)}</em><button class="quitp" id="qOn">Seleccionar</button></span>`}</div>
   <div class="chips">${['todas','libre','rep','lavar'].map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filt===k}">${FL[k]} <b>${grp?it.filter(p=>p.cat===grp).filter({todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[k]).length:cnt[k]}</b></button>`).join('')}</div>
+  ${quit?'':`<div class="chips clases"><button class="chip addc" id="clsEd" aria-label="Crear o borrar clases">+ / −</button><button class="chip" data-cls="" aria-pressed="${!clsF}">Toda clase</button>${S.clases.map(c=>`<button class="chip" data-cls="${c.id}" aria-pressed="${clsF===c.id}">${esc(c.name)} <b>${S.items.filter(p=>(p.cls||[]).includes(c.id)).length}</b></button>`).join('')}</div>`}
   ${!list.length?`<div class="none">Vacío.</div>`
   :showCards?`<div class="grid">${list.map(cardHTML).join('')}</div>`
   :`<div class="tipos">${groups.map(g=>{const k=CATS[g.k]||CATS.otro,n=g.ps.length,r=g.ps.filter(rep).length,cols=g.ps.map(p=>p.color);
@@ -630,6 +634,8 @@ function rRopa(){const it=S.items,cnt={todas:it.length,libre:it.filter(okP).leng
   <button class="btn pri wide" id="addRopa" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar</button>
   </div>`;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;rRopa();afterRender()});
+  $$('[data-cls]').forEach(b=>b.onclick=()=>{clsF=b.dataset.cls||null;rRopa();afterRender()});
+  const ce=$('#clsEd');if(ce)ce.onclick=clasesSheet;
   $$('#v-ropa [data-g]').forEach(b=>b.onclick=()=>{grp=b.dataset.g;vt(()=>{rRopa();$('#v-ropa').scrollTop=0});afterRender()});
   const gb=$('#gBack');if(gb)gb.onclick=()=>{grp=null;quit=null;vt(()=>{rRopa();$('#v-ropa').scrollTop=0});afterRender()};
   $$('#v-ropa [data-id]').forEach(b=>{let lt=null,held=false;
@@ -643,6 +649,17 @@ function rRopa(){const it=S.items,cnt={todas:it.length,libre:it.filter(okP).leng
   qbar();
   $('#addRopa').onclick=()=>editItem(null);
 }
+
+/* Clases de ropa (Juan, 8-nov): Casa, Presentable y Trabajo de inicio; se crean con nombre propio y se borran */
+function clasesSheet(){const s=openSheet(`<div class="sh-title"><h3>Clases</h3><button class="x" id="kX" aria-label="Cerrar">${IC.x}</button></div>
+  <ul class="list">${S.clases.map(c=>`<li class="rowi" style="grid-template-columns:minmax(0,1fr) auto"><div class="t"><b>${esc(c.name)}</b><span>${(n=>n+(n===1?' prenda':' prendas'))(S.items.filter(p=>(p.cls||[]).includes(c.id)).length)}</span></div><div class="act2"><button class="sbtn" data-kdel="${c.id}">Borrar</button></div></li>`).join('')}</ul>
+  <div class="row2" style="margin-top:12px"><input class="inp" id="kN" maxlength="20" placeholder="Nueva clase" style="flex:1 1 140px;width:auto"><button class="btn pri" id="kAdd">Crear</button></div>`);
+  $('#kX',s).onclick=closeSheet;
+  $$('[data-kdel]',s).forEach(b=>b.onclick=()=>{if(!b.dataset.sure){b.dataset.sure=1;b.textContent='¿Seguro?';return}const id=b.dataset.kdel;
+    S.clases=S.clases.filter(c=>c.id!==id);S.items.forEach(p=>{if(p.cls)p.cls=p.cls.filter(x=>x!==id)});if(clsF===id)clsF=null;save();closeNow();render();clasesSheet()});
+  const add=()=>{const n=$('#kN',s).value.trim();if(!n)return;if(S.clases.some(c=>c.name.toLowerCase()===n.toLowerCase()))return toast('Ya existe');
+    S.clases.push({id:uid(),name:n});save();closeNow();render();clasesSheet()};
+  $('#kAdd',s).onclick=add;$('#kN',s).onkeydown=e=>{if(e.key==='Enter')add()}}
 
 /* Barra de «Quitar prendas»: Cancelar · Todas · Quitar (n), con confirmación en el mismo botón */
 function qbar(){let b=$('#qbar');if(!quit||view!=='ropa'){b&&b.remove();return}
@@ -660,6 +677,7 @@ function qbar(){let b=$('#qbar');if(!quit||view!=='ropa'){b&&b.remove();return}
 const MAN=[
  ['Hoy','Arriba: lo que te pusiste en los últimos días; no lo repitas todavía. Abajo: el conjunto sugerido (evita lo reciente). «Me lo pongo» registra la puesta; las flechas dan otra idea. En «Últimas puestas», la ✕ deshace una.'],
  ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
+ ['Clases','En Ropa, la segunda fila: Casa, Presentable, Trabajo… Toca una para ver solo esa ropa. «+ / −» crea clases con tu nombre o las borra. Cada prenda puede tener varias clases: se eligen al agregarla o editarla.'],
  ['Agregar ropa','El botón de cámara (arriba) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
  ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
  ['No repetir','Si vas a ponerte algo que usaste hace poco, sale «Ojo: repites». Los días se cambian en Ajustes → No repetir. Ropa interior, medias y calzado no cuentan.'],
@@ -790,7 +808,7 @@ function itemSheet(p,src){const e=est(p),k=CATS[p.cat]||CATS.otro;
     S.items=S.items.filter(x=>x.id!==p.id);S.outfits.forEach(o=>o.items=o.items.filter(i=>i!==p.id));S.outfits=S.outfits.filter(o=>o.items.length);save();closeSheet();render();toast('Prenda borrada')};
 }
 
-function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?grp:'camiseta';const d=p?{...p}:{name:'',cat:c0,color:'#3b6fb6',photo:null,lim:CATS[c0].lim,...(pre||{})};
+function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?grp:'camiseta';const d=p?{...p}:{name:'',cat:c0,color:'#3b6fb6',photo:null,lim:CATS[c0].lim,cls:clsF?[clsF]:[],...(pre||{})};if(!d.cls)d.cls=[];else d.cls=[...d.cls];
   const s=openSheet(`<div class="sh-title"><h3>${isNew?'Nueva prenda':'Editar prenda'}</h3><button class="x" id="eX" aria-label="Cerrar">${IC.x}</button></div>
   <div class="sh-hero" style="grid-template-columns:96px minmax(0,1fr)"><div id="ePic"></div>
    <div class="row2" style="flex-direction:column"><button class="btn" id="ePh">${IC.cam}Foto</button><button class="btn" id="eNoPh" ${d.photo?'':'hidden'}>Quitar foto</button></div></div>
@@ -798,6 +816,7 @@ function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?g
   <label class="field">Nombre<input class="inp" id="eN" maxlength="40" placeholder="Ej.: Camisa azul" value="${esc(d.name)}"></label>
   <div class="field">Tipo<div class="catgrid">${Object.entries(CATS).map(([k,c])=>`<button data-cat="${k}" aria-pressed="${d.cat===k}">${pic({cat:k,color:d.color})}${c.n}</button>`).join('')}</div></div>
   <div class="field">Color<div class="colrow">${SWATCH.map(c=>`<button class="sw" data-sw="${c}" style="--c:${c}" aria-pressed="${d.color===c}" aria-label="${c}"></button>`).join('')}<input type="color" id="eC" value="${d.color}"></div></div>
+  ${S.clases.length?`<div class="field">Clase<div class="chips" style="margin:6px 0 0;padding:0;flex-wrap:wrap">${S.clases.map(c=>`<button class="chip" data-ecl="${c.id}" aria-pressed="${d.cls.includes(c.id)}">${esc(c.name)}</button>`).join('')}</div></div>`:''}
   <div class="field">Se lava cada<div class="stepper"><button id="eM" aria-label="Menos">−</button><b id="eL">${d.lim}</b><button id="eP" aria-label="Más">+</button><span id="eLt"></span></div></div>
   <button class="btn pri wide" id="eSave" style="margin-top:16px">${IC.check}${isNew?'Agregar':'Guardar'}</button>`);
   const upd=()=>{$('#ePic',s).innerHTML=pic(d);$('#eL',s).textContent=d.lim;$('#eLt',s).textContent=d.lim?(d.lim===1?'puesta (cada vez que la uses)':'puestas'):'nunca (zapatos, chanclas)';
@@ -805,6 +824,7 @@ function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?g
     $$('[data-cat] .pic',s).forEach(el=>el.style.setProperty('--c',d.color))};
   upd();
   $('#eX',s).onclick=closeSheet;
+  $$('[data-ecl]',s).forEach(b=>b.onclick=()=>{const id=b.dataset.ecl;d.cls=d.cls.includes(id)?d.cls.filter(x=>x!==id):[...d.cls,id];b.setAttribute('aria-pressed',d.cls.includes(id))});
   $$('[data-cat]',s).forEach(b=>b.onclick=()=>{d.cat=b.dataset.cat;d.lim=CATS[d.cat].lim;$$('[data-cat]',s).forEach(x=>x.setAttribute('aria-pressed',x===b));upd()});
   $$('[data-sw]',s).forEach(b=>b.onclick=()=>{d.color=b.dataset.sw;upd()});
   $('#eC',s).oninput=e=>{d.color=e.target.value;upd()};
@@ -813,7 +833,7 @@ function editItem(p,pre){const isNew=!p;const c0=view==='ropa'&&grp&&CATS[grp]?g
   $('#eNoPh',s).onclick=()=>{d.photo=null;upd()};
   $('#eF',s).onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const r=await photo(f);d.photo=r.url;d.color=r.color;upd()}catch(_){toast('No se pudo abrir la foto')}};
   $('#eSave',s).onclick=()=>{d.name=$('#eN',s).value.trim()||CATS[d.cat].n;
-    if(isNew){const n={...item(d.name,d.cat,d.color),photo:d.photo,lim:d.lim};S.items.push(n)}else Object.assign(p,{name:d.name,cat:d.cat,color:d.color,photo:d.photo,lim:d.lim});
+    if(isNew){const n={...item(d.name,d.cat,d.color),photo:d.photo,lim:d.lim,cls:d.cls};S.items.push(n)}else Object.assign(p,{name:d.name,cat:d.cat,color:d.color,photo:d.photo,lim:d.lim,cls:d.cls});
     save();closeSheet();render();ticket(isNew?'PRENDA AGREGADA':'PRENDA ACTUALIZADA',[['Prenda',d.name],['Tipo',CATS[d.cat].n]],[['Se lava cada',d.lim?d.lim+' puesta'+(d.lim>1?'s':''):'nunca'],['Color',d.color.toUpperCase()]])};
 }
 /* Foto: recorte cuadrado de 360 px y color predominante para el aura */
@@ -925,7 +945,7 @@ if(/Chrome\//.test(navigator.userAgent)&&!/Edg\//.test(navigator.userAgent))docu
 
 /* ---------- Arranque ---------- */
 (async()=>{S=await DB.get('state');if(!S||!Array.isArray(S.items)){S=seed();save()}
-  S.pals=S.pals||[];S.log=S.log||[];S.outfits=S.outfits||[];if(S.sound===undefined)S.sound=true;if(!(S.gap>=1))S.gap=3;
+  S.pals=S.pals||[];S.log=S.log||[];S.outfits=S.outfits||[];if(S.sound===undefined)S.sound=true;if(!(S.gap>=1))S.gap=3;if(!Array.isArray(S.clases))S.clases=[{id:'casa',name:'Casa'},{id:'presentable',name:'Presentable'},{id:'trabajo',name:'Trabajo'}];
   applyPal(curPal());go('hoy');
   try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
   if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
