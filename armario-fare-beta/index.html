@@ -627,7 +627,7 @@ function rRopa(){const it=S.items,cnt={todas:it.length,libre:it.filter(okP).leng
       <span class="tn">${n}</span>${pic(g.ps[0])}
       <b>${esc(k.n)}</b><small>${n} ${plural(n)}${r?` · <i class="tr">${r} hace poco</i>`:''}</small>
       <span class="dots">${cols.slice(0,8).map((c,x)=>`<i style="--c:${c}" title="${esc(g.ps[x].name)}"></i>`).join('')}${n>8?`<em>+${n-8}</em>`:''}</span></button>`}).join('')}</div>`}
-  <div class="row2" style="margin-top:14px"><button class="btn pri" id="addFoto" style="flex:2 1 auto">${IC.cam}Agregar con foto</button><button class="btn" id="addRopa">Sin foto</button></div>
+  <button class="btn pri wide" id="addRopa" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar</button>
   </div>`;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;rRopa();afterRender()});
   $$('#v-ropa [data-g]').forEach(b=>b.onclick=()=>{grp=b.dataset.g;vt(()=>{rRopa();$('#v-ropa').scrollTop=0});afterRender()});
@@ -641,7 +641,7 @@ function rRopa(){const it=S.items,cnt={todas:it.length,libre:it.filter(okP).leng
     const id=b.dataset.id;quit.has(id)?quit.delete(id):quit.add(id);b.classList.toggle('qsel',quit.has(id));const l=$('#v-ropa .label');if(l&&l.firstChild)l.firstChild.nodeValue='Seleccionadas: '+quit.size;qbar()}});
   const qo=$('#qOn');if(qo)qo.onclick=()=>{quit=new Set();filt='todas';rRopa();afterRender()};
   qbar();
-  $('#addRopa').onclick=()=>editItem(null);$('#addFoto').onclick=quickPhoto;
+  $('#addRopa').onclick=()=>editItem(null);
 }
 
 /* Barra de «Quitar prendas»: Cancelar · Todas · Quitar (n), con confirmación en el mismo botón */
@@ -660,7 +660,7 @@ function qbar(){let b=$('#qbar');if(!quit||view!=='ropa'){b&&b.remove();return}
 const MAN=[
  ['Hoy','Arriba: lo que te pusiste en los últimos días; no lo repitas todavía. Abajo: el conjunto sugerido (evita lo reciente). «Me lo pongo» registra la puesta; las flechas dan otra idea. En «Últimas puestas», la ✕ deshace una.'],
  ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
- ['Agregar ropa','El botón de cámara (arriba) o «Agregar con foto» abre la cámara. El color sale solo de la foto; elige el tipo y guarda. «Sin foto» para agregarla a mano.'],
+ ['Agregar ropa','El botón de cámara (arriba) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
  ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
  ['No repetir','Si vas a ponerte algo que usaste hace poco, sale «Ojo: repites». Los días se cambian en Ajustes → No repetir. Ropa interior, medias y calzado no cuentan.'],
  ['Conjuntos','«Armar conjunto» guarda combinaciones que te gustan. También puedes guardar uno desde el carrusel de Hoy.'],
