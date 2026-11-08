@@ -87,7 +87,22 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
 .qbar .btn.qx{flex:0 0 46px;padding:0}.qbar .btn.qx svg{width:18px;height:18px}
 .qbar .btn.go{background:var(--warn);color:#fff;border-color:var(--warn)}
 .qn{font-family:var(--mono);color:var(--pri);font-weight:700}
-.tipos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tipos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.tipos:not(.col) .tipo{padding:10px 9px;--cut:10px}
+.tipos:not(.col) .tipo .pic{width:46px}
+.tipos:not(.col) .tipo b{font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.tipos:not(.col) .tipo small{font-size:.66rem}
+.tipos:not(.col) .tipo .tn{font-size:1.45rem;right:9px;top:7px}
+.tipos:not(.col) .tipo .dots{gap:4px}.tipos:not(.col) .tipo .dots i{width:11px;height:11px}
+/* Columna: un bloque por fila */
+.tipos.col{grid-template-columns:minmax(0,1fr)}
+.tipos.col .tipo{display:grid;grid-template-columns:56px minmax(0,1fr) auto;grid-template-rows:auto auto auto;column-gap:12px;row-gap:2px;align-items:center}
+.tipos.col .tipo .pic{grid-row:1/4;grid-column:1;width:56px;margin:0}
+.tipos.col .tipo b,.tipos.col .tipo small,.tipos.col .tipo .dots{grid-column:2}
+.tipos.col .tipo .tn{position:static;grid-column:3;grid-row:1/4;font-size:1.8rem}
+.tipos.col .tipo .dots{margin-top:2px}
+.vbtn{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:var(--solid);border:1px solid var(--line);color:var(--pri)}
+.vbtn svg{width:15px;height:15px}
 .tipo{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;text-align:left;min-width:0}
 .tipo>*{position:relative;z-index:3}
 .tipo .pic{width:64px;margin-bottom:4px}
@@ -632,12 +647,12 @@ function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.it
   const K=grp?CATS[grp]||CATS.otro:null,plural=n=>n===1?'prenda':'prendas';
   $('#v-ropa').innerHTML=`<div class="wrap">
   ${grp?`<button class="backp" id="gBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Toda mi ropa</button>`:''}
-  <div class="label" style="margin-top:6px">${quit?`Seleccionadas: ${quit.size}`:grp?esc(K.n):'Mi ropa'}${quit?'':`<span style="display:flex;gap:10px;align-items:center"><em>${sumQ(grp?list:it)} ${plural(sumQ(grp?list:it))}</em><button class="quitp" id="qOn">Seleccionar</button></span>`}</div>
+  <div class="label" style="margin-top:6px">${quit?`Seleccionadas: ${quit.size}`:grp?esc(K.n):'Mi ropa'}${quit?'':`<span style="display:flex;gap:10px;align-items:center"><em>${sumQ(grp?list:it)} ${plural(sumQ(grp?list:it))}</em>${showCards?'':`<button class="vbtn" id="vista" aria-label="${S.vista==='col'?'Ver en bloques':'Ver en columna'}">${S.vista==='col'?'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="9.5" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="9.5" width="5" height="5" rx="1"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><rect x="16" y="9.5" width="5" height="5" rx="1"/></svg>':'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>'}</button>`}<button class="quitp" id="qOn">Seleccionar</button></span>`}</div>
   <div class="chips">${['todas','libre','rep','lavar'].map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filt===k}">${FL[k]} <b>${grp?sumQ(it.filter(p=>p.cat===grp).filter({todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[k])):cnt[k]}</b></button>`).join('')}</div>
-  ${quit?'':`<div class="chips clases"><button class="chip addc" id="clsEd" aria-label="Crear o borrar clases">+ / −</button><button class="chip" data-cls="" aria-pressed="${!clsF}">Toda clase</button>${S.clases.map(c=>`<button class="chip" data-cls="${c.id}" aria-pressed="${clsF===c.id}">${esc(c.name)} <b>${sumQ(S.items.filter(p=>(p.cls||[]).includes(c.id)))}</b></button>`).join('')}</div>`}
+  ${quit?'':`<div class="chips clases">${S.clases.map(c=>`<button class="chip" data-cls="${c.id}" aria-pressed="${clsF===c.id}">${esc(c.name)} <b>${sumQ(S.items.filter(p=>(p.cls||[]).includes(c.id)))}</b></button>`).join('')}<button class="chip" data-cls="" aria-pressed="${!clsF}">Toda clase</button><button class="chip addc" id="clsEd" aria-label="Crear o borrar clases">+ / −</button></div>`}
   ${!list.length?`<div class="none">Vacío.</div>`
   :showCards?`<div class="grid">${list.map(cardHTML).join('')}</div>`
-  :`<div class="tipos">${groups.map(g=>{const k=CATS[g.k]||CATS.otro,n=sumQ(g.ps),r=sumQ(g.ps.filter(rep)),cols=g.ps.flatMap(p=>Array(qty(p)).fill(p.color)),nm=g.ps.flatMap(p=>Array(qty(p)).fill(p.name));
+  :`<div class="tipos ${S.vista==='col'?'col':''}">${groups.map(g=>{const k=CATS[g.k]||CATS.otro,n=sumQ(g.ps),r=sumQ(g.ps.filter(rep)),cols=g.ps.flatMap(p=>Array(qty(p)).fill(p.color)),nm=g.ps.flatMap(p=>Array(qty(p)).fill(p.name));
     return`<button class="tipo cutg tl" data-tilt="8" data-g="${g.k}" style="--c:${g.ps[0].color}"><span class="gl"></span>
       <span class="tn">${n}</span>${pic(g.ps[0])}
       <b>${esc(k.n)}</b><small>${n} ${plural(n)}${r?` · <i class="tr">${r} hace poco</i>`:''}</small>
@@ -647,6 +662,7 @@ function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.it
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;rRopa();afterRender()});
   $$('[data-cls]').forEach(b=>b.onclick=()=>{clsF=b.dataset.cls||null;rRopa();afterRender()});
   const ce=$('#clsEd');if(ce)ce.onclick=clasesSheet;
+  const vb=$('#vista');if(vb)vb.onclick=()=>{S.vista=S.vista==='col'?'blo':'col';save();vt(()=>rRopa());afterRender()};
   $$('#v-ropa [data-g]').forEach(b=>b.onclick=()=>{grp=b.dataset.g;vt(()=>{rRopa();$('#v-ropa').scrollTop=0});afterRender()});
   const gb=$('#gBack');if(gb)gb.onclick=()=>{grp=null;quit=null;vt(()=>{rRopa();$('#v-ropa').scrollTop=0});afterRender()};
   $$('#v-ropa [data-id]').forEach(b=>{let lt=null,held=false;
@@ -703,6 +719,7 @@ const MAN=[
  ['Hoy','Arriba: lo que te pusiste en los últimos días; no lo repitas todavía. Abajo: el conjunto sugerido (evita lo reciente). «Me lo pongo» registra la puesta; las flechas dan otra idea. En «Últimas puestas», la ✕ deshace una.'],
  ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
  ['Clases','En Ropa, la segunda fila: Casa, Presentable, Trabajo… Toca una para ver solo esa ropa. «+ / −» crea clases con tu nombre o las borra. En Seleccionar, «Clase» pone una clase a varias prendas: «Añadir» la suma; «Solo esta» cambia sus clases por esa. Cada prenda puede tener varias clases: se eligen al agregarla o editarla.'],
+ ['Bloques o columna','En Ropa, el botón redondo junto a «Seleccionar» cambia los tipos entre bloques (3 por fila) y columna (uno por fila).'],
  ['Agregar ropa','El botón de cámara (arriba, en Hoy) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
  ['Cantidad','Si tienes varias prendas iguales (por ejemplo, 2 pantalones negros), agrégala una vez y sube «Cantidad». Se cuentan todas, y solo te avisa «Ojo: repites» cuando ya usaste todas en los últimos días. «Se lava cada» no es la cantidad: son las puestas antes de lavar.'],
  ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
