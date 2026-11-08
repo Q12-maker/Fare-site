@@ -84,6 +84,7 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
   display:flex;gap:8px;padding:8px;border-radius:24px;max-width:640px;margin:0 auto}
 .qbar>*{position:relative;z-index:3}
 .qbar .btn{flex:1 1 auto;padding:11px 12px;border-radius:999px;font-size:.86rem}
+.qbar .btn.qx{flex:0 0 46px;padding:0}.qbar .btn.qx svg{width:18px;height:18px}
 .qbar .btn.go{background:var(--warn);color:#fff;border-color:var(--warn)}
 .tipos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .tipo{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px;text-align:left;min-width:0}
@@ -651,21 +652,22 @@ function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.it
 }
 
 /* Clases de ropa (Juan, 8-nov): Casa, Presentable y Trabajo de inicio; se crean con nombre propio y se borran */
-function clasesSheet(){const s=openSheet(`<div class="sh-title"><h3>Clases</h3><button class="x" id="kX" aria-label="Cerrar">${IC.x}</button></div>
+function clasesSheet(after){const s=openSheet(`<div class="sh-title"><h3>Clases</h3><button class="x" id="kX" aria-label="Cerrar">${IC.x}</button></div>
   <ul class="list">${S.clases.map(c=>`<li class="rowi" style="grid-template-columns:minmax(0,1fr) auto"><div class="t"><b>${esc(c.name)}</b><span>${(n=>n+(n===1?' prenda':' prendas'))(S.items.filter(p=>(p.cls||[]).includes(c.id)).length)}</span></div><div class="act2"><button class="sbtn" data-kdel="${c.id}">Borrar</button></div></li>`).join('')}</ul>
   <div class="row2" style="margin-top:12px"><input class="inp" id="kN" maxlength="20" placeholder="Nueva clase" style="flex:1 1 140px;width:auto"><button class="btn pri" id="kAdd">Crear</button></div>`);
-  $('#kX',s).onclick=closeSheet;
+  $('#kX',s).onclick=()=>{if(after){closeNow();after()}else closeSheet()};
   $$('[data-kdel]',s).forEach(b=>b.onclick=()=>{if(!b.dataset.sure){b.dataset.sure=1;b.textContent='¿Seguro?';return}const id=b.dataset.kdel;
-    S.clases=S.clases.filter(c=>c.id!==id);S.items.forEach(p=>{if(p.cls)p.cls=p.cls.filter(x=>x!==id)});if(clsF===id)clsF=null;save();closeNow();render();clasesSheet()});
+    S.clases=S.clases.filter(c=>c.id!==id);S.items.forEach(p=>{if(p.cls)p.cls=p.cls.filter(x=>x!==id)});if(clsF===id)clsF=null;save();closeNow();render();clasesSheet(after)});
   const add=()=>{const n=$('#kN',s).value.trim();if(!n)return;if(S.clases.some(c=>c.name.toLowerCase()===n.toLowerCase()))return toast('Ya existe');
-    S.clases.push({id:uid(),name:n});save();closeNow();render();clasesSheet()};
+    S.clases.push({id:uid(),name:n});save();closeNow();render();clasesSheet(after)};
   $('#kAdd',s).onclick=add;$('#kN',s).onkeydown=e=>{if(e.key==='Enter')add()}}
 
 /* Barra de «Quitar prendas»: Cancelar · Todas · Quitar (n), con confirmación en el mismo botón */
 function qbar(){let b=$('#qbar');if(!quit||view!=='ropa'){b&&b.remove();return}
   if(!b){b=document.createElement('div');b.id='qbar';b.className='qbar liquid';$('#app').append(b)}
   const n=quit.size,all=n>0&&qList.every(id=>quit.has(id));
-  b.innerHTML=`<span class="lsh"></span><button class="btn" id="qNo">Cancelar</button><button class="btn" id="qAll">${all?'Ninguna':'Todas'}</button><button class="btn go" id="qGo" ${n?'':'disabled style="opacity:.45"'}>Borrar (${n})</button>`;
+  b.innerHTML=`<span class="lsh"></span><button class="btn qx" id="qNo" aria-label="Cancelar">${IC.x}</button><button class="btn" id="qAll">${all?'Ninguna':'Todas'}</button><button class="btn" id="qCl" ${n?'':'disabled style="opacity:.45"'}>Clase</button><button class="btn go" id="qGo" ${n?'':'disabled style="opacity:.45"'}>Borrar (${n})</button>`;
+  $('#qCl',b).onclick=()=>{if(n)clsBulk()};
   $('#qNo',b).onclick=()=>{quit=null;rRopa();afterRender()};
   $('#qAll',b).onclick=()=>{quit=all?new Set():new Set(qList);rRopa();afterRender()};
   $('#qGo',b).onclick=ev=>{if(!n)return;const t=ev.currentTarget;if(!t.dataset.sure){t.dataset.sure=1;t.textContent=`¿Borrar ${n}?`;return}
@@ -673,11 +675,24 @@ function qbar(){let b=$('#qbar');if(!quit||view!=='ropa'){b&&b.remove();return}
     S.items=S.items.filter(p=>!quit.has(p.id));S.outfits.forEach(o=>o.items=o.items.filter(i=>!quit.has(i)));S.outfits=S.outfits.filter(o=>o.items.length);
     quit=null;save();render();ticket('PRENDAS BORRADAS',[['Prendas',names.length]],names.slice(0,12).map(x=>[x,'FUERA']),names.length>12?'Y '+(names.length-12)+' más':'')}}
 
+/* Clase para varias prendas seleccionadas (Juan, 8-nov): «Añadir» suma la clase; «Solo esta» cambia todas sus clases por esa */
+function clsBulk(){const ids=[...quit],ps=ids.map(byId).filter(Boolean),has=c=>ps.filter(p=>(p.cls||[]).includes(c.id)).length;
+  const s=openSheet(`<div class="sh-title"><h3>Clase · ${ps.length}</h3><button class="x" id="cbX" aria-label="Cerrar">${IC.x}</button></div>
+  ${S.clases.length?`<ul class="list">${S.clases.map(c=>`<li class="rowi" style="grid-template-columns:minmax(0,1fr) auto"><div class="t"><b>${esc(c.name)}</b><span>${has(c)}/${ps.length}</span></div>
+    <div class="act2"><button class="sbtn" data-cba="${c.id}">Añadir</button><button class="sbtn pri" data-cbs="${c.id}">Solo esta</button></div></li>`).join('')}</ul>`:'<div class="none">Sin clases.</div>'}
+  <div class="row2" style="margin-top:12px"><button class="btn" id="cbNew">+ Nueva clase</button><button class="btn warn" id="cbNone">Sin clase</button></div>`);
+  const done=(t)=>{save();closeSheet();quit=null;render();toast(t)},nm=id=>(S.clases.find(c=>c.id===id)||{}).name;
+  $('#cbX',s).onclick=closeSheet;
+  $$('[data-cba]',s).forEach(b=>b.onclick=()=>{const id=b.dataset.cba;ps.forEach(p=>{p.cls=p.cls||[];if(!p.cls.includes(id))p.cls.push(id)});done(ps.length+' → '+nm(id))});
+  $$('[data-cbs]',s).forEach(b=>b.onclick=()=>{const id=b.dataset.cbs;ps.forEach(p=>p.cls=[id]);done(ps.length+' → solo '+nm(id))});
+  $('#cbNone',s).onclick=()=>{ps.forEach(p=>p.cls=[]);done(ps.length+' sin clase')};
+  $('#cbNew',s).onclick=()=>{closeNow();clasesSheet(()=>clsBulk())}}
+
 /* Manual (Juan, 8-nov): las pantallas van casi sin texto; toda la explicación vive aquí */
 const MAN=[
  ['Hoy','Arriba: lo que te pusiste en los últimos días; no lo repitas todavía. Abajo: el conjunto sugerido (evita lo reciente). «Me lo pongo» registra la puesta; las flechas dan otra idea. En «Últimas puestas», la ✕ deshace una.'],
  ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
- ['Clases','En Ropa, la segunda fila: Casa, Presentable, Trabajo… Toca una para ver solo esa ropa. «+ / −» crea clases con tu nombre o las borra. Cada prenda puede tener varias clases: se eligen al agregarla o editarla.'],
+ ['Clases','En Ropa, la segunda fila: Casa, Presentable, Trabajo… Toca una para ver solo esa ropa. «+ / −» crea clases con tu nombre o las borra. En Seleccionar, «Clase» pone una clase a varias prendas: «Añadir» la suma; «Solo esta» cambia sus clases por esa. Cada prenda puede tener varias clases: se eligen al agregarla o editarla.'],
  ['Agregar ropa','El botón de cámara (arriba) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
  ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
  ['No repetir','Si vas a ponerte algo que usaste hace poco, sale «Ojo: repites». Los días se cambian en Ajustes → No repetir. Ropa interior, medias y calzado no cuentan.'],
