@@ -87,6 +87,10 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
 .qbar .btn.qx{flex:0 0 46px;padding:0}.qbar .btn.qx svg{width:18px;height:18px}
 .qbar .btn.go{background:var(--warn);color:#fff;border-color:var(--warn)}
 .qn{font-family:var(--mono);color:var(--pri);font-weight:700}
+.shx{position:absolute;right:0;top:0;z-index:5}
+.sheet .sh-hero{grid-template-columns:88px minmax(0,1fr);padding-right:36px}
+.card .when.cond{background:color-mix(in srgb,var(--warn) 85%,#000)}
+.chip.chw[aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:#fff}
 .tipos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .tipos:not(.col) .tipo{padding:10px 9px;--cut:10px}
 .tipos:not(.col) .tipo .pic{width:46px}
@@ -505,7 +509,10 @@ const sumQ=l=>l.reduce((a,p)=>a+qty(p),0);
 function est(p){if(p.dirty)return'lavar';if(p.lim>0&&p.since>=p.lim*qty(p))return'lavar';if(p.lim>0&&p.since>0)return'usada';return'limpia'}
 const byId=id=>S.items.find(p=>p.id===id);
 const slotOf=p=>(CATS[p.cat]||CATS.otro).slot;
-const avail=slot=>S.items.filter(p=>slotOf(p)===slot&&est(p)!=='lavar');
+/* Estado de la prenda (Juan, 8-nov): bien, rota o para cambiar por otra. Rota y Cambiar no salen en las sugerencias. */
+const COND={bien:'Bien',roto:'Roto',cambiar:'Cambiar por otro'};
+const malo=p=>p&&(p.cond==='roto'||p.cond==='cambiar');
+const avail=slot=>S.items.filter(p=>slotOf(p)===slot&&est(p)!=='lavar'&&!malo(p));
 function hex2rgb(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');const n=parseInt(h,16);return[n>>16&255,n>>8&255,n&255]}
 function lum(h){const[r,g,b]=hex2rgb(h).map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4});return .2126*r+.7152*g+.0722*b}
 const cs=h=>lum(h)>.35?'rgba(0,0,0,.5)':'rgba(255,255,255,.55)';
@@ -628,19 +635,19 @@ function fan(){const car=$('#car');if(!car)return;const upd=()=>{const r=car.get
   if(!car.dataset.f){car.dataset.f=1;car.addEventListener('scroll',()=>requestAnimationFrame(upd),{passive:true})}upd()}
 
 /* ---------- ROPA ---------- */
-const FL={todas:'Todas',libre:'Puedo ponérmela',rep:'Hace poco',lavar:'Por lavar',limpia:'Limpia',usada:'Usada'};
-const okP=p=>!rep(p)&&est(p)!=='lavar';
+const FL={todas:'Todas',libre:'Puedo ponérmela',rep:'Hace poco',lavar:'Por lavar',mal:'Roto / cambiar',limpia:'Limpia',usada:'Usada'};
+const okP=p=>!rep(p)&&est(p)!=='lavar'&&!malo(p);
 let quit=null; /* Modo «Quitar prendas»: null o Set con los ids marcados */
 /* Ropa por tipos (Juan, 8-nov): primero un botón por cada tipo de prenda con cuántas hay y de qué colores;
    al tocarlo se abren solo esas prendas. «Quitar» muestra las prendas para marcarlas. */
 let grp=null,qList=[],clsF=null; /* clsF: clase de ropa elegida (null = todas) */
 const inCls=p=>!clsF||(p.cls||[]).includes(clsF);
-function cardHTML(p){const e=est(p),r=rep(p),q=quit&&quit.has(p.id);return`<button class="card tl s-${e} ${r?'rep':''} ${q?'qsel':''}" data-tilt="12" data-id="${p.id}" style="--c:${p.color}"><span class="gl"></span>${quit?`<span class="qk">${IC.check}</span>`:r?`<span class="when">${ago(p.last)}</span>`:''}${pic(p,`data-pic="${p.id}"`)}<b>${qty(p)>1?`<span class="qn">${qty(p)}×</span> `:''}${esc(p.name)}</b>
+function cardHTML(p){const e=est(p),r=rep(p),q=quit&&quit.has(p.id);return`<button class="card tl s-${e} ${r||malo(p)?'rep':''} ${q?'qsel':''}" data-tilt="12" data-id="${p.id}" style="--c:${p.color}"><span class="gl"></span>${quit?`<span class="qk">${IC.check}</span>`:malo(p)?`<span class="when cond">${p.cond==='roto'?'Roto':'Cambiar'}</span>`:r?`<span class="when">${ago(p.last)}</span>`:''}${pic(p,`data-pic="${p.id}"`)}<b>${qty(p)>1?`<span class="qn">${qty(p)}×</span> `:''}${esc(p.name)}</b>
     <div class="meta"><span class="st s-${e}"><i></i>${EST[e]}</span><span>${NOREP.includes(slotOf(p))?shortAgo(p.last):p.total+'×'}</span></div></button>`}
-function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.items.filter(inCls),cnt={todas:sumQ(it),libre:sumQ(it.filter(okP)),rep:sumQ(it.filter(rep)),lavar:sumQ(it.filter(p=>est(p)==='lavar'))};
+function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.items.filter(inCls),cnt={todas:sumQ(it),libre:sumQ(it.filter(okP)),rep:sumQ(it.filter(rep)),lavar:sumQ(it.filter(p=>est(p)==='lavar')),mal:sumQ(it.filter(malo))};
   if(!(filt in cnt))filt=filt==='limpia'?'libre':'todas';
   if(grp&&!it.some(p=>p.cat===grp))grp=null;
-  const order=Object.keys(CATS),fx={todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[filt];
+  const order=Object.keys(CATS),fx={todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar',mal:malo}[filt];
   const list=it.filter(fx).filter(p=>!grp||p.cat===grp).sort((a,b)=>order.indexOf(a.cat)-order.indexOf(b.cat)||daysAgo(b.last)-daysAgo(a.last));
   const groups=order.map(k=>({k,ps:list.filter(p=>p.cat===k)})).filter(g=>g.ps.length);
   const showCards=grp||quit;qList=list.map(p=>p.id);
@@ -648,14 +655,14 @@ function rRopa(){if(clsF&&!S.clases.some(c=>c.id===clsF))clsF=null;const it=S.it
   $('#v-ropa').innerHTML=`<div class="wrap">
   ${grp?`<button class="backp" id="gBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Toda mi ropa</button>`:''}
   <div class="label" style="margin-top:6px">${quit?`Seleccionadas: ${quit.size}`:grp?esc(K.n):'Mi ropa'}${quit?'':`<span style="display:flex;gap:10px;align-items:center"><em>${sumQ(grp?list:it)} ${plural(sumQ(grp?list:it))}</em>${showCards?'':`<button class="vbtn" id="vista" aria-label="${S.vista==='col'?'Ver en bloques':'Ver en columna'}">${S.vista==='col'?'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="9.5" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/><rect x="3" y="9.5" width="5" height="5" rx="1"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><rect x="16" y="9.5" width="5" height="5" rx="1"/></svg>':'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>'}</button>`}<button class="quitp" id="qOn">Seleccionar</button></span>`}</div>
-  <div class="chips">${['todas','libre','rep','lavar'].map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filt===k}">${FL[k]} <b>${grp?sumQ(it.filter(p=>p.cat===grp).filter({todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[k])):cnt[k]}</b></button>`).join('')}</div>
+  <div class="chips">${['todas','libre','rep','lavar','mal'].filter(k=>k!=='mal'||cnt.mal).map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filt===k}">${FL[k]} <b>${grp?sumQ(it.filter(p=>p.cat===grp).filter({todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar',mal:malo}[k])):cnt[k]}</b></button>`).join('')}</div>
   ${quit?'':`<div class="chips clases">${S.clases.map(c=>`<button class="chip" data-cls="${c.id}" aria-pressed="${clsF===c.id}">${esc(c.name)} <b>${sumQ(S.items.filter(p=>(p.cls||[]).includes(c.id)))}</b></button>`).join('')}<button class="chip" data-cls="" aria-pressed="${!clsF}">Toda clase</button><button class="chip addc" id="clsEd" aria-label="Crear o borrar clases">+ / −</button></div>`}
   ${!list.length?`<div class="none">Vacío.</div>`
   :showCards?`<div class="grid">${list.map(cardHTML).join('')}</div>`
   :`<div class="tipos ${S.vista==='col'?'col':''}">${groups.map(g=>{const k=CATS[g.k]||CATS.otro,n=sumQ(g.ps),r=sumQ(g.ps.filter(rep)),cols=g.ps.flatMap(p=>Array(qty(p)).fill(p.color)),nm=g.ps.flatMap(p=>Array(qty(p)).fill(p.name));
     return`<button class="tipo cutg tl" data-tilt="8" data-g="${g.k}" style="--c:${g.ps[0].color}"><span class="gl"></span>
       <span class="tn">${n}</span>${pic(g.ps[0])}
-      <b>${esc(k.n)}</b><small>${n} ${plural(n)}${r?` · <i class="tr">${r} hace poco</i>`:''}</small>
+      <b>${esc(k.n)}</b><small>${n} ${plural(n)}${r?` · <i class="tr">${r} hace poco</i>`:''}${g.ps.some(malo)?` · <i class="tr">${sumQ(g.ps.filter(malo))} mal</i>`:''}</small>
       <span class="dots">${cols.slice(0,8).map((c,x)=>`<i style="--c:${c}" title="${esc(nm[x])}"></i>`).join('')}${n>8?`<em>+${n-8}</em>`:''}</span></button>`}).join('')}</div>`}
   <button class="btn pri wide" id="addRopa" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar</button>
   </div>`;
@@ -720,6 +727,7 @@ const MAN=[
  ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
  ['Clases','En Ropa, la segunda fila: Casa, Presentable, Trabajo… Toca una para ver solo esa ropa. «+ / −» crea clases con tu nombre o las borra. En Seleccionar, «Clase» pone una clase a varias prendas: «Añadir» la suma; «Solo esta» cambia sus clases por esa. Cada prenda puede tener varias clases: se eligen al agregarla o editarla.'],
  ['Bloques o columna','En Ropa, el botón redondo junto a «Seleccionar» cambia los tipos entre bloques (3 por fila) y columna (uno por fila).'],
+ ['Estado','Al tocar una prenda: Estado → Bien, Roto o Cambiar por otro. Las rotas o para cambiar salen marcadas, no aparecen en las sugerencias ni en «Puedo ponérmela», y tienen su filtro «Roto / cambiar».'],
  ['Agregar ropa','El botón de cámara (arriba, en Hoy) abre la cámara: el color sale solo de la foto; elige el tipo y guarda. «Agregar» (en Ropa) la agrega a mano, con foto opcional.'],
  ['Cantidad','Si tienes varias prendas iguales (por ejemplo, 2 pantalones negros), agrégala una vez y sube «Cantidad». Se cuentan todas, y solo te avisa «Ojo: repites» cuando ya usaste todas en los últimos días. «Se lava cada» no es la cantidad: son las puestas antes de lavar.'],
  ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
@@ -834,15 +842,18 @@ function closeSheet(){if(!sheetEl)return;const h=$('[data-hero]',sheetEl),src=he
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSheet()});
 
 function itemSheet(p,src){const e=est(p),k=CATS[p.cat]||CATS.otro;
-  const s=openSheet(`<div class="sh-hero">${pic(p,'data-hero')}<div><h3>${esc(p.name)}</h3><div class="cat">${k.n}</div><span class="st s-${e}"><i></i>${EST[e]}</span></div></div>
+  const s=openSheet(`<button class="x shx" id="sX" aria-label="Cerrar">${IC.x}</button><div class="sh-hero">${pic(p,'data-hero')}<div><h3>${esc(p.name)}</h3><div class="cat">${k.n}</div><span class="st s-${e}"><i></i>${EST[e]}</span></div></div>
   ${rep(p)?`<div class="warnbox">Te la pusiste ${ago(p.last)}. Mejor espera ${S.gap-daysAgo(p.last)} día${S.gap-daysAgo(p.last)===1?'':'s'} más para no repetir.</div>`:''}
   <div class="stats"><div><small>Puestas totales</small><b>${p.total}</b></div>
   <div><small>Desde la lavada</small><b>${p.since}${p.lim?` <small>de ${p.lim}</small>`:''}</b></div>
   <div><small>Última vez</small><b style="font-size:1rem">${ago(p.last)}</b></div><div><small>Lavadas</small><b>${p.washes}</b></div></div>
   ${p.lim?`<div class="meter" style="margin:0 0 12px"><i style="--c:${e==='lavar'?'var(--warn)':p.color};width:${Math.min(100,p.since/p.lim*100)}%"></i></div>`:''}
+  <div class="field" style="margin-top:0">Estado<div class="chips" style="margin:6px 0 12px;padding:0;flex-wrap:wrap">${Object.entries(COND).map(([c,n])=>`<button class="chip ${c!=='bien'?'chw':''}" data-cond="${c}" aria-pressed="${(p.cond||'bien')===c}">${n}</button>`).join('')}</div></div>
   <div class="row2"><button class="btn pri" id="sWear">${IC.check}Me la puse hoy</button>
   ${e==='lavar'?`<button class="btn" id="sWash">${IC.wash}Ya está lavada</button>`:`<button class="btn" id="sDirty">${IC.wash}Mandar a lavar</button>`}</div>
   <div class="row2" style="margin-top:8px"><button class="btn" id="sEdit">Editar</button><button class="btn warn" id="sDel">Borrar</button></div>`,src);
+  $('#sX',s).onclick=closeSheet;
+  $$('[data-cond]',s).forEach(b=>b.onclick=()=>{p.cond=b.dataset.cond==='bien'?'':b.dataset.cond;save();$$('[data-cond]',s).forEach(x=>x.setAttribute('aria-pressed',x===b));render();toast(p.name+' · '+COND[b.dataset.cond])});
   $('#sWear',s).onclick=()=>{closeSheet();wear([p.id])};
   const w=$('#sWash',s);if(w)w.onclick=()=>{closeSheet();wash([p.id])};
   const d=$('#sDirty',s);if(d)d.onclick=()=>{p.dirty=true;save();closeSheet();render();toast(p.name+' → por lavar')};
