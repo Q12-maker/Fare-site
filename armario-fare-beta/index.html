@@ -91,6 +91,7 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
 .sheet .sh-hero{grid-template-columns:88px minmax(0,1fr);padding-right:36px}
 .card .when.cond{background:color-mix(in srgb,var(--warn) 85%,#000)}
 .chip.chw[aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:#fff}
+.pasos{margin:0;padding-left:20px;color:var(--muted);line-height:1.6;font-size:.9rem}.pasos b{color:var(--pri)}
 .tipos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .tipos:not(.col) .tipo{padding:10px 9px;--cut:10px}
 .tipos:not(.col) .tipo .pic{width:46px}
@@ -722,6 +723,18 @@ function clsBulk(){const ids=[...quit],ps=ids.map(byId).filter(Boolean),has=c=>p
   $('#cbNone',s).onclick=()=>{ps.forEach(p=>p.cls=[]);done(ps.length+' sin clase')};
   $('#cbNew',s).onclick=()=>{closeNow();clasesSheet(()=>clsBulk())}}
 
+/* Instalar app (Juan, 8-nov): usa el aviso del navegador si existe; si no (navegador dentro de otra app), explica cómo */
+let instEv=null;
+const instalada=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();instEv=e});
+addEventListener('appinstalled',()=>{instEv=null;toast('App instalada');if(view==='aj')rAj()});
+async function instalar(){if(instEv){instEv.prompt();try{await instEv.userChoice}catch(_){}instEv=null;return}
+  const s=openSheet(`<div class="sh-title"><h3>Instalar</h3><button class="x" id="iX" aria-label="Cerrar">${IC.x}</button></div>
+  <ol class="pasos"><li>Abre esta página en <b>Chrome</b> (no dentro de otra app: ⋮ → «Abrir en Chrome»).</li><li>En Chrome: <b>⋮</b> → <b>Instalar aplicación</b> o «Agregar a pantalla principal».</li></ol>
+  <button class="btn wide" id="iCopy" style="margin-top:12px">Copiar enlace</button>`);
+  $('#iX',s).onclick=closeSheet;
+  $('#iCopy',s).onclick=async()=>{try{await navigator.clipboard.writeText(location.href);toast('Enlace copiado')}catch(_){toast(location.href)}}}
+
 /* Manual (Juan, 8-nov): las pantallas van casi sin texto; toda la explicación vive aquí */
 const MAN=[
  ['Hoy','Arriba: lo que te pusiste en los últimos días; no lo repitas todavía. Abajo: el conjunto sugerido (evita lo reciente). «Me lo pongo» registra la puesta; las flechas dan otra idea. En «Últimas puestas», la ✕ deshace una.'],
@@ -783,7 +796,7 @@ function rLav(){const g={lavar:[],usada:[],limpia:[]};S.items.forEach(p=>g[est(p
 let draft=null;
 function rAj(){const cur=curPal();draft=draft||{...cur};
   const all=[...STD.map(p=>({...p,std:1})),...S.pals];
-  $('#v-aj').innerHTML=`<div class="wrap"><button class="btn pri wide" id="manual" style="margin-top:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5c3-1 6-1 8 1 2-2 5-2 8-1v14c-3-1-6-1-8 1-2-2-5-2-8-1z"/><path d="M12 6v14"/></svg>Manual</button>
+  $('#v-aj').innerHTML=`<div class="wrap">${instalada()?'':`<button class="btn pri wide" id="instalar" style="margin-top:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Instalar app</button>`}<button class="btn ${instalada()?'pri':''} wide" id="manual" style="margin-top:${instalada()?6:10}px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5c3-1 6-1 8 1 2-2 5-2 8-1v14c-3-1-6-1-8 1-2-2-5-2-8-1z"/><path d="M12 6v14"/></svg>Manual</button>
   <div class="label">Paleta 70 / 20 / 10<em>${esc(cur.name)}</em></div>
   <div class="bar7"><div style="flex:7;background:${draft.amb};color:${draft.pri}">70</div><div style="flex:2;background:${draft.pri};color:${draft.amb}">20</div><div style="flex:1;background:${draft.sec};color:${draft.amb}">10</div></div>
   <div class="cpick">${[['amb','Ambiente 70'],['pri','Principal 20'],['sec','Secundario 10']].map(([k,n])=>`<label>${n}<input type="color" data-c="${k}" value="${draft[k]}"><em>${draft[k].toUpperCase()}</em></label>`).join('')}</div>
@@ -812,6 +825,7 @@ function rAj(){const cur=curPal();draft=draft||{...cur};
   $('#snd').onclick=()=>{S.sound=!S.sound;save();rAj()};
   $('#gM').onclick=()=>{S.gap=Math.max(1,S.gap-1);save();rAj()};$('#gP').onclick=()=>{S.gap=Math.min(30,S.gap+1);save();rAj()};
   $('#manual').onclick=manual;
+  const ib=$('#instalar');if(ib)ib.onclick=instalar;
   $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='armario-fare-'+today()+'.json';a.click()};
   $('#imp').onclick=()=>$('#impF').click();
   $('#impF').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.items))throw 0;S=d;save();applyPal(curPal());draft=null;go('hoy');toast('Copia cargada')}catch(_){toast('Ese archivo no es una copia de Armario Fare')}};
