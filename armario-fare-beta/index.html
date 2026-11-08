@@ -98,6 +98,12 @@ h1,h2,h3{font-family:var(--display);letter-spacing:-.02em;margin:0}
 .tipo .dots em{font:700 .66rem var(--mono);font-style:normal;color:var(--muted)}
 .backp{display:inline-flex;align-items:center;gap:6px;padding:7px 14px 7px 10px;border-radius:999px;background:var(--solid);border:1px solid var(--line);font-size:.8rem;font-weight:700;margin-top:4px}
 .backp svg{width:16px;height:16px}
+.man details{border-bottom:1px solid var(--line)}
+.man summary{list-style:none;cursor:pointer;padding:13px 2px;font-weight:700;display:flex;justify-content:space-between}
+.man summary::-webkit-details-marker{display:none}
+.man summary::after{content:"+";font-family:var(--mono);color:var(--muted)}
+.man details[open] summary::after{content:"−"}
+.man p{margin:0 2px 14px;color:var(--muted);font-size:.88rem;line-height:1.55}
 .recent{display:flex;gap:10px;overflow-x:auto;margin:0 -16px;padding:4px 16px 6px}
 .recent button{flex:none;width:86px;display:flex;flex-direction:column;gap:5px;text-align:center;font-size:.72rem;min-width:0}
 .recent button b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -549,7 +555,7 @@ function rHoy(){const it=S.items,cnt={limpia:0,usada:0,lavar:0};it.forEach(p=>cn
   $('#v-hoy').innerHTML=`<div class="wrap">
   <div class="label" style="margin-top:6px">No repetir todavía<em>últimos ${S.gap} días</em></div>
   ${recent.length?`<div class="recent">${recent.map(p=>`<button data-rp="${p.id}" style="--c:${p.color}">${pic(p)}<b>${esc(p.name)}</b><em>${ago(p.last)}</em></button>`).join('')}</div>`
-  :`<div class="ok-banner cutg"><b>Puedes ponerte cualquier prenda.</b> No te has puesto nada en los últimos ${S.gap} días. Cuando toques «Me lo pongo», la prenda aparece aquí para que no la repitas por error.</div>`}
+  :`<div class="ok-banner cutg"><b>Todo libre.</b></div>`}
   <div class="label">Tablero<em>${fdate(today())}</em></div>
   <div class="dash">
     <div class="tile main cutg tl" data-tilt="6"><span class="gl"></span>
@@ -573,13 +579,13 @@ function rHoy(){const it=S.items,cnt={limpia:0,usada:0,lavar:0};it.forEach(p=>cn
         <ul>${sug.map(p=>`<li style="--c:${p.color}"><i></i><span>${esc(p.name)}</span><small>${shortAgo(p.last)}</small></li>`).join('')}</ul>
         <div class="row2"><button class="btn pri" id="wearSug">${IC.check}Me lo pongo</button><button class="btn" id="nextSug" aria-label="Otra idea">${IC.dice}</button></div>
       </div></div></div>`
-  :`<div class="emptyHero cutg">No sale ningún conjunto limpio. Falta ropa limpia de <b>${lack.join(', ')||'arriba, abajo o pies'}</b>. Ve a <b>Lavado</b> y marca lo que ya lavaste.</div>`}
+  :`<div class="emptyHero cutg">Falta ropa limpia: <b>${lack.join(', ')||'arriba, abajo o pies'}</b>.</div>`}
   ${cb.list.length>1?`<div class="label">Todos los conjuntos posibles<em>${cb.list.length}</em></div>
   <div class="carousel" id="car">${cb.list.slice(0,40).map((x,i)=>`<button class="combo" data-cb="${i}" style="${auraVars(x)}"><div class="stack">${x.map(p=>pic(p)).join('')}</div><div class="n">#${i+1}</div><b>${esc(x[0].name)}</b><b style="color:var(--muted);font-weight:400">${esc(x[1].name)}</b></button>`).join('')}</div>`:''}
   <div class="label">Últimas puestas</div>
   ${S.log.length?`<ul class="list log">${S.log.slice(0,8).map(l=>{const ps=l.items.map(byId).filter(Boolean);const o=l.o&&S.outfits.find(o=>o.id===l.o);
     return`<li class="rowi" style="--c:${ps[0]?ps[0].color:'#888'}"><div class="minis">${ps.slice(0,3).map(p=>pic(p)).join('')}</div><div class="t"><b>${o?esc(o.name):fdate(l.d)}</b><span>${o?fdate(l.d)+' · ':''}${ps.map(p=>esc(p.name)).join(', ')}</span></div><button class="x" data-undo="${l.id}" aria-label="Deshacer esta puesta">${IC.x}</button></li>`}).join('')}</ul>`
-  :`<div class="none">Cuando te pongas un conjunto, toca <b>Me lo pongo</b> y aquí queda la cuenta de puestas.</div>`}
+  :`<div class="none">Sin puestas.</div>`}
   </div>`;
   const v=$('#v-hoy');
   $$('[data-go-lav]',v).forEach(b=>b.onclick=()=>{filt=b.dataset.goLav;go('ropa')});
@@ -614,7 +620,7 @@ function rRopa(){const it=S.items,cnt={todas:it.length,libre:it.filter(okP).leng
   ${grp?`<button class="backp" id="gBack"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Toda mi ropa</button>`:''}
   <div class="label" style="margin-top:6px">${quit?`Seleccionadas: ${quit.size}`:grp?esc(K.n):'Mi ropa'}${quit?'':`<span style="display:flex;gap:10px;align-items:center"><em>${grp?list.length:it.length} ${plural(grp?list.length:it.length)}</em><button class="quitp" id="qOn">Seleccionar</button></span>`}</div>
   <div class="chips">${['todas','libre','rep','lavar'].map(k=>`<button class="chip" data-f="${k}" aria-pressed="${filt===k}">${FL[k]} <b>${grp?it.filter(p=>p.cat===grp).filter({todas:()=>true,libre:okP,rep,lavar:p=>est(p)==='lavar'}[k]).length:cnt[k]}</b></button>`).join('')}</div>
-  ${!list.length?`<div class="none">No hay prendas en «${FL[filt]}».</div>`
+  ${!list.length?`<div class="none">Vacío.</div>`
   :showCards?`<div class="grid">${list.map(cardHTML).join('')}</div>`
   :`<div class="tipos">${groups.map(g=>{const k=CATS[g.k]||CATS.otro,n=g.ps.length,r=g.ps.filter(rep).length,cols=g.ps.map(p=>p.color);
     return`<button class="tipo cutg tl" data-tilt="8" data-g="${g.k}" style="--c:${g.ps[0].color}"><span class="gl"></span>
@@ -622,7 +628,7 @@ function rRopa(){const it=S.items,cnt={todas:it.length,libre:it.filter(okP).leng
       <b>${esc(k.n)}</b><small>${n} ${plural(n)}${r?` · <i class="tr">${r} hace poco</i>`:''}</small>
       <span class="dots">${cols.slice(0,8).map((c,x)=>`<i style="--c:${c}" title="${esc(g.ps[x].name)}"></i>`).join('')}${n>8?`<em>+${n-8}</em>`:''}</span></button>`}).join('')}</div>`}
   <div class="row2" style="margin-top:14px"><button class="btn pri" id="addFoto" style="flex:2 1 auto">${IC.cam}Agregar con foto</button><button class="btn" id="addRopa">Sin foto</button></div>
-  <p class="note">${showCards?`Abajo a la derecha dice cuándo te la pusiste por última vez («ayer», «4 d»). Las que te pusiste en los últimos ${S.gap} días salen apagadas con aviso rojo: esas no te las repitas todavía.`:`Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas.`} Para meter ropa, toca <b>Agregar con foto</b>: el color sale solo de la foto. Para borrar varias, toca <b>Seleccionar</b> o mantén presionada una prenda.</p></div>`;
+  </div>`;
   $$('[data-f]').forEach(b=>b.onclick=()=>{filt=b.dataset.f;rRopa();afterRender()});
   $$('#v-ropa [data-g]').forEach(b=>b.onclick=()=>{grp=b.dataset.g;vt(()=>{rRopa();$('#v-ropa').scrollTop=0});afterRender()});
   const gb=$('#gBack');if(gb)gb.onclick=()=>{grp=null;quit=null;vt(()=>{rRopa();$('#v-ropa').scrollTop=0});afterRender()};
@@ -650,6 +656,20 @@ function qbar(){let b=$('#qbar');if(!quit||view!=='ropa'){b&&b.remove();return}
     S.items=S.items.filter(p=>!quit.has(p.id));S.outfits.forEach(o=>o.items=o.items.filter(i=>!quit.has(i)));S.outfits=S.outfits.filter(o=>o.items.length);
     quit=null;save();render();ticket('PRENDAS BORRADAS',[['Prendas',names.length]],names.slice(0,12).map(x=>[x,'FUERA']),names.length>12?'Y '+(names.length-12)+' más':'')}}
 
+/* Manual (Juan, 8-nov): las pantallas van casi sin texto; toda la explicación vive aquí */
+const MAN=[
+ ['Hoy','Arriba: lo que te pusiste en los últimos días; no lo repitas todavía. Abajo: el conjunto sugerido (evita lo reciente). «Me lo pongo» registra la puesta; las flechas dan otra idea. En «Últimas puestas», la ✕ deshace una.'],
+ ['Ropa','Cada botón es un tipo de prenda: el número dice cuántas tienes y los puntos, de qué color es cada una. Tócalo para verlas. Filtros: «Puedo ponérmela», «Hace poco», «Por lavar». En cada prenda, abajo a la derecha, dice cuándo la usaste («ayer», «4 d»); las recientes salen apagadas con aviso rojo.'],
+ ['Agregar ropa','El botón de cámara (arriba) o «Agregar con foto» abre la cámara. El color sale solo de la foto; elige el tipo y guarda. «Sin foto» para agregarla a mano.'],
+ ['Borrar ropa','Toca «Seleccionar» o mantén presionada una prenda. Marca las que quieras (o «Todas») y toca «Borrar». Pide confirmar.'],
+ ['No repetir','Si vas a ponerte algo que usaste hace poco, sale «Ojo: repites». Los días se cambian en Ajustes → No repetir. Ropa interior, medias y calzado no cuentan.'],
+ ['Conjuntos','«Armar conjunto» guarda combinaciones que te gustan. También puedes guardar uno desde el carrusel de Hoy.'],
+ ['Lavado','Cada prenda pasa sola a «Por lavar» al llegar a sus puestas (se cambia al editarla). Marca «Lavada» o «Ya lavé todo».'],
+ ['Copia de seguridad','Todo se guarda solo en este teléfono. Descarga una copia de vez en cuando para no perder tu ropa si borras los datos del navegador.']];
+function manual(){const s=openSheet(`<div class="sh-title"><h3>Manual</h3><button class="x" id="mX" aria-label="Cerrar">${IC.x}</button></div>
+  <div class="man">${MAN.map(([t,d])=>`<details><summary>${t}</summary><p>${d}</p></details>`).join('')}</div>`);
+  $('#mX',s).onclick=closeSheet}
+
 /* ---------- CONJUNTOS ---------- */
 function rConj(){const cb=combos();
   $('#v-conj').innerHTML=`<div class="wrap"><div class="label" style="margin-top:6px">Mis conjuntos<em>${S.outfits.length}</em></div>
@@ -657,13 +677,13 @@ function rConj(){const cb=combos();
     return`<li><button class="rowi" style="--c:${ps[0]?ps[0].color:'#888'};width:100%" data-o="${o.id}"><div class="minis">${ps.slice(0,3).map(p=>pic(p)).join('')}</div>
     <div class="t"><b>${esc(o.name)}</b><span>${bad.length?'Falta lavar: '+bad.map(p=>esc(p.name)).join(', '):'Listo para ponértelo'}</span></div>
     <span class="st ${bad.length?'s-lavar':'s-limpia'}"><i></i><span class="mono">${o.worn||0}×</span></span></button></li>`}).join('')}</ul>`
-  :`<div class="none">Todavía no has guardado conjuntos. Arma uno con las prendas que te gusta combinar.</div>`}
+  :`<div class="none">Sin conjuntos.</div>`}
   <button class="btn pri wide" id="newO" style="margin-top:14px">${IC.shirt}Armar conjunto</button>
   <div class="label">Con lo limpio salen<em>${cb.list.length}</em></div>
   <div class="dash">${[['arriba','Arriba',cb.A],['abajo','Abajo',cb.B],['pies','Pies',cb.C]].map(([k,n,v])=>{const all=S.items.filter(p=>slotOf(p)===k).length;
     return`<div class="tile rg"><div class="k">${n}</div>${num('s'+k,v,'de '+all)}<div class="meter"><i data-w="${all?v/all*100:0}%"></i></div></div>`}).join('')}
     <div class="tile rg"><div class="k">Combinaciones</div>${num('cb2',cb.list.length)}<div class="s mono">${cb.A} × ${cb.B} × ${cb.C}</div></div></div>
-  <p class="note">Las combinaciones posibles están en <b>Hoy</b>, en el carrusel. Ahí puedes guardarlas como conjunto.</p></div>`;
+</div>`;
   $$('[data-o]').forEach(b=>b.onclick=()=>outfitSheet(S.outfits.find(o=>o.id===b.dataset.o)));
   $('#newO').onclick=()=>builder(null);
 }
@@ -678,7 +698,7 @@ function rLav(){const g={lavar:[],usada:[],limpia:[]};S.items.forEach(p=>g[est(p
   </div>
   <div class="label">Por lavar<em>${g.lavar.length}</em></div>
   ${g.lavar.length?`<ul class="list">${g.lavar.map(p=>row(p,`<button class="sbtn pri" data-wash="${p.id}">Lavada</button>`)).join('')}</ul>
-    <button class="btn pri wide" id="washAll" style="margin-top:12px">${IC.wash}Ya lavé todo (${g.lavar.length})</button>`:`<div class="none">Nada por lavar. 🙌</div>`}
+    <button class="btn pri wide" id="washAll" style="margin-top:12px">${IC.wash}Ya lavé todo (${g.lavar.length})</button>`:`<div class="none">Nada.</div>`}
   <div class="label">Usada (aguanta otra puesta)<em>${g.usada.length}</em></div>
   ${g.usada.length?`<ul class="list">${g.usada.map(p=>row(p,`<button class="sbtn" data-dirty="${p.id}">A lavar</button><button class="sbtn" data-wash="${p.id}">Lavada</button>`)).join('')}</ul>`:`<div class="none">Ninguna.</div>`}
   <div class="label">Lavada y limpia<em>${g.limpia.length}</em></div>
@@ -693,7 +713,8 @@ function rLav(){const g={lavar:[],usada:[],limpia:[]};S.items.forEach(p=>g[est(p
 let draft=null;
 function rAj(){const cur=curPal();draft=draft||{...cur};
   const all=[...STD.map(p=>({...p,std:1})),...S.pals];
-  $('#v-aj').innerHTML=`<div class="wrap"><div class="label" style="margin-top:6px">Paleta 70 / 20 / 10<em>${esc(cur.name)}</em></div>
+  $('#v-aj').innerHTML=`<div class="wrap"><button class="btn pri wide" id="manual" style="margin-top:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5c3-1 6-1 8 1 2-2 5-2 8-1v14c-3-1-6-1-8 1-2-2-5-2-8-1z"/><path d="M12 6v14"/></svg>Manual</button>
+  <div class="label">Paleta 70 / 20 / 10<em>${esc(cur.name)}</em></div>
   <div class="bar7"><div style="flex:7;background:${draft.amb};color:${draft.pri}">70</div><div style="flex:2;background:${draft.pri};color:${draft.amb}">20</div><div style="flex:1;background:${draft.sec};color:${draft.amb}">10</div></div>
   <div class="cpick">${[['amb','Ambiente 70'],['pri','Principal 20'],['sec','Secundario 10']].map(([k,n])=>`<label>${n}<input type="color" data-c="${k}" value="${draft[k]}"><em>${draft[k].toUpperCase()}</em></label>`).join('')}</div>
   <div class="row2" style="margin-top:10px"><input class="inp" id="palName" placeholder="Nombre de la paleta" maxlength="24" style="flex:1 1 160px;width:auto"><button class="btn pri" id="palSave">Guardar</button></div>
@@ -706,7 +727,6 @@ function rAj(){const cur=curPal();draft=draft||{...cur};
   <button class="toggle" id="snd" aria-pressed="${S.sound}">Sonido de la impresora<i></i></button>
   <div class="row2" style="margin-top:10px"><button class="btn" id="exp">Descargar copia</button><button class="btn" id="imp">Cargar copia</button></div>
   <button class="btn warn wide" id="reset" style="margin-top:10px">Volver a la ropa de ejemplo</button>
-  <p class="note">Todo se guarda en este teléfono. Descarga una copia de vez en cuando para no perder tu ropa si borras los datos del navegador.</p>
   <input type="file" id="impF" accept="application/json,.json" hidden></div>`;
   $$('[data-c]').forEach(i=>i.oninput=()=>{draft[i.dataset.c]=i.value;applyPal(draft);const em=i.nextElementSibling;em.textContent=i.value.toUpperCase();
     const b=$$('.bar7 div');b[0].style.cssText=`flex:7;background:${draft.amb};color:${draft.pri}`;b[1].style.cssText=`flex:2;background:${draft.pri};color:${draft.amb}`;b[2].style.cssText=`flex:1;background:${draft.sec};color:${draft.amb}`});
@@ -721,6 +741,7 @@ function rAj(){const cur=curPal();draft=draft||{...cur};
     $('button',li).onclick=ok;inp.onkeydown=e=>{if(e.key==='Enter')ok()}});
   $('#snd').onclick=()=>{S.sound=!S.sound;save();rAj()};
   $('#gM').onclick=()=>{S.gap=Math.max(1,S.gap-1);save();rAj()};$('#gP').onclick=()=>{S.gap=Math.min(30,S.gap+1);save();rAj()};
+  $('#manual').onclick=manual;
   $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='armario-fare-'+today()+'.json';a.click()};
   $('#imp').onclick=()=>$('#impF').click();
   $('#impF').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.items))throw 0;S=d;save();applyPal(curPal());draft=null;go('hoy');toast('Copia cargada')}catch(_){toast('Ese archivo no es una copia de Armario Fare')}};
@@ -847,7 +868,7 @@ function builder(o){const isNew=!o||!o.id,d={name:o?.name||'',items:[...(o?.item
 /* ---------- Acciones ---------- */
 function wear(ids,oid,sure){const r=ids.map(byId).filter(rep);
   if(r.length&&!sure){const s=openSheet(`<div class="sh-title"><h3>Ojo: repites</h3><button class="x" id="wX" aria-label="Cerrar">${IC.x}</button></div>
-    <p class="sub" style="margin:0 0 6px">Te pusiste esto hace poco:</p>
+    
     ${r.map(p=>`<div class="reprow" style="--c:${p.color}">${pic(p)}<div><b>${esc(p.name)}</b><span>${ago(p.last)}</span></div></div>`).join('')}
     <div class="row2" style="margin-top:14px"><button class="btn pri" id="wNo">Elegir otra cosa</button><button class="btn" id="wYes">Ponérmelo igual</button></div>`);
     $('#wX',s).onclick=closeSheet;$('#wNo',s).onclick=()=>{closeSheet();filt='libre';go('ropa')};
