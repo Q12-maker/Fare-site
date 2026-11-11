@@ -1,0 +1,49 @@
+# Publica la web de Faresite en Cloudflare Pages (gratis), sin "q12-maker" en la dirección:
+#   faresite/       -> https://faresite.pages.dev       (oficial)
+#   faresite-beta/  -> https://faresite-beta.pages.dev  (Beta)
+# Corre sola al subir cambios a main en esas carpetas, o a mano desde la pestaña Actions.
+# Necesita dos secretos del repositorio: CF_TOKEN (token de Cloudflare solo con permiso
+# "Cloudflare Pages: Edit") y CF_CUENTA (el Account ID de Cloudflare). Nunca van en el código.
+name: Faresite en Cloudflare
+
+on:
+  push:
+    branches: [main]
+    paths: ["faresite/**", "faresite-beta/**", ".github/workflows/faresite-cloudflare.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: faresite-cloudflare
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CF_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_CUENTA }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Revisar secretos
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::Faltan los secretos CF_TOKEN y/o CF_CUENTA (Settings > Secrets and variables > Actions). No se publicó nada."
+            echo "LISTO=no" >> "$GITHUB_ENV"
+          else
+            echo "LISTO=si" >> "$GITHUB_ENV"
+          fi
+      - name: Publicar oficial y Beta
+        if: env.LISTO == 'si'
+        run: |
+          for par in "faresite:faresite" "faresite-beta:faresite-beta"; do
+            P="${par%%:*}"; D="${par##*:}"
+            # La primera vez el proyecto no existe: se crea solo.
+            npx --yes wrangler@4 pages project list | grep -qE "(^|[^a-z0-9-])$P([^a-z0-9-]|$)" \
+              || npx --yes wrangler@4 pages project create "$P" --production-branch main
+            npx --yes wrangler@4 pages deploy "$D" --project-name "$P" --branch main --commit-dirty=true
+            echo "$D -> https://$P.pages.dev" >> "$GITHUB_STEP_SUMMARY"
+          done
