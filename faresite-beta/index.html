@@ -211,7 +211,7 @@ h2{font-size:clamp(32px,5.4vw,58px);margin:12px 0 18px}
 /* Ventana Fare + recibo de impresora */
 .velo{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,#000 72%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);opacity:0;pointer-events:none;transition:opacity .5s}
 .velo.on{opacity:1;pointer-events:auto}
-.velo::before{content:"";position:absolute;width:min(46vmin,360px);aspect-ratio:1;background:url(logo-faresite.svg) center/contain no-repeat;opacity:.08;animation:sway 10s ease-in-out infinite}
+.velo::before{content:"";position:absolute;width:min(46vmin,360px);aspect-ratio:1;background:url(logo-simple.svg) center/contain no-repeat;opacity:.08;animation:sway 10s ease-in-out infinite}
 .ventana{position:relative;width:min(460px,100%);max-height:calc(100svh - 32px);padding:30px 26px 24px;clip-path:var(--recorte);
   background:color-mix(in srgb,var(--amb) 80%,transparent);border:1px solid var(--borde);
   backdrop-filter:blur(18px) saturate(1.6);-webkit-backdrop-filter:blur(18px) saturate(1.6);box-shadow:inset 0 1px 0 var(--brillo);
@@ -266,7 +266,7 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
 <main>
 <section class="portada" id="inicio" data-fm-luz="#4be36a,#1f6b2a">
   <div>
-    <img class="logo-gran" src="logo-faresite.svg" alt="Logo de Faresite">
+    <img class="logo-gran" src="logo-simple.svg" alt="Logo de Faresite">
     <h1 data-fm-revelar>Tu negocio, <em>en orden</em> y en internet.</h1>
     <p>Faresite le arma a tu negocio tres cosas que trabajan juntas: tu página web, tu app de administración y un WhatsApp que trabaja solo.</p>
     <div class="acciones">
@@ -449,7 +449,7 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
 </main>
 
 <footer>
-  <img src="logo-faresite.svg" alt=""><br>
+  <img src="logo-simple.svg" alt=""><br>
   <b>Faresite</b> · Web, software y automatización · Colombia<br>
   Hecho por Faresite: <a href="https://stylo-vayet.pages.dev" target="_blank" rel="noopener">Stylo Vayet</a>
 </footer>
