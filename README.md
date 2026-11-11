@@ -15,3 +15,11 @@ Apps web de Faresite publicadas con GitHub Pages.
 ## Audio Fare Beta
 
 `audio-fare-beta/`: versión de prueba de Audio Fare (https://q12-maker.github.io/Fare-site/audio-fare-beta/). Todo cambio va primero aquí; pasa a `audio-fare/` solo cuando Juan lo revise. Comparte la música y los ajustes con la oficial porque viven en el mismo sitio. Para publicar: subir a `main` y cambiar la versión de caché en `audio-fare-beta/sw.js`.
+
+## Faresite Beta
+
+`faresite-beta/`: página web de la agencia Faresite (https://q12-maker.github.io/Fare-site/faresite-beta/). Servicios: página web, app de administración, WhatsApp que trabaja solo y asistente con IA (adicional). Todo cambio va primero aquí; la versión oficial se crea solo cuando Juan la revise. Para publicar una versión nueva: subir a `main` y cambiar la versión de caché en `faresite-beta/sw.js`. El número de WhatsApp de Faresite va en la variable `WHATSAPP` de `index.html` (hoy: el WhatsApp personal de Juan).
+
+## Faresite (oficial)
+
+`faresite/`: versión oficial de la web de Faresite (https://q12-maker.github.io/Fare-site/faresite/). Solo recibe cambios ya revisados por Juan en `faresite-beta/`. Al publicar: copiar desde la Beta (sin la etiqueta BETA) y subir la versión de caché en `faresite/sw.js`.
