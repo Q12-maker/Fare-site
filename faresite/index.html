@@ -161,6 +161,16 @@ h2{font-size:clamp(32px,5.4vw,58px);margin:12px 0 18px}
 .cifra::after{content:"";position:absolute;right:-30px;bottom:-30px;width:110px;height:110px;border-radius:50%;background:var(--a,var(--pri));opacity:.16;filter:blur(30px)}
 .barras{display:flex;align-items:flex-end;gap:6px;height:54px;margin-top:12px}
 .barras i{flex:1;background:linear-gradient(var(--pri),var(--sec));border-radius:4px 4px 0 0;transition:height .9s var(--suave-curva)}
+/* Tablero vivo (también en el celular, donde no hay cursor) */
+.barras i{transform-origin:bottom;animation:respira 3.4s ease-in-out infinite;animation-delay:calc(var(--n,0)*.22s)}
+@keyframes respira{50%{transform:scaleY(.8)}}
+.cifra.gran::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.13) 50%,transparent 65%);transform:translateX(-120%);animation:destello 5.5s var(--suave-curva) infinite}
+.cifra::after{animation:orbe 7s ease-in-out infinite alternate}
+@keyframes orbe{to{transform:translate(-50px,-26px) scale(1.35)}}
+.cifra{transition:transform .35s var(--rebote)}
+.cifra:active{transform:scale(.96)}
+.cifra.late{animation:late-cifra .6s var(--rebote)}
+@keyframes late-cifra{40%{transform:scale(1.04);box-shadow:0 0 30px color-mix(in srgb,var(--a,var(--pri)) 40%,transparent)}}
 .panel{padding:22px}
 .panel h3{font-size:22px;margin-bottom:6px}
 .panel p{color:var(--suave);font-size:15px;margin:0 0 16px}
@@ -640,13 +650,25 @@ function pintar(){var gan=cuentas.ven-cuentas.gas-cuentas.per;
   contar($('#vVen'),antes.ven,cuentas.ven);contar($('#vGas'),antes.gas,cuentas.gas);contar($('#vPer'),antes.per,cuentas.per);contar($('#vFia'),antes.fia,cuentas.fia);contar($('#vGan'),antes.gan,gan);
   antes={ven:cuentas.ven,gas:cuentas.gas,per:cuentas.per,fia:cuentas.fia,gan:gan};
   var b=$$('#barras i'); b[b.length-1].style.height=Math.max(12,Math.min(100,gan/12000))+'%'; }
-var tab=$('.tablero'); if(io){new IntersectionObserver(function(es,o){if(es[0].isIntersecting){o.disconnect();pintar()}},{threshold:.3}).observe(tab)} else pintar();
+var tab=$('.tablero'), barras=$$('#barras i'), altos=barras.map(function(b){return b.style.height});
+barras.forEach(function(b,i){b.style.setProperty('--n',i)});
+/* Cada vez que llegas a esta diapositiva (en el computador o en el celular) las cuentas se vuelven a armar */
+function entrar(){if(reduce){pintar();return}
+  antes={ven:0,gas:0,per:0,fia:0,gan:0};
+  barras.forEach(function(b){b.style.transition='none';b.style.height='0%'});
+  $$('.cifra',tab).forEach(function(c,i){c.animate&&c.animate([{opacity:0,transform:'translateY(18px) scale(.94)'},{opacity:1,transform:'none'}],{duration:700,delay:i*90,easing:'cubic-bezier(.3,1.4,.5,1)',fill:'backwards'})});
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    barras.forEach(function(b,i){b.style.transition='height .9s cubic-bezier(.3,1.4,.5,1) '+(i*70)+'ms';b.style.height=altos[i]});
+    pintar();})});}
+if(io){new IntersectionObserver(function(es){if(es[0].isIntersecting)entrar()},{threshold:.5}).observe(tab)} else pintar();
+/* Al cambiar un número, su tarjeta late */
+function latir(id){var c=$(id).closest('.cifra');c.classList.remove('late');void c.offsetWidth;c.classList.add('late')}
 $$('[data-rep]').forEach(function(b){b.onclick=function(){var r=b.dataset.rep;
   if(r==='perdida')cuentas.per+=25000;
   if(r==='favor'){cuentas.gas+=8000;}
   if(r==='fiado'){cuentas.fia+=30000;}
   if(r==='pago'&&cuentas.fia>=30000){cuentas.fia-=30000;cuentas.ven+=30000;}
-  pintar(); b.animate&&b.animate([{transform:'scale(.95)'},{transform:'scale(1.03)'},{transform:'scale(1)'}],{duration:450,easing:'cubic-bezier(.3,1.6,.5,1)'}); }});
+  pintar(); latir('#vGan'); if(r==='perdida')latir('#vPer'); if(r==='favor')latir('#vGas'); if(r==='fiado'||r==='pago')latir('#vFia'); if(r==='pago')latir('#vVen'); b.animate&&b.animate([{transform:'scale(.95)'},{transform:'scale(1.03)'},{transform:'scale(1)'}],{duration:450,easing:'cubic-bezier(.3,1.6,.5,1)'}); }});
 
 /* Chat de WhatsApp de ejemplo */
 var chat=$('#chat');
