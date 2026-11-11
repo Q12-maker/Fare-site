@@ -23,3 +23,7 @@ Apps web de Faresite publicadas con GitHub Pages.
 ## Faresite (oficial)
 
 `faresite/`: versión oficial de la web de Faresite (https://q12-maker.github.io/Fare-site/faresite/). Solo recibe cambios ya revisados por Juan en `faresite-beta/`. Al publicar: copiar desde la Beta (sin la etiqueta BETA) y subir la versión de caché en `faresite/sw.js`.
+
+## Faresite en Cloudflare (sin "q12-maker" en la dirección)
+
+`.github/workflows/faresite-cloudflare.yml` publica `faresite/` en https://faresite.pages.dev y `faresite-beta/` en https://faresite-beta.pages.dev cada vez que cambian en `main`. Necesita los secretos `CF_TOKEN` (token de Cloudflare solo con permiso Cloudflare Pages: Edit) y `CF_CUENTA` (Account ID) en este repositorio.
