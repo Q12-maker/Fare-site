@@ -18,11 +18,11 @@ Apps web de Faresite publicadas con GitHub Pages.
 
 ## Faresite Beta
 
-`faresite-beta/`: página web de la agencia Faresite (https://q12-maker.github.io/Fare-site/faresite-beta/). Servicios: página web, app de administración, WhatsApp que trabaja solo y asistente con IA (adicional). Todo cambio va primero aquí; la versión oficial se crea solo cuando Juan la revise. Para publicar una versión nueva: subir a `main` y cambiar la versión de caché en `faresite-beta/sw.js`. El número de WhatsApp de Faresite va en la variable `WHATSAPP` de `index.html` (hoy: el WhatsApp personal de Juan).
+`faresite-beta/`: página web de la agencia Faresite (https://faresite-beta.pages.dev; también https://q12-maker.github.io/Fare-site/faresite-beta/). Servicios: página web, app de administración, WhatsApp que trabaja solo y asistente con IA (adicional). Todo cambio va primero aquí; la versión oficial se crea solo cuando Juan la revise. Para publicar una versión nueva: subir a `main` y cambiar la versión de caché en `faresite-beta/sw.js`. El número de WhatsApp de Faresite va en la variable `WHATSAPP` de `index.html` (hoy: el WhatsApp personal de Juan).
 
 ## Faresite (oficial)
 
-`faresite/`: versión oficial de la web de Faresite (https://q12-maker.github.io/Fare-site/faresite/). Solo recibe cambios ya revisados por Juan en `faresite-beta/`. Al publicar: copiar desde la Beta (sin la etiqueta BETA) y subir la versión de caché en `faresite/sw.js`.
+`faresite/`: versión oficial de la web de Faresite (https://faresite.pages.dev; también https://q12-maker.github.io/Fare-site/faresite/). Solo recibe cambios ya revisados por Juan en `faresite-beta/`. Al publicar: copiar desde la Beta (sin la etiqueta BETA) y subir la versión de caché en `faresite/sw.js`.
 
 ## Faresite en Cloudflare (sin "q12-maker" en la dirección)
 
