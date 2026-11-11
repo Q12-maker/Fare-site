@@ -14,4 +14,4 @@ Apps web de Faresite publicadas con GitHub Pages.
 
 ## Faresite Beta
 
-`faresite-beta/`: página web de la agencia Faresite (https://q12-maker.github.io/Fare-site/faresite-beta/). Servicios: página web, app de administración, WhatsApp que trabaja solo y asistente con IA (adicional). Todo cambio va primero aquí; la versión oficial se crea solo cuando Juan la revise. Para publicar una versión nueva: subir a `main` y cambiar la versión de caché en `faresite-beta/sw.js`. El número de WhatsApp de Faresite va en la variable `WHATSAPP` de `index.html` (vacía por ahora).
+`faresite-beta/`: página web de la agencia Faresite (https://q12-maker.github.io/Fare-site/faresite-beta/). Servicios: página web, app de administración, WhatsApp que trabaja solo y asistente con IA (adicional). Todo cambio va primero aquí; la versión oficial se crea solo cuando Juan la revise. Para publicar una versión nueva: subir a `main` y cambiar la versión de caché en `faresite-beta/sw.js`. El número de WhatsApp de Faresite va en la variable `WHATSAPP` de `index.html` (hoy: el WhatsApp personal de Juan).
