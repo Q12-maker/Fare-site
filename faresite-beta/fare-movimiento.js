@@ -105,16 +105,19 @@
   // Haces de luz que fluyen en diagonal con los colores de la marca, como luz entrando por una ventana.
   var FRAG = [
     'precision mediump float;',
-    'uniform vec2 r; uniform float t; uniform vec2 m; uniform vec3 a; uniform vec3 b;',
-    'float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
+    'uniform vec2 r; uniform float t; uniform vec2 m; uniform vec3 a; uniform vec3 b; uniform float z;',
+    // Los teléfonos calculan con media precisión (16 bits); el computador con 32. Aquí se redondea igual que el teléfono
+    // para que la luz se vea idéntica en ambos (Juan, 3-nov-2026); en el teléfono este redondeo no cambia nada.
+    'float q(float v){float e=exp2(floor(log2(abs(v)+1e-7))-10.);return floor(v/e+.5)*e;}',
+    'float h(vec2 p){return fract(q(q(sin(q(dot(p,vec2(127.1,311.7)))))*43758.5453));}',
     'float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1,0)),f.x),mix(h(i+vec2(0,1)),h(i+vec2(1,1)),f.x),f.y);}',
     'float fbm(vec2 p){float v=0.,s=.5;for(int i=0;i<4;i++){v+=s*n(p);p*=2.03;s*=.5;}return v;}',
     'void main(){',
-    ' vec2 uv=gl_FragCoord.xy/r; vec2 p=uv; p.x*=r.x/r.y;',
-    ' float d=dot(p-vec2(m.x*r.x/r.y,m.y),normalize(vec2(1.,.55)));',
+    ' vec2 uv=gl_FragCoord.xy/r; vec2 p=uv; p.x*=r.x/r.y; p*=z; vec2 o=vec2(m.x*r.x/r.y,m.y)*z;',
+    ' float d=dot(p-o,normalize(vec2(1.,.55)));',
     ' float w=fbm(vec2(d*3.,t*.08)+fbm(p*1.6+t*.05));',
     ' float rayos=pow(.5+.5*sin(d*9.+w*6.-t*.35),6.)*.9+pow(.5+.5*sin(d*23.-w*9.+t*.22),14.)*.6;',
-    ' float halo=exp(-3.2*length(p-vec2(m.x*r.x/r.y,m.y)));',
+    ' float halo=exp(-3.2*length(p-o));',
     ' vec3 c=mix(a,b,smoothstep(.2,.8,w))*rayos*(.35+.65*w)+a*halo*.55;',
     ' float vig=smoothstep(1.25,.25,length(uv-vec2(.5)));',
     ' c+=(h(gl_FragCoord.xy+t)-.5)*.03;',
@@ -137,31 +140,38 @@
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     var lp = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(lp); gl.vertexAttribPointer(lp, 2, gl.FLOAT, false, 0, 0);
-    var U = {}; ['r', 't', 'm', 'a', 'b'].forEach(function (k) { U[k] = gl.getUniformLocation(pr, k); });
+    var U = {}; ['r', 't', 'm', 'a', 'b', 'z'].forEach(function (k) { U[k] = gl.getUniformLocation(pr, k); });
     gl.uniform3fv(U.a, rgb(cols[0])); gl.uniform3fv(U.b, rgb(cols[1] || cols[0]));
     sec.insertBefore(cv, sec.firstChild);
+    /* Si el teléfono pierde la tarjeta gráfica (pestaña en segundo plano, poca memoria) la luz se apaga en vez de pintar la pantalla de blanco */
+    cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); cv.classList.remove('fm-on'); cv.style.display = 'none'; visible = false; }, false);
 
     // Media resolución: se ve igual de suave (es luz difusa) y gasta cuatro veces menos batería
     var escala = Math.min(window.devicePixelRatio || 1, 2) * .5;
-    function medir() { cv.width = Math.max(1, cv.clientWidth * escala | 0); cv.height = Math.max(1, cv.clientHeight * escala | 0); gl.viewport(0, 0, cv.width, cv.height); gl.uniform2f(U.r, cv.width, cv.height); }
+    function medir() { cv.width = Math.max(1, cv.clientWidth * escala | 0); cv.height = Math.max(1, cv.clientHeight * escala | 0); gl.viewport(0, 0, cv.width, cv.height); gl.uniform2f(U.r, cv.width, cv.height);
+      /* En pantallas anchas (computador) se 'acerca' la luz para que quepan los mismos haces que en el teléfono (390x844), y no muchas rayas finas */
+      var asp = cv.width / cv.height; gl.uniform1f(U.z, Math.min(1, .887 / (asp * .876 + .482))); }
     medir(); window.addEventListener('resize', medir);
 
     var mx = .8, my = .75, ox = mx, oy = my, visible = true, corre = false, t0 = performance.now(), ult = 0;
-    sec.addEventListener('pointermove', function (e) { var r = cv.getBoundingClientRect(); mx = (e.clientX - r.left) / r.width; my = 1 - (e.clientY - r.top) / r.height; }, { passive: true });
+    /* Igual que en el teléfono: la luz solo se mueve al arrastrar el dedo, no con el simple paso del cursor del computador */
+    sec.addEventListener('pointermove', function (e) { if (e.pointerType === 'mouse') return; var r = cv.getBoundingClientRect(); mx = (e.clientX - r.left) / r.width; my = 1 - (e.clientY - r.top) / r.height; }, { passive: true });
     function cuadro(t) {
-      corre = visible && !document.hidden;
+      var hc = document.documentElement.classList;
+      corre = visible && !document.hidden && !hc.contains('con-armar') && !hc.contains('lector-abierto');
       if (!corre) return;
       requestAnimationFrame(cuadro);
       if (t - ult < 32) return; // ~30 cuadros por segundo bastan para luz lenta
       ult = t;
       ox += (mx - ox) * .04; oy += (my - oy) * .04;
-      gl.uniform1f(U.t, (t - t0) / 1000); gl.uniform2f(U.m, ox, oy);
+      gl.uniform1f(U.t, ((t - t0) / 1000) % 900); gl.uniform2f(U.m, ox, oy);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       if (!cv.classList.contains('fm-on')) cv.classList.add('fm-on');
     }
     function arranca() { if (!corre) requestAnimationFrame(cuadro); }
     if ('IntersectionObserver' in window) new IntersectionObserver(function (e) { visible = e[0].isIntersecting; if (visible) arranca(); }).observe(sec);
     document.addEventListener('visibilitychange', arranca);
+    if (window.MutationObserver) new MutationObserver(arranca).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); // al cerrar una ventana, la luz vuelve
     arranca();
   }
 
