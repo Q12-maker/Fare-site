@@ -25,8 +25,6 @@
   --recorte:polygon(var(--c) 0,100% 0,100% calc(100% - var(--c)),calc(100% - var(--c)) 100%,0 100%,0 var(--c));
   color-scheme:dark;
 }
-:root[data-paleta="oscuro"]{--amb:#000;--pri:#fff;--sec:#8c8c8c;--txt:#f4f4f4}
-:root[data-paleta="claro"]{--amb:#fff;--pri:#000;--sec:#8c8c8c;--txt:#101010;--brillo:rgba(255,255,255,.7);color-scheme:light}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--amb);color:var(--txt);font:400 17px/1.6 Manrope,system-ui,sans-serif;overflow-x:hidden;transition:background .8s var(--suave-curva),color .8s}
@@ -40,8 +38,6 @@ button{font:inherit;color:inherit}
 .ambiente{position:fixed;inset:-20%;z-index:-1;pointer-events:none;opacity:.07;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='140'%3E%3Cpath d='M30 10l14 17-14 17-14-17zM90 80l10 12-10 12-10-12z' fill='none' stroke='%234be36a' stroke-width='1.5'/%3E%3C/svg%3E");
   animation:deriva 90s linear infinite}
-:root[data-paleta="claro"] .ambiente{filter:invert(1) grayscale(1)}
-:root[data-paleta="oscuro"] .ambiente{filter:grayscale(1)}
 @keyframes deriva{to{transform:translate(120px,140px)}}
 
 /* Barra de vidrio líquido */
@@ -231,10 +227,6 @@ h2{font-size:clamp(32px,5.4vw,58px);margin:12px 0 18px}
 .ok{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--pri);font-size:18px}
 
 /* Paletas */
-.paletas{display:grid;gap:10px}
-.paletas button{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-radius:999px;border:1px solid var(--borde);background:var(--vidrio);cursor:pointer;font-weight:600}
-.paletas button[aria-pressed="true"]{border-color:var(--pri);box-shadow:0 0 0 1px var(--pri)}
-.paletas .m{display:flex;gap:4px}.paletas .m i{width:16px;height:16px;border-radius:50%;border:1px solid rgba(128,128,128,.5)}
 
 footer{padding:50px 16px 60px;text-align:center;color:var(--suave);font-size:14px;border-top:1px solid var(--borde)}
 footer img{width:42px;opacity:.8}
@@ -250,20 +242,89 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
   *,*::before,*::after{animation:none!important;transition-duration:.2s!important}
   .sube{opacity:1;transform:none}
 }
+
+/* ===== Diapositivas (como la web de Stylo Vayet) ===== */
+html{scroll-snap-type:y mandatory;scroll-behavior:auto}
+section.diapo{min-height:100vh;min-height:100dvh;padding:clamp(64px,9dvh,92px) 16px clamp(80px,11dvh,104px);scroll-snap-align:start;scroll-snap-stop:always;display:flex;align-items:center}
+section.diapo>.ancho,section.diapo>div{width:100%}
+section.diapo:nth-of-type(even){background:radial-gradient(ellipse 60% 55% at 100% 100%,color-mix(in srgb,var(--pri) 20%,transparent),transparent 70%),linear-gradient(115deg,var(--amb) 0%,var(--amb) 46%,color-mix(in srgb,var(--sec) 22%,var(--amb)) 66%,color-mix(in srgb,var(--sec) 48%,var(--amb)) 100%)}
+section.diapo:nth-of-type(odd):not([data-fm-luz]){background:radial-gradient(ellipse 60% 55% at 0% 0%,color-mix(in srgb,var(--pri) 18%,transparent),transparent 70%),linear-gradient(295deg,var(--amb) 0%,var(--amb) 46%,color-mix(in srgb,var(--sec) 22%,var(--amb)) 66%,color-mix(in srgb,var(--sec) 48%,var(--amb)) 100%)}
+section.diapo h2{font-size:clamp(30px,min(5vw,6.4dvh),54px);margin:8px 0 12px}
+section.diapo .intro{margin-bottom:clamp(14px,3.4dvh,36px);font-size:clamp(15px,2.1dvh,18px)}
+.portada .logo-gran{width:min(240px,52vw,26dvh)}
+.portada h1{font-size:clamp(40px,min(8vw,9.5dvh),96px)}
+.portada p{margin:clamp(12px,2.4dvh,22px) auto clamp(18px,3.4dvh,34px)}
+.bajar{margin-top:clamp(18px,4dvh,48px)}
+.carrusel{height:clamp(360px,52dvh,560px)}
+@media (max-height:840px){.hoja{padding:24px 26px 22px}.hoja .icono{display:none}.hoja .extra{display:none}.hoja li{font-size:15px}.hoja h3{margin-top:6px}}
+@media (max-height:700px){.hoja p:not(.lema){display:none}}
+.cel{height:clamp(420px,62dvh,560px)}
+.cifra.gran .v{font-size:clamp(30px,min(5vw,6dvh),54px)}
+.barras{height:clamp(30px,5dvh,54px)}
+.panel{padding:18px 20px}.reportes{gap:8px}.reportes .pildora{padding:11px 20px}
+.contacto{padding:clamp(20px,3dvh,30px)}.contacto .chips{margin:6px 0 clamp(10px,2dvh,20px)}.contacto .campo{margin-bottom:clamp(8px,1.6dvh,14px)}
+.pie{margin-top:clamp(12px,2.4dvh,30px);text-align:center;color:var(--suave);font-size:13px}
+.pie a{color:var(--pri)}
+/* Barra de abajo (dock) de vidrio */
+.dock{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:50;display:flex;gap:6px;padding:7px;border-radius:999px;
+  background:color-mix(in srgb,var(--amb) 45%,transparent);border:1px solid var(--borde);backdrop-filter:blur(14px) saturate(1.8);-webkit-backdrop-filter:blur(14px) saturate(1.8);box-shadow:inset 0 1px 0 var(--brillo),0 10px 40px rgba(0,0,0,.4)}
+.dock a{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--suave);transition:transform .35s var(--rebote),background .4s,color .4s;position:relative}
+.dock a svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dock a:hover{transform:scale(1.15);color:var(--txt)}
+.dock a:hover+a,.dock a:has(+a:hover){transform:scale(1.06)}
+.dock a.activa{background:var(--pri);color:var(--amb);box-shadow:0 0 18px color-mix(in srgb,var(--pri) 50%,transparent)}
+.dock .tip{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(4px);white-space:nowrap;font-size:12px;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--amb) 80%,transparent);border:1px solid var(--borde);color:var(--txt);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s}
+.dock a:hover .tip{opacity:1;transform:translateX(-50%)}
+@media (hover:none){.dock .tip{display:none}}
+@media (max-width:420px){.dock{gap:2px;padding:6px}.dock a{width:40px;height:40px}}
+.contador{position:fixed;z-index:30;right:clamp(16px,2.4vw,32px);top:50%;transform:translateY(-50%);writing-mode:vertical-rl;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:var(--suave)}
+@media (max-width:760px){
+  .contador{display:none}
+  section.diapo{align-items:flex-start}
+  #servicios .intro{display:none}
+  .carrusel{height:clamp(420px,calc(100dvh - 300px),600px)}
+  .flujo{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin-inline:-16px;padding:0 16px 6px;scrollbar-width:none}
+  .flujo::-webkit-scrollbar{display:none}
+  .paso{flex:0 0 78%;scroll-snap-align:center}
+  .tablero{grid-template-columns:1fr 1fr}
+  .cifra{padding:12px 14px}.cifra .v{font-size:20px}
+  .demo .nota{display:none}
+  #whatsapp .ia{display:none}
+  .cel{height:clamp(400px,calc(100dvh - 330px),560px)}
+}
+@media (max-height:860px){.bajar{display:none}#contacto .intro{margin-bottom:12px}}
+@media (max-height:800px){#contacto .intro{display:none}}
+@media (max-width:760px){
+  section.diapo{padding:72px 16px 82px}
+  section.diapo h2{font-size:clamp(26px,7.4vw,34px);margin:6px 0 10px}
+  #como,#inicio{align-items:center}#como .intro{display:block}
+  .paso{padding:26px 22px}.paso h3{font-size:24px}.paso p{font-size:16px}
+  #ejemplo .intro,#whatsapp .intro,#contacto .intro{display:none}
+  .portada .logo-gran{width:min(150px,18dvh)}
+  .portada h1{font-size:clamp(34px,10vw,44px)}
+  .portada p{font-size:16px;margin:12px auto 18px}
+  .acciones .pildora{padding:12px 18px;font-size:15px}
+  .carrusel{height:clamp(400px,calc(100dvh - 300px),600px)}
+  .hoja{padding:22px 20px 20px}.hoja .icono,.hoja .extra{display:none}.hoja h3{font-size:26px;margin-top:6px}.hoja li{font-size:14.5px}.hoja ul{gap:7px}
+  .cifra.gran{padding:16px}.cifra.gran .v{font-size:30px}.barras{height:28px;margin-top:8px}
+  .panel{padding:14px}.panel h3,.panel>p{display:none}
+  .reportes{grid-template-columns:1fr 1fr}.reportes .pildora{padding:10px 12px;font-size:13px;justify-content:center}.reportes .pildora .flecha{display:none}
+  .cel{height:calc(100dvh - 292px)}
+  .contacto{padding:20px}.chips{gap:8px;margin:6px 0 14px}.chip{padding:9px 14px;font-size:14px}.campo input{padding:12px 16px}
+  .pie{font-size:12px}
+}
+.barra{left:clamp(16px,2.4vw,32px);transform:none;width:auto;padding:6px 16px 6px 8px}
+@media (prefers-reduced-motion:reduce){html{scroll-snap-type:y proximity}}
 </style>
 </head>
 <body>
 
 <header class="barra">
   <a class="marca" href="#inicio"><img src="logo-faresite.svg" alt="">Faresite <span class="beta">BETA</span></a>
-  <nav class="enlaces" aria-label="Secciones">
-    <a href="#servicios">Servicios</a><a href="#como">Cómo funciona</a><a href="#ejemplo">Ejemplo</a><a href="#preguntas">Preguntas</a><a href="#contacto">Contacto</a>
-  </nav>
-  <button class="redondo" id="btnPaleta" aria-label="Cambiar colores"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></button>
 </header>
 
 <main>
-<section class="portada" id="inicio" data-fm-luz="#4be36a,#cfe9d4">
+<section class="diapo portada" id="inicio" data-fm-luz="#4be36a,#cfe9d4">
   <div>
     <img class="logo-gran" src="logo-simple.svg" alt="Logo de Faresite">
     <h1 data-fm-revelar>Tu negocio, <em>en orden</em> y en internet.</h1>
@@ -276,7 +337,7 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
   </div>
 </section>
 
-<section id="servicios">
+<section class="diapo" id="servicios">
   <div class="ancho">
     <div class="eti sube">Servicios</div>
     <h2 class="sube">Tres piezas, un solo sistema.</h2>
@@ -347,7 +408,7 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
   </div>
 </section>
 
-<section id="como">
+<section class="diapo" id="como">
   <div class="ancho">
     <div class="eti sube">Cómo funciona</div>
     <h2 class="sube">Así trabaja todo junto.</h2>
@@ -362,7 +423,7 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
   </div>
 </section>
 
-<section id="ejemplo">
+<section class="diapo" id="ejemplo">
   <div class="ancho">
     <div class="eti sube">Ejemplo</div>
     <h2 class="sube">Tus cuentas, claras.</h2>
@@ -391,7 +452,7 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
   </div>
 </section>
 
-<section id="whatsapp">
+<section class="diapo" id="whatsapp">
   <div class="ancho wa">
     <div>
       <div class="eti sube">WhatsApp</div>
@@ -411,7 +472,7 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
   </div>
 </section>
 
-<section id="preguntas">
+<section class="diapo" id="preguntas">
   <div class="ancho">
     <div class="eti sube">Preguntas</div>
     <h2 class="sube">Lo que suelen preguntar.</h2>
@@ -426,7 +487,7 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
   </div>
 </section>
 
-<section id="contacto" data-fm-luz="#4be36a,#cfe9d4">
+<section class="diapo" id="contacto" data-fm-luz="#4be36a,#cfe9d4">
   <div class="ancho">
     <div class="eti sube">Contacto</div>
     <h2 class="sube">Cuéntanos de tu negocio.</h2>
@@ -443,15 +504,22 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
       <label class="campo"><span>¿A qué se dedica?</span><input id="tipo" placeholder="Ej.: manicure y pedicure"></label>
       <button class="pildora principal" id="armar" disabled>Armar solicitud <span class="flecha">›</span></button>
     </div>
+    <p class="pie"><b>Faresite</b> · Web, software y automatización · Colombia · Hecho por Faresite: <a href="https://stylo-vayet.pages.dev" target="_blank" rel="noopener">Stylo Vayet</a></p>
   </div>
 </section>
 </main>
 
-<footer>
-  <img src="logo-simple.svg" alt=""><br>
-  <b>Faresite</b> · Web, software y automatización · Colombia<br>
-  Hecho por Faresite: <a href="https://stylo-vayet.pages.dev" target="_blank" rel="noopener">Stylo Vayet</a>
-</footer>
+<nav class="dock" id="dock" aria-label="Diapositivas">
+  <a href="#inicio" aria-label="Inicio"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg><span class="tip">Inicio</span></a>
+  <a href="#servicios" aria-label="Servicios"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg><span class="tip">Servicios</span></a>
+  <a href="#como" aria-label="Cómo funciona"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12h3M14 12h3"/></svg><span class="tip">Cómo funciona</span></a>
+  <a href="#ejemplo" aria-label="Tus cuentas"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="tip">Tus cuentas</span></a>
+  <a href="#whatsapp" aria-label="WhatsApp"><svg viewBox="0 0 24 24"><path d="M4 20l1.4-4.2A8 8 0 1 1 8.6 19z"/></svg><span class="tip">WhatsApp</span></a>
+  <a href="#preguntas" aria-label="Preguntas"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7M12 17h.01"/></svg><span class="tip">Preguntas</span></a>
+  <a href="#contacto" aria-label="Contacto"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg><span class="tip">Contacto</span></a>
+</nav>
+<div class="contador" id="contador" aria-hidden="true">01 / 07</div>
+
 
 <!-- Ventana de solicitud (recibo de impresora) -->
 <div class="velo" id="vRecibo" role="dialog" aria-modal="true" aria-labelledby="tRecibo">
@@ -466,19 +534,6 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
   </div>
 </div>
 
-<!-- Ventana de paletas -->
-<div class="velo" id="vPaleta" role="dialog" aria-modal="true" aria-labelledby="tPaleta">
-  <div class="ventana">
-    <button class="redondo cerrar" data-cerrar aria-label="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-    <h3 id="tPaleta">Colores</h3>
-    <div class="paletas" id="paletas">
-      <button data-p="fare">Fare <span class="m"><i style="background:#050a06"></i><i style="background:#4be36a"></i><i style="background:#1f6b2a"></i></span></button>
-      <button data-p="oscuro">Oscuro <span class="m"><i style="background:#000"></i><i style="background:#fff"></i><i style="background:#8c8c8c"></i></span></button>
-      <button data-p="claro">Claro <span class="m"><i style="background:#fff"></i><i style="background:#000"></i><i style="background:#8c8c8c"></i></span></button>
-    </div>
-    <div class="ok" id="okPaleta" style="opacity:0;height:0;overflow:hidden;transition:opacity .4s"></div>
-  </div>
-</div>
 
 <script src="fare-movimiento.js"></script>
 <script>
@@ -488,18 +543,6 @@ body.ventana-abierta>*:not(.velo){filter:blur(4px)}
 var WHATSAPP = '573159515688';
 var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 var $ = function(s,r){return (r||document).querySelector(s)}, $$ = function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
-function guardar(k,v){try{localStorage.setItem(k,v)}catch(e){}}
-function leer(k){try{return localStorage.getItem(k)}catch(e){return null}}
-
-/* Paleta */
-function ponerPaleta(p){ if(p==='fare'||!p) document.documentElement.removeAttribute('data-paleta'); else document.documentElement.setAttribute('data-paleta',p);
-  $$('#paletas button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.p===(p||'fare')))});
-  var m=document.querySelector('meta[name=theme-color]'); m.content=getComputedStyle(document.documentElement).getPropertyValue('--amb').trim()||'#050a06'; }
-ponerPaleta(leer('fs-paleta')||'fare');
-$('#btnPaleta').onclick=function(){abrir('vPaleta')};
-$$('#paletas button').forEach(function(b){b.onclick=function(){ponerPaleta(b.dataset.p);guardar('fs-paleta',b.dataset.p);
-  var ok=$('#okPaleta'); ok.textContent='✓ Paleta '+b.textContent.trim()+' seleccionada'; ok.style.height='auto'; ok.style.marginTop='16px'; ok.style.opacity=1;
-  setTimeout(function(){cerrar();ok.style.opacity=0;ok.style.height=0;ok.style.marginTop=0},1600)}});
 
 /* Ventanas */
 var abierta=null;
@@ -527,6 +570,33 @@ var x0=null; var car=$('#carrusel');
 car.addEventListener('touchstart',function(e){if(e.touches.length===1)x0=e.touches[0].clientX},{passive:true});
 car.addEventListener('touchend',function(e){if(x0===null)return;var dx=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(dx)>45)ir(act+(dx<0?1:-1))});
 addEventListener('resize',function(){ir(act)}); ir(0);
+
+/* Diapositivas: un gesto = una diapositiva (rueda, teclado y barra de abajo) */
+var diapos=$$('section.diapo'), dockA=$$('#dock a'), moviendo=false, fin=null;
+function actual(){var m=0,mejor=1e9;diapos.forEach(function(d,i){var v=Math.abs(d.getBoundingClientRect().top);if(v<mejor){mejor=v;m=i}});return m}
+function irDiapo(i){i=Math.max(0,Math.min(diapos.length-1,i));moviendo=true;clearTimeout(fin);
+  var listo=function(){removeEventListener('scrollend',listo);clearTimeout(fin);fin=setTimeout(function(){moviendo=false},260)};
+  addEventListener('scrollend',listo);fin=setTimeout(listo,1100);
+  window.scrollTo({top:diapos[i].offsetTop,behavior:reduce?'auto':'smooth'});}
+addEventListener('wheel',function(e){
+  if(abierta||e.ctrlKey||Math.abs(e.deltaY)<Math.abs(e.deltaX))return;
+  var i=actual(),r=diapos[i].getBoundingClientRect(),dir=e.deltaY>0?1:-1;
+  if(r.height>innerHeight+4){if(dir>0&&r.bottom>innerHeight+2)return;if(dir<0&&r.top<-2)return}
+  e.preventDefault(); if(moviendo)return; irDiapo(i+dir);
+},{passive:false});
+addEventListener('keydown',function(e){
+  if(abierta||/INPUT|TEXTAREA/.test(document.activeElement.tagName))return;
+  var k=e.key, enBoton=/BUTTON|SUMMARY|A/.test(document.activeElement.tagName);
+  if(k==='ArrowDown'||k==='PageDown'||(k===' '&&!enBoton)){e.preventDefault();if(!moviendo)irDiapo(actual()+1)}
+  else if(k==='ArrowUp'||k==='PageUp'){e.preventDefault();if(!moviendo)irDiapo(actual()-1)}
+  else if(k==='Home'){e.preventDefault();irDiapo(0)} else if(k==='End'){e.preventDefault();irDiapo(diapos.length-1)}
+});
+$$('a[href^="#"]').forEach(function(a){var d=document.getElementById(a.getAttribute('href').slice(1));if(!d||diapos.indexOf(d)<0)return;
+  a.addEventListener('click',function(e){e.preventDefault();irDiapo(diapos.indexOf(d))})});
+function marcarDiapo(){var i=actual();dockA.forEach(function(a,j){a.classList.toggle('activa',j===i);if(j===i)a.setAttribute('aria-current','true');else a.removeAttribute('aria-current')});
+  $('#contador').textContent=String(i+1).padStart(2,'0')+' / '+String(diapos.length).padStart(2,'0')}
+var tic=false; addEventListener('scroll',function(){if(tic)return;tic=true;requestAnimationFrame(function(){tic=false;marcarDiapo()})},{passive:true});
+marcarDiapo();
 addEventListener('keydown',function(e){
   if(e.key==='Escape'||(e.key==='Backspace'&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName))){if(abierta){e.preventDefault();cerrar()}return}
   if(abierta||/INPUT|TEXTAREA/.test(document.activeElement.tagName))return;
