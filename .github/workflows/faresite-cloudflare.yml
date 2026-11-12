@@ -1,7 +1,7 @@
 # Publica la web de Faresite en Cloudflare Pages (gratis), sin "q12-maker" en la dirección:
 #   faresite/       -> https://faresite.pages.dev       (oficial)
 #   faresite-beta/  -> https://faresite-beta.pages.dev  (Beta)
-#   kairos-beta/    -> https://kairos-beta.pages.dev    (Kairos, Beta)
+#   kairos-beta/    -> https://kairos-beta-95m.pages.dev (Kairos, Beta; Cloudflare le puso "-95m")
 # Corre sola al subir cambios a main en esas carpetas, o a mano desde la pestaña Actions.
 # Necesita dos secretos del repositorio: CF_TOKEN (token de Cloudflare solo con permiso
 # "Cloudflare Pages: Edit") y CF_CUENTA (el Account ID de Cloudflare). Nunca van en el código.
