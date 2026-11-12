@@ -255,6 +255,7 @@ footer .cinzel{font-size:22px;letter-spacing:.2em;color:var(--txt);display:block
  <symbol id="i-arena" viewBox="0 0 32 32"><path d="M8 3h16M8 29h16M10 3c0 8 12 9 12 13S10 21 10 29M22 3c0 8-12 9-12 13s12 5 12 13"/><path d="M13 26.5c1-1.6 5-1.6 6 0z" fill="currentColor" stroke="none"/></symbol>
  <symbol id="i-bolsillo" viewBox="0 0 32 32"><circle cx="16" cy="18" r="11"/><path d="M14 4.5h4M16 4.5v2.5M16 18v-6M16 18l4 2.5"/><circle cx="16" cy="18" r="1" fill="currentColor"/></symbol>
  <symbol id="i-pared" viewBox="0 0 32 32"><circle cx="16" cy="12" r="9"/><path d="M16 12V7M16 12l3.5 2M16 21v6"/><circle cx="16" cy="28" r="2"/></symbol>
+ <symbol id="i-web" viewBox="0 0 32 32"><rect x="3" y="6" width="26" height="20" rx="3"/><path d="M3 11h26"/><circle cx="16" cy="19" r="4.5"/><path d="M16 19v-2.6M16 19l1.8 1"/></symbol>
  <symbol id="i-crono" viewBox="0 0 32 32"><circle cx="16" cy="18" r="11"/><path d="M13 3h6M16 3v4M25 8.5l2-2M16 18l5-5"/><path d="M16 9a9 9 0 0 1 9 9h-9z" fill="currentColor" stroke="none" opacity=".25"/></symbol>
 </svg>
 
@@ -332,7 +333,7 @@ footer .cinzel{font-size:22px;letter-spacing:.2em;color:var(--txt);display:block
     <div class="aparece">
       <div class="rotulo">Servicios</div>
       <h2><span class="plata">Tu marca y tus redes,<br>en un solo lugar.</span></h2>
-      <p class="intro">Primero le damos una imagen a tu negocio. Después, cada mes, la mantenemos viva en redes. Gira la corona o toca cada servicio para verlo.</p>
+      <p class="intro">Primero le damos una imagen a tu negocio. Después, cada mes, la mantenemos viva en redes. Y si lo necesitas, también tu página web. Gira la corona o toca cada servicio para verlo.</p>
     </div>
     <div class="servicios">
       <div class="aparece">
@@ -421,7 +422,7 @@ footer .cinzel{font-size:22px;letter-spacing:.2em;color:var(--txt);display:block
       <details class="vidrio aparece"><summary>¿Quién toma las fotos y los videos?</summary><p>Stylo Vayet, nuestro equipo de fotografía y video. Un día al mes graba en tu negocio, con modelos, y de ahí sale el material de todo el mes.</p></details>
       <details class="vidrio aparece"><summary>¿Puedo pedir solo el logo?</summary><p>Sí. La identidad de marca se vende sola, con un pago único. Si además tomas un plan mensual, te sale con descuento.</p></details>
       <details class="vidrio aparece"><summary>¿Y si no me gusta el logo?</summary><p>Ves 2 propuestas y escoges la que más te guste. Después tienes una ronda de cambios incluida. Si quieres más cambios, se cobran aparte, y te decimos el precio antes.</p></details>
-      <details class="vidrio aparece"><summary>¿Y si también necesito página web o una app?</summary><p>Eso lo hace Faresite, nuestra marca aliada de páginas web y software. Te podemos poner en contacto.</p></details>
+      <details class="vidrio aparece"><summary>¿También hacen páginas web?</summary><p>Sí. Tú la pides con nosotros y la construye Faresite, nuestra marca aliada de páginas web y software. Se paga una sola vez. Si además necesitas una app o un programa para administrar tu negocio, eso lo maneja Faresite directamente.</p></details>
     </div>
   </div>
 </section>
@@ -441,6 +442,7 @@ footer .cinzel{font-size:22px;letter-spacing:.2em;color:var(--txt);display:block
           <button type="button" class="chip" aria-pressed="false">Plan Básico</button>
           <button type="button" class="chip" aria-pressed="false">Plan Medio</button>
           <button type="button" class="chip" aria-pressed="false">Plan Fuerte</button>
+          <button type="button" class="chip" aria-pressed="false">Página web</button>
           <button type="button" class="chip" aria-pressed="false">Aún no sé</button>
         </div>
       </div>
@@ -559,8 +561,11 @@ const S=[
   nota:'redes'},
  {ico:'i-crono',tag:'Fuerte',n:'04 · Plan Fuerte',t:'Siempre presente',s:'Para negocios que quieren estar en todas partes.',
   l:['20 publicaciones al mes.','Historias todos los días.','Anuncios pagados siempre activos.','1 día de fotos y video al mes, con modelos, e informe mensual.'],
-  nota:'Los días de grabación extra se cobran aparte.'}];
-const ANG=[0,90,180,270];
+  nota:'Los días de grabación extra se cobran aparte.'},
+ {ico:'i-web',tag:'Web',n:'05 · Página web',t:'Tu negocio en internet',s:'Se paga una sola vez.',
+  l:['Una página con tus servicios, tus fotos y tu ubicación.','Botón para que te escriban directo a tu WhatsApp.','Se ve bien en celular y en computador.','Lista para compartir en tus redes y en tus estados.'],
+  nota:'La construye Faresite, nuestra marca aliada de webs y software. El dominio propio (.com o .co) se paga aparte, a tu nombre.'}];
+const ANG=S.map((_,i)=>i*360/S.length);
 const corona=$('#corona'),ficha=$('#ficha'),aguja=$('#aguja-s');
 S.forEach((x,i)=>{const b=document.createElement('button');b.className='pos';b.type='button';
   const a=ANG[i]*Math.PI/180,r=40;b.style.left=(50+r*Math.sin(a))+'%';b.style.top=(50-r*Math.cos(a))+'%';
@@ -586,7 +591,7 @@ function angPunto(e){const r=corona.getBoundingClientRect();return Math.atan2(e.
 corona.addEventListener('pointerdown',e=>{if(e.target.closest('.pos'))return;arr=true;corona.setPointerCapture(e.pointerId);mover(e)});
 corona.addEventListener('pointermove',e=>{if(arr)mover(e)});
 corona.addEventListener('pointerup',()=>arr=false);corona.addEventListener('pointercancel',()=>arr=false);
-function mover(e){const a=(angPunto(e)+360)%360;elegir(Math.round(a/90)%4)}
+function mover(e){const a=(angPunto(e)+360)%360;const p=360/S.length;elegir(Math.round(a/p)%S.length)}
 corona.tabIndex=0;corona.setAttribute('aria-label','Corona de servicios: usa las flechas');
 corona.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowDown'){elegir(actual+1);e.preventDefault()}if(e.key==='ArrowLeft'||e.key==='ArrowUp'){elegir(actual-1);e.preventDefault()}});
 
