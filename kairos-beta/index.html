@@ -24,7 +24,7 @@
   --plata:#d9dddb; --neon:#22f58a; --neon2:#14c96e; --plata2:#9aa09d; --oro:#d8a94e; --esmeralda:#1fe39b;
   --corte:12px;
   --esq:clamp(96px, 27vmin, 320px);
-  --logo:clamp(88px, 14vmin, 150px);
+  --logo:clamp(54px, 9vmin, 104px);
   --margen:clamp(12px, 2.4vmin, 26px);
 }
 *{box-sizing:border-box;margin:0}
@@ -45,16 +45,18 @@ button{font:inherit;color:inherit}
 .escena.moviendo .capa-mapa{cursor:grabbing}
 
 /* Capa 3: el logo */
-.logo{position:absolute;left:0;top:0;width:var(--logo);height:var(--logo);border-radius:50%;z-index:5;cursor:grab;touch-action:none;
-  perspective:600px;will-change:transform}
-.logo .disco{position:absolute;inset:0;border-radius:50%;
-  background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.16), rgba(255,255,255,.03) 46%, rgba(2,6,4,.55) 100%);
+.logo{position:absolute;left:0;top:0;width:var(--logo);height:var(--logo);z-index:5;cursor:grab;touch-action:none;will-change:transform;
+  filter:drop-shadow(0 12px 22px rgba(0,0,0,.6)) drop-shadow(0 0 14px rgba(34,245,138,.12));transition:filter .3s}
+/* Ventana cuadrada Fare: vidrio con dos esquinas recortadas (arriba-izquierda y abajo-derecha) */
+.logo .disco{position:absolute;inset:0;--c:clamp(8px, 18%, 16px);
+  clip-path:polygon(var(--c) 0,100% 0,100% calc(100% - var(--c)),calc(100% - var(--c)) 100%,0 100%,0 var(--c));
+  background:linear-gradient(150deg, rgba(255,255,255,.16), rgba(255,255,255,.035) 45%, rgba(2,6,4,.55));
   backdrop-filter:blur(10px) saturate(1.5);-webkit-backdrop-filter:blur(10px) saturate(1.5);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 -8px 18px rgba(0,0,0,.45), 0 0 0 1px rgba(217,221,219,.18), 0 14px 30px rgba(0,0,0,.6), 0 0 26px rgba(34,245,138,.14);
-  transition:box-shadow .3s, scale .3s}
-.logo img{position:absolute;inset:9%;width:82%;height:82%;object-fit:contain;transition:transform .45s cubic-bezier(.3,1.4,.5,1);pointer-events:none;-webkit-user-drag:none}
-.logo.agarrado{cursor:grabbing}
-.logo.agarrado .disco{scale:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.4), inset 0 -8px 18px rgba(0,0,0,.45), 0 0 0 1px rgba(31,227,155,.45), 0 26px 50px rgba(0,0,0,.75), 0 0 40px rgba(31,227,155,.25)}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 0 0 1px rgba(217,221,219,.16), inset 0 -10px 18px rgba(0,0,0,.4);
+  transition:scale .3s, box-shadow .3s}
+.logo img{position:absolute;inset:10%;width:80%;height:80%;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
+.logo.agarrado{cursor:grabbing;filter:drop-shadow(0 22px 36px rgba(0,0,0,.75)) drop-shadow(0 0 22px rgba(31,227,155,.3))}
+.logo.agarrado .disco{scale:1.08;box-shadow:inset 0 1px 0 rgba(255,255,255,.4), inset 0 0 0 1px rgba(31,227,155,.55), inset 0 -10px 18px rgba(0,0,0,.4)}
 
 /* Capa 4: esquinas triangulares fijas (el mapa pasa por debajo) */
 .esquina{position:absolute;width:var(--esq);height:var(--esq);pointer-events:none;z-index:4;filter:drop-shadow(0 0 22px rgba(0,0,0,.95)) drop-shadow(0 0 6px rgba(0,0,0,.9))}
@@ -96,7 +98,7 @@ button{font:inherit;color:inherit}
 @media (max-width:640px){
   .larga .titulo small{text-shadow:none;display:none}
   .larga{padding-left:12px;height:44px}.caja{height:44px}
-  .barra{left:calc(var(--margen) * 1.6 + var(--logo));right:var(--margen);top:calc(var(--margen) + env(safe-area-inset-top))}
+  .barra{left:calc(var(--margen) * 2 + var(--logo));right:var(--margen);top:calc(var(--margen) + env(safe-area-inset-top))}
   .redondo{width:32px;height:32px}
   .btn-largo{padding:0 11px;letter-spacing:.08em}
 }
