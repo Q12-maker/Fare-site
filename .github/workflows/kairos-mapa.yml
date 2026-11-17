@@ -1,0 +1,63 @@
+# Descarga las calles y ríos de Mariquita (Tolima) desde OpenStreetMap (Overpass)
+# y los guarda en kairos-beta/datos/mapa-mariquita.json para la portada de Kairos.
+# Datos © colaboradores de OpenStreetMap, licencia ODbL (la web muestra la atribución).
+# Corre a mano desde la pestaña Actions (Run workflow) para actualizar las calles.
+name: Kairos mapa de Mariquita
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  mapa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descargar y compactar
+        run: |
+          Q='[out:json][timeout:120];(way["highway"](5.165,-74.935,5.235,-74.855);way["waterway"](5.165,-74.935,5.235,-74.855);way["railway"](5.165,-74.935,5.235,-74.855);way["leisure"="park"](5.165,-74.935,5.235,-74.855););out geom;'
+          ok=no
+          for ronda in 1 2 3 4 5 6; do
+            for url in https://overpass-api.de/api/interpreter https://overpass.private.coffee/api/interpreter https://overpass.kumi.systems/api/interpreter https://maps.mail.ru/osm/tools/overpass/api/interpreter; do
+              curl -sS -m 180 -A "kairos-web-mapa/1.0 (GitHub Actions)" "$url" --data-urlencode "data=$Q" -o osm.json || true
+              if python3 -c "import json;json.load(open('osm.json'))" 2>/dev/null; then ok=si; echo "OK $url"; break 2; fi
+              echo "Falló $url:"; head -c 300 osm.json || true; echo
+            done
+            sleep $((ronda*20))
+          done
+          [ "$ok" = si ] || exit 1
+          mkdir -p kairos-beta/datos
+          python3 - <<'PY'
+          import json
+          d = json.load(open('osm.json'))
+          lat0, lon0 = 5.200, -74.895
+          import math
+          kx = 111320*math.cos(math.radians(lat0)); ky = 110574
+          tipos = {}
+          out = []
+          for e in d['elements']:
+              t = e.get('tags', {})
+              if 'highway' in t: c = t['highway']
+              elif 'waterway' in t: c = 'agua:' + t['waterway']
+              elif 'railway' in t: c = 'tren'
+              elif t.get('leisure') == 'park': c = 'parque'
+              else: continue
+              g = e.get('geometry') or []
+              if len(g) < 2: continue
+              pts = []
+              for p in g:
+                  pts += [round((p['lon']-lon0)*kx), round((lat0-p['lat'])*ky)]
+              out.append([c, t.get('name', ''), pts])
+          json.dump({'origen': [lat0, lon0], 'unidad': 'metros', 'fuente': '© colaboradores de OpenStreetMap (ODbL)', 'vias': out}, open('kairos-beta/datos/mapa-mariquita.json', 'w'), separators=(',', ':'), ensure_ascii=False)
+          print(len(out), 'vias')
+          PY
+          ls -la kairos-beta/datos/
+      - name: Guardar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+          git add kairos-beta/datos/mapa-mariquita.json
+          git diff --cached --quiet || git commit -m "Kairos: mapa de Mariquita desde OpenStreetMap"
+          git push
