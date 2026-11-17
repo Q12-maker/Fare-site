@@ -21,7 +21,7 @@
 @font-face{font-family:Cinzel;font-weight:400 700;font-display:swap;src:url(fonts/cinzel-500.woff2) format('woff2')}
 :root{
   --negro:#020604; --fondo:#03110b; --verde:#0a4a30; --verde2:#0f6b45;
-  --plata:#d9dddb; --plata2:#9aa09d; --oro:#d8a94e; --esmeralda:#1fe39b;
+  --plata:#d9dddb; --plata2:#9aa09d; --oro:#d8a94e; --esmeralda:#22f58a;
   --corte:12px;
   --esq:clamp(96px, 27vmin, 320px);
   --logo:clamp(88px, 14vmin, 150px);
@@ -50,12 +50,11 @@ button{font:inherit;color:inherit}
 .logo .disco{position:absolute;inset:0;border-radius:50%;
   background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.16), rgba(255,255,255,.03) 46%, rgba(2,6,4,.55) 100%);
   backdrop-filter:blur(10px) saturate(1.5);-webkit-backdrop-filter:blur(10px) saturate(1.5);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 -8px 18px rgba(0,0,0,.45), 0 0 0 1px rgba(217,221,219,.18), 0 14px 30px rgba(0,0,0,.6), 0 0 26px rgba(31,227,155,.10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 -8px 18px rgba(0,0,0,.45), 0 0 0 1px rgba(217,221,219,.18), 0 14px 30px rgba(0,0,0,.6), 0 0 26px rgba(15,107,69,.25);
   transition:box-shadow .3s, scale .3s}
 .logo img{position:absolute;inset:9%;width:82%;height:82%;object-fit:contain;transition:transform .45s cubic-bezier(.3,1.4,.5,1);pointer-events:none;-webkit-user-drag:none}
-.logo.espejo img{transform:rotateY(180deg)}
 .logo.agarrado{cursor:grabbing}
-.logo.agarrado .disco{scale:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.4), inset 0 -8px 18px rgba(0,0,0,.45), 0 0 0 1px rgba(31,227,155,.45), 0 26px 50px rgba(0,0,0,.75), 0 0 40px rgba(31,227,155,.25)}
+.logo.agarrado .disco{scale:1.1;box-shadow:inset 0 1px 0 rgba(255,255,255,.4), inset 0 -8px 18px rgba(0,0,0,.45), 0 0 0 1px rgba(34,245,138,.45), 0 26px 50px rgba(0,0,0,.75), 0 0 40px rgba(34,245,138,.25)}
 
 /* Capa 4: esquinas triangulares fijas (el mapa pasa por debajo) */
 .esquina{position:absolute;width:var(--esq);height:var(--esq);pointer-events:none;z-index:4;filter:drop-shadow(0 0 22px rgba(0,0,0,.95)) drop-shadow(0 0 6px rgba(0,0,0,.9))}
@@ -83,7 +82,7 @@ button{font:inherit;color:inherit}
 .btn:hover{color:#fff}
 .btn:active{transform:scale(.95)}
 .btn-largo{--corte:9px;height:34px;padding:0 16px;font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), inset 0 0 0 1px rgba(31,227,155,.35), 0 0 18px rgba(31,227,155,.12)}
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25), inset 0 0 0 1px rgba(34,245,138,.35), 0 0 18px rgba(34,245,138,.12)}
 .caja{display:flex;align-items:center;gap:6px;padding:0 7px;height:48px;pointer-events:auto}
 .redondo{width:36px;height:36px;border-radius:50%;font-size:1.05rem;line-height:1}
 .redondo svg{width:16px;height:16px}
@@ -113,11 +112,11 @@ button{font:inherit;color:inherit}
   <canvas class="capa-mapa" id="mapa" role="img" aria-label="Mapa de las calles de Mariquita, Tolima"></canvas>
   <!-- Capa 4 -->
   <div class="esquina ar" aria-hidden="true"><div class="cuerpo"></div>
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="0" x2="100" y2="100" stroke="#1fe39b" stroke-opacity=".75" stroke-width="1.6" vector-effect="non-scaling-stroke"/><line x1="16" y1="0" x2="100" y2="84" stroke="#d9dddb" stroke-opacity=".35" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="0" x2="100" y2="100" stroke="#22f58a" stroke-opacity=".75" stroke-width="1.6" vector-effect="non-scaling-stroke"/><line x1="16" y1="0" x2="100" y2="84" stroke="#d9dddb" stroke-opacity=".35" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>
   <div class="esquina ab" aria-hidden="true"><div class="cuerpo"></div>
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="0" x2="100" y2="100" stroke="#1fe39b" stroke-opacity=".75" stroke-width="1.6" vector-effect="non-scaling-stroke"/><line x1="0" y1="16" x2="84" y2="100" stroke="#d9dddb" stroke-opacity=".35" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="0" x2="100" y2="100" stroke="#22f58a" stroke-opacity=".75" stroke-width="1.6" vector-effect="non-scaling-stroke"/><line x1="0" y1="16" x2="84" y2="100" stroke="#d9dddb" stroke-opacity=".35" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>
   <!-- Capa 3 -->
-  <div class="logo" id="logo" role="img" aria-label="Logo de Kairos, se puede arrastrar"><div class="disco"></div><img src="logo-reloj.svg" alt="" draggable="false"></div>
+  <div class="logo" id="logo" role="img" aria-label="Logo de Kairos (reloj de arena), se puede arrastrar"><div class="disco"></div><img src="logo-kairos.svg" alt="" draggable="false"></div>
 
   <header class="barra">
     <div class="larga vidrio corte">
@@ -148,10 +147,10 @@ const PLAZA=[-305,-5];             // Plaza Mayor José Celestino Mutis
 const CENTRO=[150,160];            // centro de la vista: plaza + barrios
 const estilos={
   parque:{fill:'rgba(15,107,69,.20)'},
-  agua:{c:'rgba(31,227,155,.30)',w:3.2},
+  agua:{c:'rgba(26,130,92,.55)',w:3.2},
   trunk:{c:'rgba(216,169,78,.85)',w:2.6,brillo:'rgba(216,169,78,.16)'},
   principal:{c:'rgba(217,221,219,.62)',w:1.9},
-  calle:{c:'rgba(31,227,155,.42)',w:1.1},
+  calle:{c:'rgba(24,128,84,.80)',w:1.1},
   servicio:{c:'rgba(15,107,69,.85)',w:.9},
   sendero:{c:'rgba(154,160,157,.40)',w:.8,raya:[6,5]},
   tren:{c:'rgba(154,160,157,.55)',w:1.2,raya:[10,6]}
@@ -238,8 +237,8 @@ function dibujar(t){
   ctx.setLineDash([]);
   // punto de la plaza: latido esmeralda
   const pulso=(t/1600)%1;
-  ctx.beginPath(); ctx.arc(PLAZA[0],PLAZA[1],(4+18*pulso)*u,0,7); ctx.strokeStyle=`rgba(31,227,155,${.6*(1-pulso)})`; ctx.lineWidth=1.5*u; ctx.stroke();
-  ctx.beginPath(); ctx.arc(PLAZA[0],PLAZA[1],3.5*u,0,7); ctx.fillStyle='#1fe39b'; ctx.fill();
+  ctx.beginPath(); ctx.arc(PLAZA[0],PLAZA[1],(4+18*pulso)*u,0,7); ctx.strokeStyle=`rgba(34,245,138,${.6*(1-pulso)})`; ctx.lineWidth=1.5*u; ctx.stroke();
+  ctx.beginPath(); ctx.arc(PLAZA[0],PLAZA[1],3.5*u,0,7); ctx.fillStyle='#22f58a'; ctx.fill();
 }
 
 /* ---------- Gestos sobre el mapa: 1 dedo/ratón mueve, 2 dedos o rueda acercan ---------- */
@@ -283,7 +282,7 @@ document.getElementById('menos').onclick=()=>{zoomEn(1/1.5,W/2,H/2);tocado()};
 document.getElementById('centro').onclick=()=>{meta.x=CENTRO[0];meta.y=CENTRO[1];meta.z=1;ultimoToque=performance.now()-2500};
 addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&e.target!==lienzo){parMeta.x=e.clientX/W*2-1; parMeta.y=e.clientY/H*2-1}});
 
-/* ---------- Logo arrastrable: se voltea al ir a la izquierda y vuelve a su sitio ---------- */
+/* ---------- Logo arrastrable: vuelve a su sitio al soltarlo ---------- */
 const L={x:0,y:0,casaX:0,casaY:0,agarrado:false,offX:0,offY:0,vx:0,ultX:0,ultT:0,id:null};
 function colocarLogo(saltar){
   const m=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--margen'))||16;
@@ -302,12 +301,11 @@ logo.addEventListener('pointermove',e=>{
   L.x=Math.min(W-s,Math.max(0,e.clientX-L.offX)); L.y=Math.min(H-s,Math.max(0,e.clientY-L.offY));
   const now=performance.now(), dt=Math.max(1,now-L.ultT), v=(e.clientX-L.ultX)/dt;
   L.vx=L.vx*.6+v*.4; L.ultX=e.clientX; L.ultT=now;
-  if(L.vx<-.12)logo.classList.add('espejo'); else if(L.vx>.12)logo.classList.remove('espejo');
   pintarLogo();
 });
 function soltarLogo(e){
   if(!L.agarrado||e.pointerId!==L.id)return;
-  L.agarrado=false; logo.classList.remove('agarrado','espejo');
+  L.agarrado=false; logo.classList.remove('agarrado');
   logo.style.transition='transform .75s cubic-bezier(.34,1.45,.55,1)';
   L.x=L.casaX; L.y=L.casaY; pintarLogo();
   setTimeout(()=>{if(!L.agarrado)logo.style.transition='none'},800);
