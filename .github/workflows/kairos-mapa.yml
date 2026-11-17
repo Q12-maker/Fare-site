@@ -1,13 +1,11 @@
 # Descarga las calles y ríos de Mariquita (Tolima) desde OpenStreetMap (Overpass)
 # y los guarda en kairos-beta/datos/mapa-mariquita.json para la portada de Kairos.
 # Datos © colaboradores de OpenStreetMap, licencia ODbL (la web muestra la atribución).
-# Corre a mano desde la pestaña Actions, o al cambiar este archivo.
+# Corre a mano desde la pestaña Actions (Run workflow) para actualizar las calles.
 name: Kairos mapa de Mariquita
 
 on:
   workflow_dispatch:
-  push:
-    paths: [".github/workflows/kairos-mapa.yml"]
 
 permissions:
   contents: write
