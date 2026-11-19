@@ -283,6 +283,17 @@ lienzo.addEventListener('dblclick',e=>{zoomEn(1.8,e.clientX,e.clientY); tocado()
 document.getElementById('mas').onclick=()=>{zoomEn(1.5,W/2,H/2);tocado()};
 document.getElementById('menos').onclick=()=>{zoomEn(1/1.5,W/2,H/2);tocado()};
 document.getElementById('centro').onclick=()=>{meta.x=CENTRO[0];meta.y=CENTRO[1];meta.z=1;ultimoToque=performance.now()-2500};
+// Dentro de la Administración de Kairos (la web va en un marco): las letras y Borrar/Esc pasan a la app,
+// igual que en Stylo (M menú, A S V B abren o cierran las webs, Borrar vuelve). Fuera de la app no hace nada.
+(function(){let enMarco=false; try{enMarco=window.top!==window}catch(x){enMarco=true}
+  if(!enMarco)return;
+  addEventListener('keydown',e=>{
+    if(e.defaultPrevented||e.ctrlKey||e.metaKey||e.altKey||!/^([a-zA-ZñÑ¡¿]|Backspace|Escape)$/.test(e.key))return;
+    const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;
+    if(e.key==='Backspace')e.preventDefault();
+    try{parent.postMessage({sv:'tecla',key:e.key},'*')}catch(x){}
+  });
+})();
 // Teclado (Juan, 18-nov): flechas mueven el mapa, + − acercan/alejan, 0 vuelve al centro
 addEventListener('keydown',e=>{
   if(e.ctrlKey||e.metaKey||e.altKey||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
