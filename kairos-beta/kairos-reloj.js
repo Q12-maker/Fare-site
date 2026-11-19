@@ -42,6 +42,14 @@
       if (relojes.length === 1) tic();
     }).catch(function () { /* sin red: se queda la imagen fija */ });
   }
-  function iniciar() { document.querySelectorAll("img[data-kairos-reloj]").forEach(montar); }
+  function iniciar() {
+    document.querySelectorAll("img[data-kairos-reloj]").forEach(montar);
+    // Administración de Kairos: la pantalla «Actualizando…» usa el reloj vivo (el reloj de arena gira como
+    // ventilador y las agujas marcan la hora real). Se crea después, así que se vigila la página.
+    if (window.SV_MARCA_FORZADA === "kairos" && window.MutationObserver) new MutationObserver(function () {
+      var img = document.querySelector(".act-aro img:not([data-kairos-reloj])"); if (!img) return;
+      img.setAttribute("data-kairos-reloj", ""); img.setAttribute("src", "../kairos/logo-kairos-vivo.svg"); montar(img);
+    }).observe(document.body, { childList: true, subtree: true });
+  }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar); else iniciar();
 })();
