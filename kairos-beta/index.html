@@ -54,7 +54,7 @@ button{font:inherit;color:inherit}
   backdrop-filter:blur(10px) saturate(1.5);-webkit-backdrop-filter:blur(10px) saturate(1.5);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35), inset 0 0 0 1px rgba(217,221,219,.16), inset 0 -10px 18px rgba(0,0,0,.4);
   transition:scale .3s, box-shadow .3s}
-.logo img{position:absolute;inset:10%;width:80%;height:80%;object-fit:contain;pointer-events:none;-webkit-user-drag:none}
+.logo img,.logo svg{position:absolute;inset:10%;width:80%;height:80%;object-fit:contain;overflow:visible;pointer-events:none;-webkit-user-drag:none}
 .logo.agarrado{cursor:grabbing;filter:drop-shadow(0 22px 36px rgba(0,0,0,.75)) drop-shadow(0 0 22px rgba(31,227,155,.3))}
 .logo.agarrado .disco{scale:1.08;box-shadow:inset 0 1px 0 rgba(255,255,255,.4), inset 0 0 0 1px rgba(31,227,155,.55), inset 0 -10px 18px rgba(0,0,0,.4)}
 
@@ -118,7 +118,7 @@ button{font:inherit;color:inherit}
   <div class="esquina ab" aria-hidden="true"><div class="cuerpo"></div>
     <svg viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="0" x2="100" y2="100" stroke="#1fe39b" stroke-opacity=".75" stroke-width="1.6" vector-effect="non-scaling-stroke"/><line x1="0" y1="16" x2="84" y2="100" stroke="#d9dddb" stroke-opacity=".35" stroke-width="1" vector-effect="non-scaling-stroke"/></svg></div>
   <!-- Capa 3 -->
-  <div class="logo" id="logo" role="img" aria-label="Logo de Kairos (reloj de arena), se puede arrastrar"><div class="disco"></div><img src="logo-kairos.svg" alt="" draggable="false"></div>
+  <div class="logo" id="logo" role="img" aria-label="Logo de Kairos (reloj de arena con la hora real), se puede arrastrar"><div class="disco"></div><img src="logo-kairos-vivo.svg" alt="" draggable="false" data-kairos-reloj></div>
 
   <header class="barra">
     <div class="larga vidrio corte">
@@ -136,6 +136,7 @@ button{font:inherit;color:inherit}
   <div class="atrib">Mapa: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">colaboradores de OpenStreetMap</a></div>
 </main>
 
+<script src="kairos-reloj.js" defer></script>
 <script>
 (()=>{
 'use strict';
@@ -282,6 +283,28 @@ lienzo.addEventListener('dblclick',e=>{zoomEn(1.8,e.clientX,e.clientY); tocado()
 document.getElementById('mas').onclick=()=>{zoomEn(1.5,W/2,H/2);tocado()};
 document.getElementById('menos').onclick=()=>{zoomEn(1/1.5,W/2,H/2);tocado()};
 document.getElementById('centro').onclick=()=>{meta.x=CENTRO[0];meta.y=CENTRO[1];meta.z=1;ultimoToque=performance.now()-2500};
+// Dentro de la Administración de Kairos (la web va en un marco): las letras y Borrar/Esc pasan a la app,
+// igual que en Stylo (M menú, A S V B abren o cierran las webs, Borrar vuelve). Fuera de la app no hace nada.
+(function(){let enMarco=false; try{enMarco=window.top!==window}catch(x){enMarco=true}
+  if(!enMarco)return;
+  addEventListener('keydown',e=>{
+    if(e.defaultPrevented||e.ctrlKey||e.metaKey||e.altKey||!/^([a-zA-ZñÑ¡¿]|Backspace|Escape)$/.test(e.key))return;
+    const t=e.target; if(t&&(t.isContentEditable||/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)))return;
+    if(e.key==='Backspace')e.preventDefault();
+    try{parent.postMessage({sv:'tecla',key:e.key},'*')}catch(x){}
+  });
+})();
+// Teclado (Juan, 18-nov): flechas mueven el mapa, + − acercan/alejan, 0 vuelve al centro
+addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;
+  const paso=.18/(base*meta.z), k=e.key;
+  if(k==='ArrowLeft'){meta.x-=W*paso}else if(k==='ArrowRight'){meta.x+=W*paso}
+  else if(k==='ArrowUp'){meta.y-=H*paso}else if(k==='ArrowDown'){meta.y+=H*paso}
+  else if(k==='+'||k==='='){zoomEn(1.5,W/2,H/2)}else if(k==='-'||k==='_'){zoomEn(1/1.5,W/2,H/2)}
+  else if(k==='0'){document.getElementById('centro').click();return}
+  else return;
+  e.preventDefault(); tocado();
+});
 addEventListener('pointermove',e=>{if(e.pointerType==='mouse'&&e.target!==lienzo){parMeta.x=e.clientX/W*2-1; parMeta.y=e.clientY/H*2-1}});
 
 /* ---------- Logo arrastrable: vuelve a su sitio al soltarlo ---------- */
