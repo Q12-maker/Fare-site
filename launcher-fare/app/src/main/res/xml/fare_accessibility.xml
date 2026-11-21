@@ -4,4 +4,5 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:notificationTimeout="30"
     android:canRetrieveWindowContent="false"
+    android:canPerformGestures="true"
     android:description="@string/acc_desc" />

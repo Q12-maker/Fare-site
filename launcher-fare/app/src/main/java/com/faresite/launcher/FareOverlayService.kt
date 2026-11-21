@@ -1,9 +1,11 @@
 package com.faresite.launcher
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.GestureDescription
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.Path
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -44,6 +46,7 @@ import kotlin.math.abs
  * Lleva el estilo Fare encima de todas las apps (requiere activar Launcher Fare en Accesibilidad):
  * - Una franja arriba: deslizar hacia abajo abre el panel de notificaciones (izquierda) o el
  *   centro de control tipo iPad (derecha). Mantenerla oprimida abre la cortina normal de Android.
+ *   Un toque normal pasa a la app de abajo (p. ej. la X de cerrar de un anuncio en horizontal).
  * - Las notificaciones nuevas salen impresas como recibo encima de la app que estés usando.
  * - Sonidos de tecla al tocar, desplazar y escribir en cualquier app.
  */
@@ -151,22 +154,30 @@ class FareOverlayService : AccessibilityService() {
             fired = true
             performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS)
         }
+        var moved = false
         v.setOnTouchListener { view, ev ->
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    downX = ev.rawX; downY = ev.rawY; fired = false
+                    downX = ev.rawX; downY = ev.rawY; fired = false; moved = false
                     main.postDelayed(longPress, 600)
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dy = ev.rawY - downY
-                    if (abs(ev.rawX - downX) > 12 * density || dy > 12 * density) main.removeCallbacks(longPress)
+                    if (abs(ev.rawX - downX) > 12 * density || abs(dy) > 12 * density) {
+                        moved = true
+                        main.removeCallbacks(longPress)
+                    }
                     if (!fired && dy > 28 * density) {
                         fired = true
                         val right = downX > view.rootView.resources.displayMetrics.widthPixels * .6f
                         openPanel(if (right) 1 else 0)
                     }
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> main.removeCallbacks(longPress)
+                MotionEvent.ACTION_UP -> {
+                    main.removeCallbacks(longPress)
+                    if (!fired && !moved) passTap(ev.rawX, ev.rawY)
+                }
+                MotionEvent.ACTION_CANCEL -> main.removeCallbacks(longPress)
             }
             true
         }
@@ -181,6 +192,35 @@ class FareOverlayService : AccessibilityService() {
             if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
         if (runCatching { wm.addView(v, lp) }.isSuccess) strip = v
+    }
+
+    /**
+     * La franja tapa la parte de arriba de la pantalla. Si solo fue un toque (sin deslizar ni
+     * mantener), lo repite en el mismo punto con la franja apagada para que llegue a la app de abajo.
+     */
+    private fun passTap(x: Float, y: Float) {
+        val v = strip ?: return
+        val lp = v.layoutParams as? WindowManager.LayoutParams ?: return
+        lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        runCatching { wm.updateViewLayout(v, lp) }
+        val restore = Runnable {
+            val cur = strip ?: return@Runnable
+            val p = cur.layoutParams as? WindowManager.LayoutParams ?: return@Runnable
+            p.flags = p.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            runCatching { wm.updateViewLayout(cur, p) }
+        }
+        val path = Path().apply { moveTo(x.coerceAtLeast(0f), y.coerceAtLeast(0f)) }
+        val gesture = GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, 50))
+            .build()
+        val sent = runCatching {
+            dispatchGesture(gesture, object : GestureResultCallback() {
+                override fun onCompleted(g: GestureDescription?) { main.postDelayed(restore, 80) }
+                override fun onCancelled(g: GestureDescription?) { main.postDelayed(restore, 80) }
+            }, main)
+        }.getOrDefault(false)
+        if (!sent) main.post(restore)
+        main.postDelayed(restore, 1500) // por si el sistema no avisa
     }
 
     private fun removeStrip() {

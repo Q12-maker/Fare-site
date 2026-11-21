@@ -14,6 +14,11 @@ android {
         targetSdk = 35
         versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
         versionName = "1.0." + (System.getenv("GITHUB_RUN_NUMBER") ?: "0")
+        // FARE_BETA=1: app aparte ("Launcher Fare Beta") que se instala junto a la oficial
+        val beta = System.getenv("FARE_BETA") == "1"
+        if (beta) applicationIdSuffix = ".beta"
+        manifestPlaceholders["appLabel"] = if (beta) "Launcher Fare Beta" else "Launcher Fare"
+        buildConfigField("String", "RELEASE_TAG", if (beta) "\"launcher-fare-beta\"" else "\"launcher-fare\"")
     }
 
     // Llave fija (la guarda GitHub Actions) para que cada versión se instale encima de la anterior
@@ -39,7 +44,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 }
 
 dependencies {

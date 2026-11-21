@@ -16,7 +16,8 @@ import java.net.URL
 
 /** Busca en GitHub si hay una versión nueva del launcher y la instala (Android siempre pide confirmar). */
 object Updater {
-    private const val RELEASE = "https://api.github.com/repos/Q12-maker/Fare-site/releases/tags/launcher-fare"
+    // La Beta se actualiza desde su propia descarga (launcher-fare-beta); la oficial desde launcher-fare.
+    private const val RELEASE = "https://api.github.com/repos/Q12-maker/Fare-site/releases/tags/" + BuildConfig.RELEASE_TAG
 
     class Update(val version: Int, val url: String)
 
